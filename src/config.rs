@@ -15,6 +15,7 @@ pub struct Config {
     pub local_model_dir: Option<String>,
     pub candidates: usize,
     pub jobs: usize,
+    pub search_jobs: usize,
     pub timeout: Duration,
     pub allowed_hosts: Vec<String>,
 }
@@ -48,6 +49,7 @@ impl Config {
             local_model_dir: env::var("LOCAL_MODEL_DIR").ok(),
             candidates: get("SEARCH_CANDIDATES", "200").parse()?,
             jobs: get("INGEST_JOBS", "2").parse()?,
+            search_jobs: get("SEARCH_JOBS", "2").parse()?,
             timeout: Duration::from_secs(get("REQUEST_TIMEOUT_SECS", "30").parse()?),
             allowed_hosts: get("HTTP_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]")
                 .split(',')
@@ -60,6 +62,10 @@ impl Config {
     pub fn validate(&self) -> Result<()> {
         validate_bind(self.bind, self.token.as_deref())?;
         ensure!(
+            (1..=8).contains(&self.search_jobs),
+            "SEARCH_JOBS must be 1..=8"
+        );
+        ensure!(
             !self.graph.is_empty() && self.graph.len() <= 128,
             "invalid graph name"
         );
@@ -67,6 +73,7 @@ impl Config {
             (50..=2000).contains(&self.candidates),
             "SEARCH_CANDIDATES must be 50..=2000"
         );
+
         ensure!((1..=8).contains(&self.jobs), "INGEST_JOBS must be 1..=8");
         ensure!(
             (1..=120).contains(&self.timeout.as_secs()),

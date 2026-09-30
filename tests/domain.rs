@@ -43,3 +43,20 @@ fn public_http_requires_token() {
     assert!(validate_bind("127.0.0.1:8080".parse().unwrap(), None).is_ok());
     assert!(validate_bind("0.0.0.0:8080".parse().unwrap(), Some("secret")).is_ok());
 }
+#[test]
+fn resource_bounds_are_enforced() {
+    let mut c = graphiti_rs::config::Config::from_env().unwrap();
+    c.jobs = 0;
+    assert!(c.validate().is_err());
+    c.jobs = 2;
+    c.candidates = 2001;
+    assert!(c.validate().is_err());
+    c.candidates = 200;
+    c.embedding_dim = 0;
+    assert!(c.validate().is_err());
+}
+#[test]
+fn stable_identity_cannot_confuse_delimiters() {
+    assert_ne!(stable_id(&["a", "bc"]), stable_id(&["ab", "c"]));
+    assert_ne!(stable_id(&["g1", "Alice"]), stable_id(&["g2", "Alice"]));
+}

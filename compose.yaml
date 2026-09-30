@@ -1,0 +1,43 @@
+services:
+  falkordb:
+    image: falkordb/falkordb:v4.14.11
+    command: ["redis-server", "--loadmodule", "/var/lib/falkordb/bin/falkordb.so", "--appendonly", "yes"]
+    ports: ["127.0.0.1:6379:6379"]
+    volumes: ["graph-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+  memory:
+    build:
+      context: .
+      args:
+        CARGO_FEATURES: ${CARGO_FEATURES:-}
+    environment:
+      FALKORDB_URL: redis://falkordb:6379
+      GRAPHITI_BIND: 0.0.0.0:8080
+      GRAPHITI_TOKEN: ${GRAPHITI_TOKEN:?Set GRAPHITI_TOKEN in .env}
+      HTTP_ALLOWED_HOSTS: ${HTTP_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      MODEL_API_BASE: ${MODEL_API_BASE:-https://api.openai.com/v1}
+      MODEL_API_KEY: ${MODEL_API_KEY:-}
+      EXTRACTION_MODEL: ${EXTRACTION_MODEL:-gpt-4.1-mini}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-disabled}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1536}
+      LOCAL_MODEL_DIR: /models
+      GRAPHITI_GRAPH: ${GRAPHITI_GRAPH:-graphiti_rs}
+      INGEST_JOBS: ${INGEST_JOBS:-2}
+      SEARCH_JOBS: ${SEARCH_JOBS:-2}
+      SEARCH_CANDIDATES: ${SEARCH_CANDIDATES:-200}
+      REQUEST_TIMEOUT_SECS: ${REQUEST_TIMEOUT_SECS:-30}
+      RUST_LOG: info
+    ports: ["127.0.0.1:8080:8080"]
+    volumes: ["./models/minilm:/models:ro"]
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  graph-data:

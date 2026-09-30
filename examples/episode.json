@@ -1,0 +1,11 @@
+{
+  "group_id": "demo",
+  "episode_id": "alice-acme-1",
+  "content": "Alice works at Acme.",
+  "source": "example",
+  "reference_time": "2026-10-01T00:00:00Z",
+  "extraction": {
+    "entities": [{"name": "Alice", "summary": "Person"}, {"name": "Acme", "summary": "Company"}],
+    "facts": [{"source": "Alice", "target": "Acme", "relation": "works_at", "fact": "Alice works at Acme", "supersedes": []}]
+  }
+}

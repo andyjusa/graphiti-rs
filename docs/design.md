@@ -14,7 +14,7 @@ Use small focused modules for configuration, domain models, database queries, in
 
 ## Stored data and ingestion
 
-Episodes retain original content, source metadata, reference time, group ID, and creation time. Entities retain UUIDs, group IDs, names, summaries, and embedding vectors when configured. Facts connect entities and retain fact text, provenance episode IDs, creation time, valid-from time, and optional valid-to time.
+Episodes retain original content, source metadata, reference time, group ID, and creation time. Entities retain stable group-scoped SHA-256 IDs, group IDs, names, and summaries. Fact embeddings are stored when configured; entity embeddings are omitted to reduce memory and model calls. Facts connect entities and retain fact text, provenance episode IDs, creation time, valid-from time, and optional valid-to time.
 
 An OpenAI-compatible external API extracts structured entities and facts from episode content. Validate returned fields and reject malformed relationships before writing. Entity matching is group-scoped and uses normalized names initially. Facts may supersede an existing fact only when extraction explicitly identifies that relationship as replaced; unrelated facts must not be invalidated automatically. Historical facts remain queryable.
 

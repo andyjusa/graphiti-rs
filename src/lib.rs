@@ -1,5 +1,9 @@
 pub mod config;
 pub mod domain;
-pub mod store;
 pub mod embeddings;
+pub mod http;
+pub mod ingest;
+pub mod mcp;
 pub mod models;
+pub mod search;
+pub mod store;
