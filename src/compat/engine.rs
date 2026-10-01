@@ -148,7 +148,7 @@ impl Engine {
                             && e.content == r.episode_body
                             && e.source == r.source
                             && e.source_description == r.source_description,
-                        "same-UUID update unsupported until baseline validation"
+                        "same-UUID episode input differs; content replacement disabled"
                     );
                     let journal = self.journal.as_ref().unwrap();
                     if !journal.tracked(&group, id)? {

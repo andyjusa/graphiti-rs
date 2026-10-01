@@ -202,6 +202,10 @@ impl Prepared {
             policy::uuid(&f.uuid)?;
             ensure!(facts.insert(&f.uuid), "duplicate fact UUID");
             ensure!(
+                !ids.contains(&f.uuid) && f.uuid != e.uuid,
+                "node/fact UUID collision"
+            );
+            ensure!(
                 f.group_id == e.group_id
                     && ids.contains(&f.source_node_uuid)
                     && ids.contains(&f.target_node_uuid),
@@ -227,10 +231,11 @@ impl Prepared {
             }
         }
         ensure!(
-            e.entity_edges
-                .iter()
-                .collect::<std::collections::HashSet<_>>()
-                == facts,
+            e.entity_edges.len() == facts.len()
+                && e.entity_edges
+                    .iter()
+                    .collect::<std::collections::HashSet<_>>()
+                    == facts,
             "entity_edges differs from prepared facts"
         );
         ensure!(!ids.contains(&e.uuid), "episode/entity UUID collision");
@@ -241,8 +246,16 @@ impl Prepared {
                     && b.mentions.keys().collect::<std::collections::HashSet<_>>() == ids,
                 "prepared baseline identities differ"
             );
+            let mut mention_ids = std::collections::HashSet::new();
             for id in b.mentions.values() {
                 policy::uuid(id)?;
+                ensure!(
+                    mention_ids.insert(id)
+                        && !ids.contains(id)
+                        && !facts.contains(id)
+                        && id != &e.uuid,
+                    "MENTIONS UUID collision"
+                );
             }
             for (id, before) in &b.entities {
                 if let Some(before) = before {
@@ -251,6 +264,16 @@ impl Prepared {
                             && before.props.get("group_id").and_then(Value::as_str)
                                 == Some(&e.group_id),
                         "baseline entity identity differs"
+                    );
+                    let after = self.entities.iter().find(|n| &n.uuid == id).unwrap();
+                    ensure!(
+                        before.props.get("created_at").and_then(Value::as_str)
+                            == Some(&after.created_at),
+                        "existing entity created_at cannot change"
+                    );
+                    ensure!(
+                        before.labels.iter().all(|l| after.labels.contains(l)),
+                        "existing structural labels cannot be removed"
                     );
                 }
             }
@@ -263,6 +286,11 @@ impl Prepared {
                         "baseline fact identity differs"
                     );
                     let after = self.facts.iter().find(|f| &f.uuid == id).unwrap();
+                    ensure!(
+                        before.props.get("created_at").and_then(Value::as_str)
+                            == Some(&after.created_at),
+                        "existing fact created_at cannot change"
+                    );
                     ensure!(
                         after.source_node_uuid == before.source
                             && after.target_node_uuid == before.target,

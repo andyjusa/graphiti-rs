@@ -1265,3 +1265,58 @@ async fn isolated_upsert_cas_provenance_deletion_clear_and_recovery() {
             .unwrap();
     }
 }
+
+#[test]
+fn prepared_plan_rejects_changed_creation_times_and_mention_aliases() {
+    let mut p = fixture("user_primary");
+    let mut b = Baseline::default();
+    for n in &p.entities {
+        b.entities.insert(
+            n.uuid.clone(),
+            Some(NodeSnapshot {
+                props: json!({"uuid":n.uuid,"group_id":n.group_id,"created_at":n.created_at})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+                labels: n.labels.clone(),
+            }),
+        );
+        b.mentions
+            .insert(n.uuid.clone(), uuid::Uuid::new_v4().to_string());
+    }
+    for f in &p.facts {
+        b.facts.insert(
+            f.uuid.clone(),
+            Some(FactSnapshot {
+                props: json!({"uuid":f.uuid,"group_id":f.group_id,"created_at":f.created_at})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+                source: f.source_node_uuid.clone(),
+                target: f.target_node_uuid.clone(),
+            }),
+        );
+    }
+    p.baseline = Some(b);
+    p.validate().unwrap();
+    let mut altered = p.clone();
+    altered.entities[0].created_at = "2026-10-02T00:00:00Z".into();
+    assert!(altered.validate().is_err());
+    let mut altered = p.clone();
+    altered.facts[0].created_at = "2026-10-02T00:00:00Z".into();
+    assert!(altered.validate().is_err());
+    let mut altered = p.clone();
+    altered.entities[0].labels.clear();
+    assert!(altered.validate().is_err());
+    let mut altered = p.clone();
+    for id in altered.baseline.as_mut().unwrap().mentions.values_mut() {
+        *id = p.entities[0].uuid.clone();
+    }
+    assert!(altered.validate().is_err());
+    let mut altered = p;
+    altered
+        .episode
+        .entity_edges
+        .push(altered.facts[0].uuid.clone());
+    assert!(altered.validate().is_err());
+}

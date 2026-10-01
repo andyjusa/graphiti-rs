@@ -4,7 +4,7 @@ Decision: **no production replacement**. Evidence below separates implementation
 
 ## Current evidence
 
-- Local `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` and `cargo test --all-features` passed; 25 nonignored tests passed. DB and actual local-model tests are ignored locally because Docker is unavailable.
+- Local `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` and `cargo test --all-features` passed; 26 nonignored tests passed. DB and actual local-model tests are ignored locally because Docker is unavailable.
 - Two differential tests run 34 synthetic inputs against selected observed Python 0.28.2 bodies. Source excerpt hashes are checked; fake DTO/driver/model decisions and frozen time are used. This is not full Python pipeline, graph-driver, numerical provider or transport parity.
 - The new existing-UUID/CAS/provenance/deletion/clear/recovery DB test passed on GitHub FalkorDB 4.14.11 at commit `352e559`. That run failed a separate old center-filter expectation, which was corrected to the observed source-node reranking behavior. Latest full DB suite is pending CI; inspect results.json before making a pass claim.
 - Same-Pi image/module/source/binary metadata was read-only verified. `compose.compat-pi.yaml config --format json` rendered the isolated configuration correctly; no test container was created on the Pi. No original memories/secrets were transferred, no provider call was made, and no operational container/gateway/auth/route was changed.

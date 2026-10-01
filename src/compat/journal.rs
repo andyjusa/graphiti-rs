@@ -122,8 +122,26 @@ impl Journal {
             .optional()?;
         if let Some((old_digest, state, has_prepared)) = old {
             ensure!(
+                [
+                    "queued",
+                    "running",
+                    "prepared",
+                    "committed",
+                    "failed",
+                    "deleted",
+                    "cleared",
+                    "stale"
+                ]
+                .contains(&state.as_str()),
+                "invalid journal phase"
+            );
+            ensure!(
+                state != "committed" || has_prepared,
+                "committed journal entry missing preparation"
+            );
+            ensure!(
                 old_digest == digest,
-                "same-UUID update unsupported until patched Python baseline validation"
+                "same-UUID episode input differs; content replacement disabled"
             );
             ensure!(
                 !["deleted", "cleared", "stale"].contains(&state.as_str()),
