@@ -85,7 +85,7 @@
     {
       "id": "C17",
       "status": "partial",
-      "evidence": "Durable exact before-state and stable MENTIONS recovery added; final DB/worker suite pending latest CI; disk-full/OOM/runtime-error recovery untested."
+      "evidence": "Full prepared after-state/vector/stable-MENTIONS and lost graph-completion recovery passed synthetic DB/worker tests. Durable destructive pending retry/tombstones passed; disk-full/OOM/runtime-error rollback and other writers remain untested."
     },
     {
       "id": "C18",
@@ -172,9 +172,16 @@
       "manifest": "tests/fixtures/python-0282/manifest.json"
     },
     "isolated_db": {
-      "status": "pending_latest_commit",
+      "status": "passed",
       "environment": "GitHub Ubuntu service, FalkorDB 4.14.11, loopback provider mocks",
-      "earlier_upsert_cas_test": "passed in run 36817803396; old center-filter expectation failed in another test and was corrected"
+      "source_commit": "d4fac9444ec8aae3a40152e778d90cf2e9cbda1b",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36819906853",
+      "compatibility_integrations": 3,
+      "standalone_integrations": 9,
+      "distinct_passing_tests_in_ci": 40,
+      "real_local_minilm_tests": 2,
+      "python_full_pipeline": false,
+      "gemini_llm_numerical_generation_parity": false
     },
     "same_pi": {
       "status": "prepared_not_executed",
@@ -200,6 +207,17 @@
       ],
       "label": "task=graphiti-rs-compat-20261001",
       "global_restart": false
+    },
+    "arm64": {
+      "status": "passed",
+      "source_commit": "d4fac9444ec8aae3a40152e778d90cf2e9cbda1b",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36819906853",
+      "features": [
+        "default",
+        "local-embeddings",
+        "graphiti-compat"
+      ],
+      "actual_pi_execution": false
     }
   }
 }

@@ -6,7 +6,7 @@ Decision: **no production replacement**. Evidence below separates implementation
 
 - Local `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` and `cargo test --all-features` passed; 26 nonignored tests passed. DB and actual local-model tests are ignored locally because Docker is unavailable.
 - Two differential tests run 34 synthetic inputs against selected observed Python 0.28.2 bodies. Source excerpt hashes are checked; fake DTO/driver/model decisions and frozen time are used. This is not full Python pipeline, graph-driver, numerical provider or transport parity.
-- The new existing-UUID/CAS/provenance/deletion/clear/recovery DB test passed on GitHub FalkorDB 4.14.11 at commit `352e559`. That run failed a separate old center-filter expectation, which was corrected to the observed source-node reranking behavior. Latest full DB suite is pending CI; inspect results.json before making a pass claim.
+- [CI on source commit `d4fac944`](https://github.com/andyjusa/graphiti-rs/actions/runs/36819906853) passed: three compatibility DB/HTTP integrations, nine independent-server DB/HTTP integrations, the source-function tests, and two real local MiniLM tests. The test log contains **40 distinct passing executable test names** across the feature runs. ARM64 release builds passed for default, local embeddings and compatibility. This uses FalkorDB4.14.11, not the observed production module.
 - Same-Pi image/module/source/binary metadata was read-only verified. `compose.compat-pi.yaml config --format json` rendered the isolated configuration correctly; no test container was created on the Pi. No original memories/secrets were transferred, no provider call was made, and no operational container/gateway/auth/route was changed.
 
 ## Historical evidence and cleanup
@@ -39,7 +39,7 @@ An earlier ARM64 Docker build predates the final guards and is not a deployable 
 | C14 | verified | Concurrent same-UUID acceptance dispatches once; committed retry leaves original record intact. |
 | C15 | verified | Changed same-UUID input fails closed. Observed Python loads old body/metadata instead of replacing it; strict rejection is intentional. |
 | C16 | verified | Private WAL/FULL journal, single worker, strict prepare/completion transitions, uncertain model refusal and destructive tombstone history tested. |
-| C17 | partial | Durable exact before-state and stable MENTIONS recovery added; final DB/worker suite pending latest CI; disk-full/OOM/runtime-error recovery untested. |
+| C17 | partial | Full prepared after-state/vector/stable-MENTIONS and lost graph-completion recovery passed synthetic DB/worker tests. Durable destructive pending retry/tombstones passed; disk-full/OOM/runtime-error rollback and other writers remain untested. |
 | C18 | verified | Invalid provider response is journaled as failed, produces no visible episode, and is not automatically replayed. |
 | C19 | verified | UUIDs and independent created/valid/invalid/expired RFC3339 strings roundtrip without precision loss. |
 | C20 | partial | Legacy scalar/list attributes, labels, vecf32 and existing entity/fact UUID updates preserve created_at/topology in synthetic DB test; restored schema breadth untested. |

@@ -10,7 +10,7 @@ On the Pi, review the checked-out PR commit and current image/module metadata. R
 
 ```sh
 umask 077
-export COMPAT_TEST_ROOT="$(mktemp -d /tmp/graphiti-rs-compat-pi.XXXXXXXX)"
+export COMPAT_TEST_ROOT="$(mktemp -d "$HOME/graphiti-rs-compat-pi.XXXXXXXX")"
 mkdir "$COMPAT_TEST_ROOT/db"
 export COMPAT_TEST_UID="$(id -u)"
 export COMPAT_TEST_GID="$(id -g)"
@@ -38,7 +38,7 @@ Workloads must include exact/keyword/semantic/multihop queries, center absent/ce
 
 Use the actual observed patched Python pipeline in its isolated test process with mock LLM/embedding clients. The checked-in stdlib runner executes selected method bodies with fake DTOs and a fake driver; it does **not** run full episode extraction, summary updating, fuzzy entity resolution, custom relation typing, graph writes or transport. Test these separately before describing the replacement as equivalent. Real generation and Gemini numerical comparisons require a separately agreed bounded provider run with credentials kept on the Pi; mock arrays never establish model equivalence. Compare DB `vecf32` values after float32 conversion, reject mixed embedding spaces, and record disagreements rather than rounding them away.
 
-Restart/failure tests must distinguish: model-dispatch ambiguity; prepared before-state persistence; graph commit with lost journal completion; missing/altered MENTIONS; concurrent changed properties/endpoints; pending delete/clear with lost completion; SQLite busy/full; DB disconnect; disk-full and process termination. Stop/restart **only the isolated service**, keep the journal/data directories, and verify no additional model calls, no partial episode insertion, stable temporal fields/provenance, and truthful receipt states. Pending destructive work blocks the affected group; tombstoned UUIDs never silently replay. Synthetic destructive recovery assumes a single writer to the disposable DB.
+Restart/failure tests must distinguish: model-dispatch ambiguity; prepared before-state persistence; graph commit with lost journal completion; missing/altered MENTIONS; concurrent changed properties/endpoints; pending delete/clear with lost completion; SQLite busy/full; DB disconnect; disk-full and process termination. Stop/restart **only the isolated service**, keep the journal/data directories on persistent storage, and verify no additional model calls, no partial episode insertion, stable temporal fields/provenance, and truthful receipt states. Pending destructive work blocks the affected group; tombstoned UUIDs never silently replay. Synthetic destructive recovery assumes a single writer to the disposable DB.
 
 ## 3. Separate restore/provider/transport boundary
 
