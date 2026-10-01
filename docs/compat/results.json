@@ -1,0 +1,156 @@
+{
+  "date": "2026-10-01",
+  "scope": "Mac ARM64, isolated FalkorDB 4.14.11, synthetic records and loopback model mocks; no production replacement certification",
+  "cases": [
+    {
+      "id": "C01",
+      "status": "verified",
+      "evidence": "Exact ten-tool metadata, structured/text layers, status golden text, and protocol error separation."
+    },
+    {
+      "id": "C02",
+      "status": "verified",
+      "evidence": "Exact absent UUID lookup returns found=false/episode=null, without a model request."
+    },
+    {
+      "id": "C03",
+      "status": "verified",
+      "evidence": "Synthetic legacy episode returns original metadata and precise timestamp without embeddings."
+    },
+    {
+      "id": "C04",
+      "status": "partial",
+      "evidence": "Identical UUIDs in user_primary/general_chat stay separate; all real groups/restored records untested."
+    },
+    {
+      "id": "C05",
+      "status": "partial",
+      "evidence": "Read-only ACL policy and rejected additions tested; complete per-tool zero-I/O instrumentation pending."
+    },
+    {
+      "id": "C06",
+      "status": "partial",
+      "evidence": "Unknown-group policy and addition rejection tested; complete per-tool zero-I/O instrumentation pending."
+    },
+    {
+      "id": "C07",
+      "status": "verified",
+      "evidence": "Approved project-name pattern and invalid suffixes tested at the policy boundary."
+    },
+    {
+      "id": "C08",
+      "status": "verified",
+      "evidence": "Null/empty/multiple/duplicate destructive groups rejected; valid MCP clear remains disabled."
+    },
+    {
+      "id": "C09",
+      "status": "verified",
+      "evidence": "Required group enforced by shared Key shape; missing group produces protocol error."
+    },
+    {
+      "id": "C10",
+      "status": "verified",
+      "evidence": "Deduplicated multi-group search and deterministic round-robin/global maximum tested with mocks."
+    },
+    {
+      "id": "C11",
+      "status": "partial",
+      "evidence": "Global bound and sorting covered on small fixture; bounded lexical DB window is not full timestamp ordering parity."
+    },
+    {
+      "id": "C12",
+      "status": "partial",
+      "evidence": "Entity labels and centered facts tested; Python graph expansion/center-distance semantics unverified."
+    },
+    {
+      "id": "C13",
+      "status": "verified",
+      "evidence": "Gated worker distinguishes queue acceptance from exact committed lookup."
+    },
+    {
+      "id": "C14",
+      "status": "verified",
+      "evidence": "Concurrent same-UUID acceptance dispatches once; committed retry leaves original record intact."
+    },
+    {
+      "id": "C15",
+      "status": "verified",
+      "evidence": "Changed body under the same UUID fails closed before extraction."
+    },
+    {
+      "id": "C16",
+      "status": "verified",
+      "evidence": "Private durable journal, single-worker lock, uncertain dispatch refusal, prepared vector/time recovery tested."
+    },
+    {
+      "id": "C17",
+      "status": "verified",
+      "evidence": "Committed DB write with prepared journal recovers to committed without another model dispatch."
+    },
+    {
+      "id": "C18",
+      "status": "verified",
+      "evidence": "Invalid provider response is journaled as failed, produces no visible episode, and is not automatically replayed."
+    },
+    {
+      "id": "C19",
+      "status": "verified",
+      "evidence": "UUIDs and independent created/valid/invalid/expired RFC3339 strings roundtrip without precision loss."
+    },
+    {
+      "id": "C20",
+      "status": "partial",
+      "evidence": "Structural labels, flat scalar/list attributes, vecf32, MENTIONS and retained Saga/Community links tested; real schema breadth pending."
+    },
+    {
+      "id": "C21",
+      "status": "blocked",
+      "evidence": "Patched Python provenance/orphan deletion baseline unavailable; all MCP legacy deletions disabled."
+    },
+    {
+      "id": "C22",
+      "status": "blocked",
+      "evidence": "Invalidation, shared provenance, resolution, and supersession baseline parity not established."
+    },
+    {
+      "id": "C23",
+      "status": "partial",
+      "evidence": "Mock gpt-6-luna/model endpoint/body and bounds tested; production generation limits and extraction pipeline not matched."
+    },
+    {
+      "id": "C24",
+      "status": "partial",
+      "evidence": "Native Gemini batch/count/3072/newline validation and separate private dummy-file headers tested; production profile numerical parity not tested."
+    },
+    {
+      "id": "C25",
+      "status": "partial",
+      "evidence": "Missing/wrong bearer, Host, Origin, oversized input and two protocol-version initializations tested; existing OAuth relay not exercised."
+    },
+    {
+      "id": "C26",
+      "status": "blocked",
+      "evidence": "No actual bridge/session/routing operation authorized or performed."
+    },
+    {
+      "id": "C27",
+      "status": "verified",
+      "evidence": "Legacy connect/status/read create no native graph/index; isolated graph indexes remain empty."
+    },
+    {
+      "id": "C28",
+      "status": "not_executed",
+      "evidence": "No Pi backup, restore, operational data transfer, or production module test performed."
+    },
+    {
+      "id": "C29",
+      "status": "not_executed",
+      "evidence": "No write freeze, route switch, deployment, rollback, or live journal reconciliation performed."
+    },
+    {
+      "id": "C30",
+      "status": "not_executed",
+      "evidence": "No actual Raspberry Pi RSS/CPU/latency benchmark performed."
+    }
+  ]
+}

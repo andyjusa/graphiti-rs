@@ -299,16 +299,13 @@ impl Store {
 fn redis_string(v: &RedisValue) -> Result<String> {
     redis::from_redis_value(v).map_err(Into::into)
 }
-fn cypher_value(v: &Value) -> Result<String> {
+pub(crate) fn cypher_value(v: &Value) -> Result<String> {
     Ok(match v {
         Value::Object(map) => {
             let mut entries = vec![];
             for (k, v) in map {
-                ensure!(
-                    k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'),
-                    "invalid map field"
-                );
-                entries.push(format!("{k}:{}", cypher_value(v)?));
+                ensure!(!k.contains('\0'), "invalid map field");
+                entries.push(format!("`{}`:{}", k.replace('`', "``"), cypher_value(v)?));
             }
             format!("{{{}}}", entries.join(","))
         }

@@ -3,6 +3,7 @@ WORKDIR /build
 ARG CARGO_FEATURES=""
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
+COPY tests/fixtures ./tests/fixtures
 RUN cargo build --release --locked --features "${CARGO_FEATURES}"
 
 FROM debian:bookworm-slim

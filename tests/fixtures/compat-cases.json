@@ -1,0 +1,300 @@
+{
+  "scope": "static test design only; not executable runner; no test has been executed in this audit",
+  "baseline_commit": "ab2b574fffe1132720f703bf5aa4112bd23e7262",
+  "fixture": {
+    "graph": "isolated_synthetic_only",
+    "group_id": "user_primary",
+    "episode": {
+      "uuid": "00000000-0000-4000-8000-000000000001",
+      "name": "합성 기억 A",
+      "content": "가상 인물 가온은 가상 회사 새빛에 근무한다.",
+      "source": "text",
+      "source_description": "synthetic compatibility fixture, not user data",
+      "created_at": "2026-10-01T02:00:00.123456+09:00",
+      "valid_at": "2026-10-01T01:59:00.654321+09:00",
+      "group_id": "user_primary"
+    },
+    "entities": [
+      {
+        "uuid": "00000000-0000-4000-8000-000000000101",
+        "name": "가온",
+        "labels": [
+          "Entity",
+          "Person"
+        ],
+        "summary": "가상 인물",
+        "attributes": {
+          "synthetic": true
+        }
+      },
+      {
+        "uuid": "00000000-0000-4000-8000-000000000102",
+        "name": "새빛",
+        "labels": [
+          "Entity",
+          "Organization"
+        ],
+        "summary": "가상 회사",
+        "attributes": {
+          "synthetic": true
+        }
+      }
+    ],
+    "fact": {
+      "uuid": "00000000-0000-4000-8000-000000000201",
+      "name": "WORKS_AT",
+      "fact": "가온은 새빛에 근무한다.",
+      "episodes": [
+        "00000000-0000-4000-8000-000000000001"
+      ],
+      "valid_at": "2026-10-01T01:59:00.654321+09:00",
+      "invalid_at": "2026-10-02T01:00:00.111111+09:00",
+      "expired_at": "2026-10-02T02:00:00.222222+09:00",
+      "attributes": {
+        "synthetic": true
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "C01",
+      "stage": "contract",
+      "status": "not_executed",
+      "setup": "production-mcp-contract.json을 메타데이터 golden으로 사용",
+      "operation": "compat tools/list",
+      "expected": "10 names; inputSchema/outputSchema/annotations/result handling preserved"
+    },
+    {
+      "id": "C02",
+      "stage": "contract",
+      "status": "not_executed",
+      "setup": "synthetic absent UUID in user_primary",
+      "operation": "get_episode(uuid,group_id)",
+      "expected": "found=false,episode=null; no model call"
+    },
+    {
+      "id": "C03",
+      "stage": "contract",
+      "status": "not_executed",
+      "setup": "synthetic committed legacy Episodic fixture",
+      "operation": "get_episode exact UUID/group",
+      "expected": "found=true; original name/content/source/source_description/created_at/group_id; no embedding"
+    },
+    {
+      "id": "C04",
+      "stage": "contract",
+      "status": "not_executed",
+      "setup": "same synthetic UUID across user_primary and general_chat graphs with different content",
+      "operation": "read each group; request mismatched group",
+      "expected": "exact content in correct group; not-found in group without committed record; no cross-group fallback"
+    },
+    {
+      "id": "C05",
+      "stage": "authorization",
+      "status": "not_executed",
+      "setup": "synthetic hermes/family_shared data",
+      "operation": "add_memory,delete_episode,delete_entity_edge,clear_graph",
+      "expected": "all rejected before extraction/DB mutation; reads remain allowed"
+    },
+    {
+      "id": "C06",
+      "stage": "authorization",
+      "status": "not_executed",
+      "setup": "invalid group names, empty and unapproved project namespaces",
+      "operation": "all public tools except status",
+      "expected": "fail closed; no DB/model calls"
+    },
+    {
+      "id": "C07",
+      "stage": "authorization",
+      "status": "not_executed",
+      "setup": "synthetic writable project_demo_1234abcd",
+      "operation": "read/add; project_demo_1234abcg negative",
+      "expected": "approved format accepted; invalid hex rejected"
+    },
+    {
+      "id": "C08",
+      "stage": "authorization",
+      "status": "not_executed",
+      "setup": "synthetic writable user_primary",
+      "operation": "clear_graph with null,[],two groups,duplicate two same groups",
+      "expected": "all rejected; default group never makes destructive request implicit"
+    },
+    {
+      "id": "C09",
+      "stage": "authorization",
+      "status": "not_executed",
+      "setup": "synthetic writable group has existing episode/edge",
+      "operation": "delete or edge lookup omits group_id",
+      "expected": "schema/protocol reject; no fallback"
+    },
+    {
+      "id": "C10",
+      "stage": "contract",
+      "status": "not_executed",
+      "setup": "two synthetic groups have more results than requested",
+      "operation": "search_nodes/facts with group_ids ordered list",
+      "expected": "deduplicated group+UUID; deterministic round-robin; global max"
+    },
+    {
+      "id": "C11",
+      "stage": "contract",
+      "status": "not_executed",
+      "setup": "synthetic episodes across two groups with interleaved created_at",
+      "operation": "get_episodes group_ids,max_episodes",
+      "expected": "global newest-first order and global max, preserved content metadata"
+    },
+    {
+      "id": "C12",
+      "stage": "contract",
+      "status": "not_executed",
+      "setup": "synthetic Person/Organization and distinct UUID entities sharing same display name",
+      "operation": "search_nodes with entity_types; centered fact search",
+      "expected": "labels filter retained; no name-based merging; center lookup remains within exactly one group"
+    },
+    {
+      "id": "C13",
+      "stage": "durability",
+      "status": "not_executed",
+      "setup": "LLM mock held behind barrier; one synthetic stable UUID",
+      "operation": "add_memory ack then get_episode; release worker and poll",
+      "expected": "ack not treated as commit; found=false before commit; found=true only after atomic commit"
+    },
+    {
+      "id": "C14",
+      "stage": "durability",
+      "status": "not_executed",
+      "setup": "same UUID/body/source with implicit reference time",
+      "operation": "repeat add_memory concurrently",
+      "expected": "one accepted identity and original reference time; no duplicate extraction/graph; retry returns truthful status"
+    },
+    {
+      "id": "C15",
+      "stage": "durability",
+      "status": "not_executed",
+      "setup": "existing committed UUID plus changed synthetic content",
+      "operation": "add_memory same UUID changed body",
+      "expected": "explicit Graphiti update/provenance behavior or fail-closed unsupported; never silently report successful insert"
+    },
+    {
+      "id": "C16",
+      "stage": "durability",
+      "status": "not_executed",
+      "setup": "journal accepted synthetic job; restart compatibility server",
+      "operation": "inspect journal and exact episode lookup",
+      "expected": "pending is not returned as committed; resume only unambiguous journal phase; preserve original UUID/time"
+    },
+    {
+      "id": "C17",
+      "stage": "durability",
+      "status": "not_executed",
+      "setup": "inject crash after DB commit before journal committed flag",
+      "operation": "restart then retry same UUID",
+      "expected": "reconcile DB identity/content; no second model dispatch; exact found=true"
+    },
+    {
+      "id": "C18",
+      "stage": "durability",
+      "status": "not_executed",
+      "setup": "mock model times out or returns malformed extraction",
+      "operation": "add_memory then exact lookup",
+      "expected": "failed work recorded safely; no partial successful episode; no key/body leaks; no automatic replay of uncertain write"
+    },
+    {
+      "id": "C19",
+      "stage": "storage",
+      "status": "not_executed",
+      "setup": "synthetic temporal fact with valid_at and distinct invalid_at/expired_at and microseconds",
+      "operation": "legacy read/write roundtrip",
+      "expected": "all original timestamps retained separately and precision preserved; not collapsed into one valid_to"
+    },
+    {
+      "id": "C20",
+      "stage": "storage",
+      "status": "not_executed",
+      "setup": "synthetic distinct entities, dynamic attributes, Community/Saga and all provenance/episode-chain edges",
+      "operation": "isolated legacy loader roundtrip",
+      "expected": "UUIDs, labels, properties and graph connectivity preserved; unknown items retained; destructive unsupported action rejected"
+    },
+    {
+      "id": "C21",
+      "stage": "storage",
+      "status": "not_executed",
+      "setup": "two synthetic episodes supporting one fact",
+      "operation": "delete one episode in disposable DB",
+      "expected": "match Python baseline provenance behavior, preserve remaining valid support; no read-only group mutation"
+    },
+    {
+      "id": "C22",
+      "stage": "storage",
+      "status": "not_executed",
+      "setup": "synthetic out-of-order replacement/deletion",
+      "operation": "temporal baseline comparison",
+      "expected": "no resurrection or loss inconsistent with pinned Python behavior; unsupported cases block cutover"
+    },
+    {
+      "id": "C23",
+      "stage": "model_contract",
+      "status": "not_executed",
+      "setup": "loopback mock, dummy secret file; no real key",
+      "operation": "extraction request",
+      "expected": "fixed configured gpt-6-luna contract and legacy generation limits; no fallback endpoint/model; timeout bounded"
+    },
+    {
+      "id": "C24",
+      "stage": "model_contract",
+      "status": "not_executed",
+      "setup": "loopback Gemini mock returns synthetic 3072 vector or malformed/zero/NaN vector",
+      "operation": "embed/query roles and batch inputs",
+      "expected": "native batchEmbedContents profile, newline preprocessing, separate key file; reject invalid/dimension drift; vectors never external results"
+    },
+    {
+      "id": "C25",
+      "stage": "transport",
+      "status": "not_executed",
+      "setup": "isolated compat HTTP + retained bridges with dummy bearer/OAuth test identity",
+      "operation": "missing/wrong bearer, Origin/Host, oversized request, modern discover, legacy initialize",
+      "expected": "same auth boundaries; schemas/structured errors preserved; no write retry; protocol success does not widen ACL"
+    },
+    {
+      "id": "C26",
+      "stage": "transport",
+      "status": "not_executed",
+      "setup": "isolated adapter uncertain tools/call write failure",
+      "operation": "bridge reconnect and next request",
+      "expected": "first write dispatched once; next request may reconnect; old session not mistaken for current backend"
+    },
+    {
+      "id": "C27",
+      "stage": "storage",
+      "status": "not_executed",
+      "setup": "only isolated graph with legacy Episodic",
+      "operation": "connect/ping/status in legacy read-only mode",
+      "expected": "no CREATE INDEX, no native Episode/FACT data, no production graph URL"
+    },
+    {
+      "id": "C28",
+      "stage": "recovery",
+      "status": "not_executed",
+      "setup": "approved same-Pi backup restored into fresh private volume, same module/image",
+      "operation": "read-only identity/count/hash consistency comparison on restored DB",
+      "expected": "actual load succeeds; no export to Mac/GitHub; no originals overwritten; backup success distinct from restore success"
+    },
+    {
+      "id": "C29",
+      "stage": "cutover",
+      "status": "not_executed",
+      "setup": "synthetic single writer, captured rollback upstream/session config",
+      "operation": "freeze/drain/switch/commit/rollback",
+      "expected": "accepted work accounted; committed legacy-schema data readable by original Python; no dual-write or lost post-snapshot changes"
+    },
+    {
+      "id": "C30",
+      "stage": "performance",
+      "status": "not_executed",
+      "setup": "approved isolated Pi synthetic corpus and no embeddings or mock costs",
+      "operation": "RSS/latency/CPU measurements at bounded concurrency",
+      "expected": "report idle+peak, p50/p95 and corpus size; no claim of production superiority from Mac idle sample"
+    }
+  ]
+}

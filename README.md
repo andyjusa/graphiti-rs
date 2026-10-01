@@ -2,7 +2,9 @@
 
 Lightweight Rust temporal graph memory for Raspberry Pi, with MCP over stdio or Streamable HTTP. Built for a small always-on machine: one Rust process, an existing FalkorDB instance, bounded work, and optional embeddings.
 
-This is an independent focused implementation inspired by [Graphiti](https://github.com/getzep/graphiti), not a complete port or a drop-in replacement for its Python APIs, database schema, or custom MCP extensions. Existing Python Graphiti data requires migration; use a separate graph name.
+This is an independent focused implementation inspired by [Graphiti](https://github.com/getzep/graphiti), not a complete port or a drop-in replacement for its Python APIs, database schema, or custom MCP extensions. The default standalone mode uses its own schema; use a separate graph name for an existing Python Graphiti database.
+
+An optional `graphiti-compat` feature adds a **Graphiti 0.28.2 compatibility preview** with ten recorded MCP tool schemas and a legacy-schema reader. Production mutations are disabled. This preview has isolated synthetic tests, but requires further Python baseline, restored-database, gateway, and Raspberry Pi validation before replacing an existing server. See [compatibility details](docs/compat/implementation.md).
 
 ## Features
 

@@ -22,6 +22,13 @@ pub fn router(
     config: &Config,
     cancellation: CancellationToken,
 ) -> Result<Router> {
+    router_service(MemoryService::new(memory), config, cancellation)
+}
+pub fn router_service<S: rmcp::ServerHandler + Clone + Send + Sync + 'static>(
+    handler: S,
+    config: &Config,
+    cancellation: CancellationToken,
+) -> Result<Router> {
     config.validate()?;
     let mut transport = StreamableHttpServerConfig::default()
         .with_max_request_body_bytes(262144)
@@ -31,7 +38,7 @@ pub fn router(
     transport.cancellation_token = cancellation;
     transport.allowed_hosts = config.allowed_hosts.clone();
     let service = StreamableHttpService::new(
-        move || Ok(MemoryService::new(memory.clone())),
+        move || Ok(handler.clone()),
         Arc::new(LocalSessionManager::default()),
         transport,
     );
