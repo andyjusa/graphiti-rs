@@ -160,6 +160,21 @@
       "line": 65,
       "source_sha256": "06f84efc8ac35a1f2d98f9dad3ce0916bd39290b7e17689ffbcae9915073325c",
       "excerpt_sha256": "9e5626adb08e359223de7d2449630fe557895dd03737dd1f50743f381933ed90"
+    },
+    {
+      "file": "legacy_node_distance_reranker.py",
+      "source": "core/search/search_utils.py",
+      "name": "node_distance_reranker",
+      "line": 1798,
+      "source_sha256": "06f84efc8ac35a1f2d98f9dad3ce0916bd39290b7e17689ffbcae9915073325c",
+      "excerpt_sha256": "451ca7d9f3fc4ca0b8d67240e5f4e3469b672a2230acdcd040257a00321bb153"
+    },
+    {
+      "file": "falkor_edge_query_read.py",
+      "source": "patches/falkor_edge_query_compat.py",
+      "name": "safe_edge_read",
+      "source_sha256": "7abd25af31520e3951625c7a3739033bf9469b0d466c592243d9eaa8b3153939",
+      "excerpt_sha256": "5fe5f9a34b58da8a81d37f2af4face0701cea88fefdf641cbd3428e98888a800"
     }
   ]
 }

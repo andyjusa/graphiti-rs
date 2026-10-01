@@ -1063,6 +1063,17 @@ async fn isolated_upsert_cas_provenance_deletion_clear_and_recovery() {
     }
     let first = store.plan(&fixture(group)).await.unwrap();
     assert!(store.commit(&first).await.unwrap());
+    // The harness explicitly adds the legacy relationship index; the reader creates none.
+    let _:redis::Value=redis::cmd("GRAPH.QUERY").arg(group).arg("CREATE INDEX FOR ()-[e:RELATES_TO]-() ON (e.uuid, e.group_id, e.name, e.created_at, e.expired_at, e.valid_at, e.invalid_at)").query_async(&mut conn).await.unwrap();
+    assert_eq!(
+        store
+            .edge(group, &first.facts[0].uuid)
+            .await
+            .unwrap()
+            .unwrap(),
+        first.facts[0]
+    );
+    assert_eq!(store.facts(group, "가온", None, 20).await.unwrap().len(), 1);
     let other_p = store.plan(&fixture(other)).await.unwrap();
     store.commit(&other_p).await.unwrap();
     let mut second = first.clone();

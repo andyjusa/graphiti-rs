@@ -5,8 +5,9 @@ Decision: **no production replacement**. Evidence below separates implementation
 ## Current evidence
 
 - Local `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` and `cargo test --all-features` passed; 26 nonignored tests passed. DB and actual local-model tests are ignored locally because Docker is unavailable.
-- Two differential tests run 34 synthetic inputs against selected observed Python 0.28.2 bodies. Source excerpt hashes are checked; fake DTO/driver/model decisions and frozen time are used. This is not full Python pipeline, graph-driver, numerical provider or transport parity.
+- Two differential tests run 40 synthetic inputs against selected observed Python 0.28.2 bodies. Source excerpt hashes are checked; fake DTO/driver/model decisions and frozen time are used. This is not full Python pipeline, graph-driver, numerical provider or transport parity.
 - [CI on source commit `d4fac944`](https://github.com/andyjusa/graphiti-rs/actions/runs/36819906853) passed: three compatibility DB/HTTP integrations, nine independent-server DB/HTTP integrations, the source-function tests, and two real local MiniLM tests. The test log contains **40 distinct passing executable test names** across the feature runs. ARM64 release builds passed for default, local embeddings and compatibility. This uses FalkorDB4.14.11, not the observed production module.
+- A subsequent source-derived change uses relationship-first lookup/candidate/related-fact reads matching the runtime edge-index patch, and also compares the active legacy center fallback. The indexed fixture/latest CI check is pending; the earlier cited CI predates this final read-shape change.
 - Same-Pi image/module/source/binary metadata was read-only verified. `compose.compat-pi.yaml config --format json` rendered the isolated configuration correctly; no test container was created on the Pi. No original memories/secrets were transferred, no provider call was made, and no operational container/gateway/auth/route was changed.
 
 ## Historical evidence and cleanup
@@ -34,7 +35,7 @@ An earlier ARM64 Docker build predates the final guards and is not a deployable 
 | C09 | verified | Required group enforced by shared Key shape; missing group produces protocol error. |
 | C10 | verified | Default/empty/duplicate read groups and round-robin merging matched observed helper behavior; empty groups call no models. |
 | C11 | partial | Global bound and sorting covered on small fixture; bounded lexical DB window is not full timestamp ordering parity. |
-| C12 | partial | Observed MCP recipes exclude BFS. RRF=1, source-node center ordering, single-group center rule and type filters tested; full BM25/vector retrieval quality differs. |
+| C12 | partial | Observed MCP recipes exclude BFS. Active legacy fallback and operation body match RRF/source-node center ordering; single-group center and type filters tested. Full BM25/vector retrieval quality differs. |
 | C13 | verified | Gated worker distinguishes queue acceptance from exact committed lookup. |
 | C14 | verified | Concurrent same-UUID acceptance dispatches once; committed retry leaves original record intact. |
 | C15 | verified | Changed same-UUID input fails closed. Observed Python loads old body/metadata instead of replacing it; strict rejection is intentional. |
@@ -42,7 +43,7 @@ An earlier ARM64 Docker build predates the final guards and is not a deployable 
 | C17 | partial | Full prepared after-state/vector/stable-MENTIONS and lost graph-completion recovery passed synthetic DB/worker tests. Durable destructive pending retry/tombstones passed; disk-full/OOM/runtime-error rollback and other writers remain untested. |
 | C18 | verified | Invalid provider response is journaled as failed, produces no visible episode, and is not automatically replayed. |
 | C19 | verified | UUIDs and independent created/valid/invalid/expired RFC3339 strings roundtrip without precision loss. |
-| C20 | partial | Legacy scalar/list attributes, labels, vecf32 and existing entity/fact UUID updates preserve created_at/topology in synthetic DB test; restored schema breadth untested. |
+| C20 | partial | Legacy attributes/labels/vecf32 and existing UUID updates preserve creation time/topology in synthetic DB. Relationship-first read shapes match the observed runtime index workaround; actual current-module/restored schema breadth remains untested. |
 | C21 | partial | Actual MCP wrapper calls node.delete, not Graphiti.remove_episode. Synthetic store deletion retains entities/facts and dangling provenance; clear retains Saga/unknown labels. Journal pending recovery/tombstones added; production alias/schema behavior untested. |
 | C22 | partial | Observed exact fact reuse/shared provenance and supplied duplicate/contradiction decisions match selected Python bodies. Fuzzy/model entity resolution, summary updates, complete extraction and contradiction discovery remain unported. |
 | C23 | partial | Mock gpt-6-luna temperature=1/max_tokens<=4096/enable_thinking=false and observed decoder match. Preview extraction prompt and bounded retry/timeout differ; no real generation comparison. |

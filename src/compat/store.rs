@@ -3,6 +3,11 @@ use anyhow::{Context, Result, bail, ensure};
 use redis::{Value as R, aio::ConnectionManager};
 use serde_json::{Map, Value, json};
 use std::time::Duration;
+// Relationship-first reads preserve the deployed bound-node edge-index workaround.
+// Only these three closed query shapes are used; no arbitrary Cypher rewriting.
+pub const EDGE_LOOKUP_QUERY: &str = "MATCH ()-[e:RELATES_TO {uuid:$id}]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) RETURN properties(e),n.uuid,m.uuid";
+pub const EDGE_FACTS_QUERY: &str = "MATCH ()-[e:RELATES_TO]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND (size($terms)=0 OR any(t IN $terms WHERE toLower(e.fact) CONTAINS t)) RETURN properties(e),n.uuid,m.uuid ORDER BY e.uuid LIMIT $limit";
+pub const EDGE_RELATED_QUERY: &str = "MATCH ()-[e:RELATES_TO]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND n.uuid=$source AND m.uuid=$target RETURN properties(e),n.uuid,m.uuid LIMIT 1001";
 #[derive(Clone)]
 pub struct LegacyStore {
     connection: ConnectionManager,
@@ -170,7 +175,9 @@ impl LegacyStore {
     }
     pub async fn edge(&self, group: &str, id: &str) -> Result<Option<LegacyFact>> {
         policy::uuid(id)?;
-        let rows=self.query(group,"MATCH (a:Entity)-[r:RELATES_TO {uuid:$id}]->(b:Entity) RETURN properties(r),a.uuid,b.uuid",json!({"id":id}),false).await?;
+        let rows = self
+            .query(group, EDGE_LOOKUP_QUERY, json!({"id":id}), false)
+            .await?;
         ensure!(rows.len() <= 1, "ambiguous fact UUID");
         rows.first().map(|r| fact(r, group)).transpose()
     }
@@ -219,7 +226,14 @@ impl LegacyStore {
             .take(8)
             .map(str::to_owned)
             .collect();
-        let rows=self.query(group,"MATCH (a:Entity)-[r:RELATES_TO]->(b:Entity) WHERE (size($terms)=0 OR any(t IN $terms WHERE toLower(r.fact) CONTAINS t)) RETURN properties(r),a.uuid,b.uuid ORDER BY r.uuid LIMIT $limit",json!({"terms":terms,"limit":limit}),false).await?;
+        let rows = self
+            .query(
+                group,
+                EDGE_FACTS_QUERY,
+                json!({"terms":terms,"limit":limit}),
+                false,
+            )
+            .await?;
         rows.iter().map(|r| fact(r, group)).collect()
     }
     pub async fn neighbors(
@@ -288,7 +302,9 @@ impl LegacyStore {
                 .insert(n.uuid.clone(), uuid::Uuid::new_v4().to_string());
         }
         for f in &mut p.facts {
-            let rows = self.query(group, "MATCH(a:Entity)-[r:RELATES_TO {uuid:$id}]->(b:Entity) RETURN properties(r),a.uuid,b.uuid", json!({"id":f.uuid}), false).await?;
+            let rows = self
+                .query(group, EDGE_LOOKUP_QUERY, json!({"id":f.uuid}), false)
+                .await?;
             ensure!(rows.len() <= 1, "ambiguous fact UUID");
             let before = rows
                 .first()
@@ -365,7 +381,14 @@ impl LegacyStore {
         for f in &mut p.facts {
             f.source_node_uuid = remap[&f.source_node_uuid].clone();
             f.target_node_uuid = remap[&f.target_node_uuid].clone();
-            let rows = self.query(group, "MATCH(a:Entity {uuid:$source})-[r:RELATES_TO]->(b:Entity {uuid:$target}) RETURN properties(r),a.uuid,b.uuid LIMIT 1001", json!({"source":f.source_node_uuid,"target":f.target_node_uuid}), false).await?;
+            let rows = self
+                .query(
+                    group,
+                    EDGE_RELATED_QUERY,
+                    json!({"source":f.source_node_uuid,"target":f.target_node_uuid}),
+                    false,
+                )
+                .await?;
             ensure!(rows.len() <= 1000, "fact resolution window exhausted");
             let related: Vec<_> = rows.iter().map(|r| fact(r, group)).collect::<Result<_>>()?;
             let exact: Vec<_> = related

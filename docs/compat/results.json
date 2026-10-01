@@ -60,7 +60,7 @@
     {
       "id": "C12",
       "status": "partial",
-      "evidence": "Observed MCP recipes exclude BFS. RRF=1, source-node center ordering, single-group center rule and type filters tested; full BM25/vector retrieval quality differs."
+      "evidence": "Observed MCP recipes exclude BFS. Active legacy fallback and operation body match RRF/source-node center ordering; single-group center and type filters tested. Full BM25/vector retrieval quality differs."
     },
     {
       "id": "C13",
@@ -100,7 +100,7 @@
     {
       "id": "C20",
       "status": "partial",
-      "evidence": "Legacy scalar/list attributes, labels, vecf32 and existing entity/fact UUID updates preserve created_at/topology in synthetic DB test; restored schema breadth untested."
+      "evidence": "Legacy attributes/labels/vecf32 and existing UUID updates preserve creation time/topology in synthetic DB. Relationship-first read shapes match the observed runtime index workaround; actual current-module/restored schema breadth remains untested."
     },
     {
       "id": "C21",
@@ -167,7 +167,7 @@
     "python_differential": {
       "status": "passed",
       "executable_tests": 2,
-      "synthetic_inputs": 34,
+      "synthetic_inputs": 40,
       "level": "selected observed source bodies with fake DTO/driver/model decisions; not full Python Graphiti pipeline",
       "manifest": "tests/fixtures/python-0282/manifest.json"
     },
@@ -181,7 +181,8 @@
       "distinct_passing_tests_in_ci": 40,
       "real_local_minilm_tests": 2,
       "python_full_pipeline": false,
-      "gemini_llm_numerical_generation_parity": false
+      "gemini_llm_numerical_generation_parity": false,
+      "relationship_first_indexed_reads": "new source-derived change; latest CI pending"
     },
     "same_pi": {
       "status": "prepared_not_executed",

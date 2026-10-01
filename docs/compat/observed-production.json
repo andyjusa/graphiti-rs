@@ -13,5 +13,6 @@
   "core_graphiti_py_sha256": "8487af6bda1b4efa914f4a827502d4f241a4e3c8ce7973df3c410e4b2ef8153f",
   "runtime_sitecustomize_sha256": "57d502998a1dd18374ca472d0fa16ffe420f898569a11e75e50dc9209acd5522",
   "runtime_hermes_main_sha256": "298ecb087f46a935533adc160795ca16464fbeef4fc8c3a5ba4f1df48715f847",
-  "runtime_stable_uuid_patch_sha256": "a74d18137cd8fac3fa0d4964f11a93b782a76299759d3fcccf51b1feb962e999"
+  "runtime_stable_uuid_patch_sha256": "a74d18137cd8fac3fa0d4964f11a93b782a76299759d3fcccf51b1feb962e999",
+  "runtime_edge_query_patch_sha256": "7abd25af31520e3951625c7a3739033bf9469b0d466c592243d9eaa8b3153939"
 }

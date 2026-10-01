@@ -28,6 +28,8 @@ Three previous assumptions were corrected:
 
 ## Writes and journal
 
+Relationship-first fact reads match the observed runtime patch for bound-node edge-index omissions. Queries derive and validate both Entity endpoints before filtering; reads still create no indexes. Tests explicitly create the relationship range index only in their owned fixture graph. Actual current-module behavior remains a same-Pi gate.
+
 Readers preserve original UUIDs, timestamp strings/precision/offset, independent temporal fields, flat scalar/list attributes, structural/property labels and `vecf32` vectors. Public DTOs omit embeddings. Unsupported shapes and ambiguous exact UUIDs fail closed.
 
 The worker's bounded exact resolution reuses a unique normalized entity name and an exact fact with the same directed endpoints; shared episode provenance appends once. Ambiguous names/facts or exhausted candidate windows refuse resolution. Existing entity summaries/labels/attributes are retained in this fast path. **Python fuzzy/model entity resolution, summary updating, custom relation typing, complete extraction prompts and contradiction-candidate discovery are not ported.** A separate deterministic resolver matches observed duplicate-index/temporal-invalidation rules with supplied mocked decisions; it is not wired to infer contradictions in ingestion. Generation parity remains a release gate.
@@ -40,7 +42,7 @@ Destructive work records a durable pending operation before graph changes, block
 
 ## Search and providers
 
-Observed MCP node/fact recipes use BM25 + cosine, RRF rank constant 1, and semantic score strictly above 0.6. They do **not** enable BFS. Centered fact search uses RRF first, groups facts by **source** UUID and orders sources as center/direct undirected RELATES_TO neighbor/disconnected. At the observed reranker score 0, disconnected candidates remain. Center search requires exactly one effective group. Rust implements these ranking rules, type filtering and round-robin multi-group merging.
+Observed MCP node/fact recipes use BM25 + cosine, RRF rank constant 1, and semantic score strictly above 0.6. They do **not** enable BFS. Centered fact search uses RRF first, groups facts by **source** UUID and orders sources as center/direct undirected RELATES_TO neighbor/disconnected. At the observed reranker score 0, disconnected candidates remain. Center search requires exactly one effective group. Both the active legacy fallback (the Falkor driver leaves `search_interface` unset) and the newer operation body are compared with synthetic inputs. Rust implements these ranking rules, type filtering and round-robin multi-group merging.
 
 Candidate retrieval still differs: bounded substring matching and bounded UUID-ordered semantic scan replace Python fulltext/vector query retrieval. Read-only mode is keyword-only. Episode lists sort a bounded lexical timestamp window before global parsed sorting; mixed offsets/large corpora can differ. Full retrieval quality/recall and corpus-window behavior remain gates. Other Graphiti recipes with BFS are outside these recorded MCP defaults.
 

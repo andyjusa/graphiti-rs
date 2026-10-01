@@ -69,8 +69,10 @@ fn observed_python_functions_match_rust_on_synthetic_decisions() {
     ] {
         let ids: Vec<String> = ids.into_iter().map(str::to_owned).collect();
         let neighbors: HashSet<String> = neighbors.into_iter().map(str::to_owned).collect();
-        cases.push(json!({"kind":"center","ids":ids,"center":center,"neighbors":neighbors}));
-        expected.push(json!(resolution::center_order(&ids, center, &neighbors)));
+        for algorithm in ["fallback", "operations"] {
+            cases.push(json!({"kind":"center","algorithm":algorithm,"ids":ids,"center":center,"neighbors":neighbors}));
+            expected.push(json!(resolution::center_order(&ids, center, &neighbors)));
+        }
     }
     for groups in [
         None,
@@ -196,6 +198,23 @@ fn observed_python_functions_match_rust_on_synthetic_decisions() {
             graphiti_rs::compat::providers::decode_extraction(content)
                 .unwrap_or_else(|_| json!({"error":true})),
         );
+    }
+    for (query, expected_query) in [
+        (
+            "MATCH (n:Entity)-[e:RELATES_TO {uuid:$id}]->(m:Entity) RETURN properties(e),n.uuid,m.uuid",
+            graphiti_rs::compat::store::EDGE_LOOKUP_QUERY,
+        ),
+        (
+            "MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity) WHERE (size($terms)=0 OR any(t IN $terms WHERE toLower(e.fact) CONTAINS t)) RETURN properties(e),n.uuid,m.uuid ORDER BY e.uuid LIMIT $limit",
+            graphiti_rs::compat::store::EDGE_FACTS_QUERY,
+        ),
+        (
+            "MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity) WHERE n.uuid=$source AND m.uuid=$target RETURN properties(e),n.uuid,m.uuid LIMIT 1001",
+            graphiti_rs::compat::store::EDGE_RELATED_QUERY,
+        ),
+    ] {
+        cases.push(json!({"kind":"edge_read","query":query}));
+        expected.push(json!(expected_query));
     }
     let mut child = Command::new("python3")
         .args(["-S", "scripts/python-0282-baseline.py"])
