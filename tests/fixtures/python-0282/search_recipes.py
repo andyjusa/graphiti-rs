@@ -1,4 +1,4 @@
-# Copyright 2024 Zep Software, Inc.; Apache-2.0. Observed tool search recipes.
+# Copyright 2024, Zep Software, Inc.; Apache-2.0. Observed tool search recipes.
 EDGE_HYBRID_SEARCH_RRF = SearchConfig(
     edge_config=EdgeSearchConfig(
         search_methods=[EdgeSearchMethod.bm25, EdgeSearchMethod.cosine_similarity],

@@ -1,0 +1,13 @@
+Observed Graphiti 0.28.2 core source excerpts
+Copyright 2024, Zep Software, Inc.
+Licensed under the Apache License, Version 2.0; see the repository LICENSE.
+Upstream: https://github.com/getzep/graphiti
+
+Core excerpts and the operational stable-UUID patch derive from graphiti_core.
+Source paths, versions, original source hashes and excerpt hashes are recorded
+in manifest.json. Type annotations are removed only at execution time by the
+synthetic test harness; function bodies in the recorded excerpts are retained.
+
+The hermes_main and patches/* excerpts are user-owned operational wrappers.
+They are included only as source evidence; whole startup modules are never
+imported by the synthetic differential runner.

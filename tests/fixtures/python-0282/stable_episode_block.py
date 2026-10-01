@@ -1,4 +1,4 @@
-# Copyright 2024 Zep, Inc.; Apache-2.0. Operational stable UUID patch.
+# Copyright 2024, Zep Software, Inc.; Apache-2.0. Operational stable UUID patch.
 if uuid is not None:
     try:
         episode = await EpisodicNode.get_by_uuid(self.driver, uuid)

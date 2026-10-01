@@ -1,5 +1,5 @@
 # Source excerpt: core/search/search_utils.py
-# Graphiti core portions: Copyright 2024 Zep, Inc.; Apache-2.0.
+# Graphiti core portions: Copyright 2024, Zep Software, Inc.; Apache-2.0.
 # Runtime patches: user-owned operational source; synthetic tests only.
 
 def rrf(
