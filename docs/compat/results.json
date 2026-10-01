@@ -174,15 +174,15 @@
     "isolated_db": {
       "status": "passed",
       "environment": "GitHub Ubuntu service, FalkorDB 4.14.11, loopback provider mocks",
-      "source_commit": "d4fac9444ec8aae3a40152e778d90cf2e9cbda1b",
-      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36819906853",
+      "source_commit": "dd7b023cbf3522a0f5ebb8736041a60838763a45",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36824771015",
       "compatibility_integrations": 3,
       "standalone_integrations": 9,
       "distinct_passing_tests_in_ci": 40,
       "real_local_minilm_tests": 2,
       "python_full_pipeline": false,
       "gemini_llm_numerical_generation_parity": false,
-      "relationship_first_indexed_reads": "new source-derived change; latest CI pending"
+      "relationship_first_indexed_reads": "passed against source-derived relationship-first query fixtures and isolated indexed FalkorDB4.14.11; production module not exercised"
     },
     "same_pi": {
       "status": "prepared_not_executed",
@@ -211,8 +211,8 @@
     },
     "arm64": {
       "status": "passed",
-      "source_commit": "d4fac9444ec8aae3a40152e778d90cf2e9cbda1b",
-      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36819906853",
+      "source_commit": "dd7b023cbf3522a0f5ebb8736041a60838763a45",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36824771015",
       "features": [
         "default",
         "local-embeddings",
