@@ -39,8 +39,8 @@ pub fn groups(groups: Option<&[String]>) -> Result<Vec<String>> {
     let default = vec![DEFAULT_GROUP.to_string()];
     let supplied = groups.unwrap_or(&default);
     ensure!(
-        !supplied.is_empty() && supplied.len() <= 16,
-        "group_ids must contain 1..=16 groups"
+        supplied.len() <= 16,
+        "group_ids must contain at most 16 groups"
     );
     let mut result = vec![];
     for group in supplied {

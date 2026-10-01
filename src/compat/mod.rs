@@ -5,4 +5,5 @@ pub mod journal;
 pub mod mcp;
 pub mod policy;
 pub mod providers;
+pub mod resolution;
 pub mod store;

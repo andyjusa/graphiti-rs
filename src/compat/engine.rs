@@ -62,6 +62,32 @@ impl Engine {
                     if cancel.is_cancelled() {
                         break;
                     }
+                    let recovery_guard = mutation.lock().await;
+                    let pending = match journal.mutations() {
+                        Ok(pending) => pending,
+                        Err(_) => {
+                            tracing::error!(
+                                "compatibility destructive journal unavailable; worker stopped"
+                            );
+                            break;
+                        }
+                    };
+                    let mut recovered = true;
+                    for op in pending {
+                        if store.apply_mutation(&op).await.is_err()
+                            || journal.finish_mutation(&op).is_err()
+                        {
+                            tracing::error!(
+                                "compatibility destructive recovery failed; worker stopped"
+                            );
+                            recovered = false;
+                            break;
+                        }
+                    }
+                    drop(recovery_guard);
+                    if !recovered {
+                        break;
+                    }
                     let job = match journal.next() {
                         Ok(Some(job)) => job,
                         Ok(None) => {
@@ -77,7 +103,10 @@ impl Engine {
                         let payload = if let Some(p) = &job.prepared {
                             p.clone()
                         } else {
-                            let p = providers.prepare(&job).await?;
+                            let extracted = providers.prepare(&job).await?;
+                            let _guard = mutation.lock().await;
+                            let resolved = store.resolve_exact(&extracted).await?;
+                            let p = store.plan(&resolved).await?;
                             journal.prepared(&job, &p)?;
                             p
                         };
@@ -121,9 +150,15 @@ impl Engine {
                             && e.source_description == r.source_description,
                         "same-UUID update unsupported until baseline validation"
                     );
-                    return Ok(
-                        json!({"message":format!("Episode {} already committed in {}",id,group)}),
-                    );
+                    let journal = self.journal.as_ref().unwrap();
+                    if !journal.tracked(&group, id)? {
+                        return Ok(
+                            json!({"message":format!("Episode {} already committed in {}",id,group)}),
+                        );
+                    }
+                    if let Some(prepared) = journal.committed(&group, id)? {
+                        self.store.commit(&prepared).await?;
+                    }
                 }
                 let receipt = self.journal.as_ref().unwrap().accept(r)?;
                 self.notify.notify_one();
@@ -182,7 +217,7 @@ impl Engine {
                 });
                 episodes.truncate(limit);
                 Ok(
-                    json!({"message":format!("Found {} episodes",episodes.len()),"episodes":episodes.iter().map(episode_public).collect::<Vec<_>>()}),
+                    json!({"message":if episodes.is_empty(){"No episodes found"}else{"Episodes retrieved successfully"},"episodes":episodes.iter().map(episode_public).collect::<Vec<_>>()}),
                 )
             }
             "search_nodes" => {
@@ -197,14 +232,18 @@ impl Engine {
                     );
                 }
                 let _permit = self.reads.try_acquire()?;
+                if groups.is_empty() {
+                    return Ok(json!({"message":"No relevant nodes found","nodes":[]}));
+                }
                 let vector = self.query_vector(&r.query).await?;
-                let candidates = (self.config.candidates / groups.len()).max(1);
+                let candidates = (self.config.candidates / groups.len().max(1)).max(1);
                 let mut lists = vec![];
                 for group in groups {
                     let mut nodes = self
                         .store
                         .nodes(&group, &r.query, r.entity_types.as_deref(), candidates)
                         .await?;
+                    let keyword_ids = nodes.iter().map(|n| n.uuid.clone()).collect();
                     if vector.is_some() {
                         nodes.extend(
                             self.store
@@ -214,26 +253,24 @@ impl Engine {
                     }
                     let mut seen = std::collections::HashSet::new();
                     nodes.retain(|n| seen.insert(n.uuid.clone()));
-                    nodes.sort_by(|a, b| {
-                        score(
-                            &r.query,
-                            &b.name,
-                            b.name_embedding.as_deref(),
-                            vector.as_deref(),
-                        )
-                        .total_cmp(&score(
-                            &r.query,
-                            &a.name,
-                            a.name_embedding.as_deref(),
-                            vector.as_deref(),
-                        ))
-                        .then_with(|| a.uuid.cmp(&b.uuid))
-                    });
+                    let order = fused_order(
+                        &nodes,
+                        &keyword_ids,
+                        &r.query,
+                        vector.as_deref(),
+                        |n| &n.uuid,
+                        |n| format!("{} {}", n.name, n.summary),
+                        |n| n.name_embedding.as_deref(),
+                    );
+                    nodes.retain(|n| order.contains_key(&n.uuid));
+                    nodes.sort_by_key(|n| order[&n.uuid]);
                     nodes.truncate(limit);
                     lists.push(nodes.into_iter().map(|n| node_public(&n)).collect());
                 }
                 let nodes = round_robin(lists, limit);
-                Ok(json!({"message":format!("Found {} nodes",nodes.len()),"nodes":nodes}))
+                Ok(
+                    json!({"message":if nodes.is_empty(){"No relevant nodes found"}else{"Nodes retrieved successfully"},"nodes":nodes}),
+                )
             }
             "search_memory_facts" => {
                 let r: FactSearch = serde_json::from_value(args)?;
@@ -242,16 +279,24 @@ impl Engine {
                 let limit = policy::limit(r.max_facts)?;
                 if let Some(id) = &r.center_node_uuid {
                     policy::uuid(id)?;
+                    ensure!(
+                        groups.len() == 1,
+                        "center_node_uuid requires exactly one group_id"
+                    );
                 }
                 let _permit = self.reads.try_acquire()?;
+                if groups.is_empty() {
+                    return Ok(json!({"message":"No relevant facts found","facts":[]}));
+                }
                 let vector = self.query_vector(&r.query).await?;
-                let candidates = (self.config.candidates / groups.len()).max(1);
+                let candidates = (self.config.candidates / groups.len().max(1)).max(1);
                 let mut lists = vec![];
                 for group in groups {
                     let mut facts = self
                         .store
                         .facts(&group, &r.query, r.center_node_uuid.as_deref(), candidates)
                         .await?;
+                    let keyword_ids = facts.iter().map(|f| f.uuid.clone()).collect();
                     if vector.is_some() {
                         facts.extend(
                             self.store
@@ -261,26 +306,40 @@ impl Engine {
                     }
                     let mut seen = std::collections::HashSet::new();
                     facts.retain(|f| seen.insert(f.uuid.clone()));
-                    facts.sort_by(|a, b| {
-                        score(
-                            &r.query,
-                            &b.fact,
-                            b.fact_embedding.as_deref(),
-                            vector.as_deref(),
-                        )
-                        .total_cmp(&score(
-                            &r.query,
-                            &a.fact,
-                            a.fact_embedding.as_deref(),
-                            vector.as_deref(),
-                        ))
-                        .then_with(|| a.uuid.cmp(&b.uuid))
-                    });
+                    let order = fused_order(
+                        &facts,
+                        &keyword_ids,
+                        &r.query,
+                        vector.as_deref(),
+                        |f| &f.uuid,
+                        |f| f.fact.clone(),
+                        |f| f.fact_embedding.as_deref(),
+                    );
+                    facts.retain(|f| order.contains_key(&f.uuid));
+                    facts.sort_by_key(|f| order[&f.uuid]);
+                    if let Some(center) = &r.center_node_uuid {
+                        let neighbors = self.store.neighbors(&group, center).await?;
+                        let mut sources = vec![];
+                        for fact in &facts {
+                            if !sources.contains(&fact.source_node_uuid) {
+                                sources.push(fact.source_node_uuid.clone());
+                            }
+                        }
+                        let sources = super::resolution::center_order(&sources, center, &neighbors);
+                        facts.sort_by_key(|f| {
+                            sources
+                                .iter()
+                                .position(|id| id == &f.source_node_uuid)
+                                .unwrap()
+                        });
+                    }
                     facts.truncate(limit);
                     lists.push(facts.into_iter().map(|f| fact_public(&f)).collect());
                 }
                 let facts = round_robin(lists, limit);
-                Ok(json!({"message":format!("Found {} facts",facts.len()),"facts":facts}))
+                Ok(
+                    json!({"message":if facts.is_empty(){"No relevant facts found"}else{"Facts retrieved successfully"},"facts":facts}),
+                )
             }
             "delete_episode" | "delete_entity_edge" => {
                 let r: Key = serde_json::from_value(args)?;
@@ -291,9 +350,28 @@ impl Engine {
                     !self.journal.as_ref().unwrap().pending(&r.group_id)?,
                     "group has pending ingestion; deletion refused"
                 );
-                // Provenance/orphan semantics differ in the patched baseline; expose a truthful error.
-                anyhow::bail!(
-                    "legacy deletion parity is not validated; compatibility deletion disabled"
+                let journal = self.journal.as_ref().unwrap();
+                let retry = journal.mutations()?.iter().any(|op| {
+                    op.group == r.group_id && op.kind == name && op.uuid.as_deref() == Some(&r.uuid)
+                });
+                if !retry {
+                    if name == "delete_episode" {
+                        ensure!(
+                            self.store.episode(&r.group_id, &r.uuid).await?.is_some(),
+                            "Exact episode delete failed"
+                        );
+                    } else {
+                        ensure!(
+                            self.store.edge(&r.group_id, &r.uuid).await?.is_some(),
+                            "Exact entity edge delete failed"
+                        );
+                    }
+                }
+                let op = journal.begin_mutation(&r.group_id, name, Some(&r.uuid))?;
+                self.store.apply_mutation(&op).await?;
+                journal.finish_mutation(&op)?;
+                Ok(
+                    json!({"message":format!("{} with UUID {} deleted successfully", if name=="delete_episode" {"Episode"} else {"Entity edge"},r.uuid)}),
                 )
             }
             "clear_graph" => {
@@ -305,8 +383,12 @@ impl Engine {
                     !self.journal.as_ref().unwrap().pending(group)?,
                     "group has pending ingestion; clear refused"
                 );
-                anyhow::bail!(
-                    "legacy clear journal accounting is not validated; compatibility clear disabled"
+                let journal = self.journal.as_ref().unwrap();
+                let op = journal.begin_mutation(group, "clear_graph", None)?;
+                self.store.apply_mutation(&op).await?;
+                journal.finish_mutation(&op)?;
+                Ok(
+                    json!({"message":format!("Graph data cleared successfully for group ID: {group}")}),
                 )
             }
             "get_status" => {
@@ -369,6 +451,44 @@ pub fn round_robin(lists: Vec<Vec<Value>>, limit: usize) -> Vec<Value> {
         }
     }
     out
+}
+fn fused_order<T>(
+    items: &[T],
+    keyword: &std::collections::HashSet<String>,
+    query: &str,
+    vector: Option<&[f32]>,
+    id: impl Fn(&T) -> &str,
+    text: impl Fn(&T) -> String,
+    embedding: impl Fn(&T) -> Option<&[f32]>,
+) -> std::collections::HashMap<String, usize> {
+    let mut words: Vec<_> = items.iter().filter(|v| keyword.contains(id(v))).collect();
+    words.sort_by(|a, b| {
+        score(query, &text(b), None, None).total_cmp(&score(query, &text(a), None, None))
+    });
+    let mut lists = vec![words.into_iter().map(|v| id(v).to_owned()).collect()];
+    if let Some(vector) = vector {
+        let mut semantic: Vec<_> = items
+            .iter()
+            .filter(|v| {
+                embedding(v)
+                    .is_some_and(|e| e.len() == vector.len() && e.iter().all(|x| x.is_finite()))
+            })
+            .collect();
+        semantic.sort_by(|a, b| {
+            score("", "", embedding(b), Some(vector)).total_cmp(&score(
+                "",
+                "",
+                embedding(a),
+                Some(vector),
+            ))
+        });
+        lists.push(semantic.into_iter().map(|v| id(v).to_owned()).collect());
+    }
+    super::resolution::rrf(&lists)
+        .into_iter()
+        .enumerate()
+        .map(|(rank, id)| (id, rank))
+        .collect()
 }
 fn score(query: &str, text: &str, vector: Option<&[f32]>, q: Option<&[f32]>) -> f64 {
     let query = crate::domain::normalize(query);

@@ -52,7 +52,7 @@ impl Providers {
         ensure!(texts.len() <= 256, "embedding batch exceeds bound");
         let mut output = vec![];
         for batch in texts.chunks(8) {
-            let mut request=self.client.post(format!("{}/models/gemini-embedding-2:batchEmbedContents",self.config.gemini_base.trim_end_matches('/'))).json(&json!({"requests":batch.iter().map(|text|json!({"model":"models/gemini-embedding-2","content":{"parts":[{"text":text.replace(['\n','\r']," ")}]},"outputDimensionality":3072})).collect::<Vec<_>>()}));
+            let mut request=self.client.post(format!("{}/models/gemini-embedding-2:batchEmbedContents",self.config.gemini_base.trim_end_matches('/'))).json(&json!({"requests":batch.iter().map(|text|json!({"model":"models/gemini-embedding-2","content":{"parts":[{"text":text.replace('\n'," ")}]},"outputDimensionality":3072})).collect::<Vec<_>>()}));
             if let Some(file) = &self.config.gemini_key_file {
                 request = request.header("x-goog-api-key", read_secret(file)?);
             }
@@ -78,7 +78,7 @@ impl Providers {
     }
     pub async fn prepare(&self, job: &Job) -> Result<Prepared> {
         let system = "Extract the supplied episode as JSON with entities:[{name,summary,labels,attributes}] and facts:[{source,target,name,fact,valid_at,attributes}]. source and target are zero-based entity indices. Use only explicit information. Do not invent facts. Max 128 entities and 128 facts. valid_at is an RFC3339 string or null. attributes contain only scalar values or scalar lists.";
-        let mut request=self.client.post(format!("{}/chat/completions",self.config.llm_base.trim_end_matches('/'))).json(&json!({"model":self.config.llm_model,"max_tokens":self.config.max_tokens,"response_format":{"type":"json_object"},"messages":[{"role":"system","content":system},{"role":"user","content":format!("Reference time: {}\nName: {}\nSource: {}\nEpisode: {}",job.created,job.request.name,job.request.source,job.request.episode_body)}]}));
+        let mut request=self.client.post(format!("{}/chat/completions",self.config.llm_base.trim_end_matches('/'))).json(&json!({"model":self.config.llm_model,"max_tokens":self.config.max_tokens,"temperature":1,"extra_body":{"chat_template_kwargs":{"enable_thinking":false}},"response_format":{"type":"json_object"},"messages":[{"role":"system","content":system},{"role":"user","content":format!("Reference time: {}\nName: {}\nSource: {}\nEpisode: {}",job.created,job.request.name,job.request.source,job.request.episode_body)}]}));
         if let Some(file) = &self.config.llm_key_file {
             request = request.bearer_auth(read_secret(file)?);
         }
@@ -159,6 +159,7 @@ impl Providers {
             })
             .collect();
         let prepared = Prepared {
+            baseline: None,
             episode: LegacyEpisode {
                 uuid: job.id.clone(),
                 group_id: job.group.clone(),

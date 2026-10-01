@@ -137,9 +137,29 @@ pub struct LegacyFact {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Prepared {
+    #[serde(default)]
+    pub baseline: Option<Baseline>,
     pub episode: LegacyEpisode,
     pub entities: Vec<LegacyEntity>,
     pub facts: Vec<LegacyFact>,
+}
+/// Exact pre-write properties, retained durably with the prepared graph.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NodeSnapshot {
+    pub props: Map<String, Value>,
+    pub labels: Vec<String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FactSnapshot {
+    pub props: Map<String, Value>,
+    pub source: String,
+    pub target: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct Baseline {
+    pub entities: std::collections::BTreeMap<String, Option<NodeSnapshot>>,
+    pub facts: std::collections::BTreeMap<String, Option<FactSnapshot>>,
+    pub mentions: std::collections::BTreeMap<String, String>,
 }
 impl Prepared {
     pub fn validate(&self) -> Result<()> {
@@ -188,9 +208,12 @@ impl Prepared {
                 "fact group or endpoint mismatch"
             );
             ensure!(
-                f.episodes == vec![e.uuid.clone()],
-                "new fact provenance must name its episode"
+                f.episodes.contains(&e.uuid) && f.episodes.len() <= 1024,
+                "fact provenance must include its episode and respect bounds"
             );
+            for id in &f.episodes {
+                policy::uuid(id)?;
+            }
             timestamp(&f.created_at)?;
             for t in [&f.valid_at, &f.invalid_at, &f.expired_at]
                 .into_iter()
@@ -210,6 +233,44 @@ impl Prepared {
                 == facts,
             "entity_edges differs from prepared facts"
         );
+        ensure!(!ids.contains(&e.uuid), "episode/entity UUID collision");
+        if let Some(b) = &self.baseline {
+            ensure!(
+                b.entities.keys().collect::<std::collections::HashSet<_>>() == ids
+                    && b.facts.keys().collect::<std::collections::HashSet<_>>() == facts
+                    && b.mentions.keys().collect::<std::collections::HashSet<_>>() == ids,
+                "prepared baseline identities differ"
+            );
+            for id in b.mentions.values() {
+                policy::uuid(id)?;
+            }
+            for (id, before) in &b.entities {
+                if let Some(before) = before {
+                    ensure!(
+                        before.props.get("uuid").and_then(Value::as_str) == Some(id)
+                            && before.props.get("group_id").and_then(Value::as_str)
+                                == Some(&e.group_id),
+                        "baseline entity identity differs"
+                    );
+                }
+            }
+            for (id, before) in &b.facts {
+                if let Some(before) = before {
+                    ensure!(
+                        before.props.get("uuid").and_then(Value::as_str) == Some(id)
+                            && before.props.get("group_id").and_then(Value::as_str)
+                                == Some(&e.group_id),
+                        "baseline fact identity differs"
+                    );
+                    let after = self.facts.iter().find(|f| &f.uuid == id).unwrap();
+                    ensure!(
+                        after.source_node_uuid == before.source
+                            && after.target_node_uuid == before.target,
+                        "existing fact cannot be retargeted"
+                    );
+                }
+            }
+        }
         Ok(())
     }
 }

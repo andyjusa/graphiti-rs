@@ -121,6 +121,7 @@ impl LegacyStore {
                 false,
             )
             .await?;
+        ensure!(rows.len() <= 1, "ambiguous episode UUID");
         let result = rows
             .first()
             .map(|r| {
@@ -170,6 +171,7 @@ impl LegacyStore {
     pub async fn edge(&self, group: &str, id: &str) -> Result<Option<LegacyFact>> {
         policy::uuid(id)?;
         let rows=self.query(group,"MATCH (a:Entity)-[r:RELATES_TO {uuid:$id}]->(b:Entity) RETURN properties(r),a.uuid,b.uuid",json!({"id":id}),false).await?;
+        ensure!(rows.len() <= 1, "ambiguous fact UUID");
         rows.first().map(|r| fact(r, group)).transpose()
     }
     pub async fn node(&self, group: &str, id: &str) -> Result<Option<LegacyEntity>> {
@@ -182,6 +184,7 @@ impl LegacyStore {
                 false,
             )
             .await?;
+        ensure!(rows.len() <= 1, "ambiguous entity UUID");
         rows.first().map(|r| entity(r, group)).transpose()
     }
     pub async fn nodes(
@@ -216,80 +219,306 @@ impl LegacyStore {
             .take(8)
             .map(str::to_owned)
             .collect();
-        let rows=self.query(group,"MATCH (a:Entity)-[r:RELATES_TO]->(b:Entity) WHERE ($center='' OR a.uuid=$center OR b.uuid=$center) AND (size($terms)=0 OR any(t IN $terms WHERE toLower(r.fact) CONTAINS t)) RETURN properties(r),a.uuid,b.uuid ORDER BY r.uuid LIMIT $limit",json!({"center":center.unwrap_or(""),"terms":terms,"limit":limit}),false).await?;
+        let rows=self.query(group,"MATCH (a:Entity)-[r:RELATES_TO]->(b:Entity) WHERE (size($terms)=0 OR any(t IN $terms WHERE toLower(r.fact) CONTAINS t)) RETURN properties(r),a.uuid,b.uuid ORDER BY r.uuid LIMIT $limit",json!({"terms":terms,"limit":limit}),false).await?;
         rows.iter().map(|r| fact(r, group)).collect()
+    }
+    pub async fn neighbors(
+        &self,
+        group: &str,
+        center: &str,
+    ) -> Result<std::collections::HashSet<String>> {
+        policy::uuid(center)?;
+        let rows = self.query(group, "MATCH (c:Entity {uuid:$center})-[:RELATES_TO]-(n:Entity) WHERE c.group_id=$group AND n.group_id=$group RETURN DISTINCT n.uuid LIMIT 1001", json!({"center":center,"group":group}), false).await?;
+        ensure!(
+            rows.len() <= 1000,
+            "center neighborhood exceeds bounded compatibility search"
+        );
+        rows.iter()
+            .map(|r| {
+                r[0].as_str()
+                    .map(str::to_owned)
+                    .context("invalid neighbor UUID")
+            })
+            .collect()
+    }
+    pub async fn plan(&self, payload: &Prepared) -> Result<Prepared> {
+        payload.validate()?;
+        if payload.baseline.is_some() {
+            return Ok(payload.clone());
+        }
+        let group = &payload.episode.group_id;
+        if self.episode(group, &payload.episode.uuid).await?.is_some() {
+            // A legacy prepared receipt can still reconcile an exact previously committed graph.
+            return Ok(payload.clone());
+        }
+        let mut p = payload.clone();
+        let mut baseline = Baseline::default();
+        for n in &mut p.entities {
+            let rows = self
+                .query(
+                    group,
+                    "MATCH(n:Entity {uuid:$id}) RETURN properties(n),labels(n)",
+                    json!({"id":n.uuid}),
+                    false,
+                )
+                .await?;
+            ensure!(rows.len() <= 1, "ambiguous entity UUID");
+            let before = rows
+                .first()
+                .map(|r| -> Result<NodeSnapshot> {
+                    let old = entity(r, group)?;
+                    n.created_at = old.created_at;
+                    let mut attrs = old.attributes;
+                    attrs.extend(n.attributes.clone());
+                    n.attributes = attrs;
+                    for label in old.labels {
+                        if !n.labels.contains(&label) {
+                            n.labels.push(label);
+                        }
+                    }
+                    Ok(NodeSnapshot {
+                        props: map(&r[0])?,
+                        labels: serde_json::from_value(r[1].clone())?,
+                    })
+                })
+                .transpose()?;
+            baseline.entities.insert(n.uuid.clone(), before);
+            baseline
+                .mentions
+                .insert(n.uuid.clone(), uuid::Uuid::new_v4().to_string());
+        }
+        for f in &mut p.facts {
+            let rows = self.query(group, "MATCH(a:Entity)-[r:RELATES_TO {uuid:$id}]->(b:Entity) RETURN properties(r),a.uuid,b.uuid", json!({"id":f.uuid}), false).await?;
+            ensure!(rows.len() <= 1, "ambiguous fact UUID");
+            let before = rows
+                .first()
+                .map(|r| -> Result<FactSnapshot> {
+                    let old = fact(r, group)?;
+                    ensure!(
+                        old.source_node_uuid == f.source_node_uuid
+                            && old.target_node_uuid == f.target_node_uuid,
+                        "existing fact cannot be retargeted"
+                    );
+                    f.created_at = old.created_at;
+                    let mut attrs = old.attributes;
+                    attrs.extend(f.attributes.clone());
+                    f.attributes = attrs;
+                    let mut episodes = old.episodes;
+                    for id in &f.episodes {
+                        if !episodes.contains(id) {
+                            episodes.push(id.clone());
+                        }
+                    }
+                    f.episodes = episodes;
+                    Ok(FactSnapshot {
+                        props: map(&r[0])?,
+                        source: f.source_node_uuid.clone(),
+                        target: f.target_node_uuid.clone(),
+                    })
+                })
+                .transpose()?;
+            baseline.facts.insert(f.uuid.clone(), before);
+        }
+        p.baseline = Some(baseline);
+        p.validate()?;
+        Ok(p)
+    }
+    /// A bounded, exact-text fast path only. Fuzzy/LLM entity resolution is a release gate.
+    pub async fn resolve_exact(&self, payload: &Prepared) -> Result<Prepared> {
+        payload.validate()?;
+        ensure!(
+            payload.baseline.is_none(),
+            "resolution must precede durable planning"
+        );
+        let group = &payload.episode.group_id;
+        let mut p = payload.clone();
+        let mut nodes: Vec<LegacyEntity> = vec![];
+        let mut remap = std::collections::HashMap::new();
+        for n in &p.entities {
+            let candidates = self.nodes(group, &n.name, None, 1000).await?;
+            ensure!(
+                candidates.len() < 1000,
+                "entity resolution window exhausted; refusing incomplete resolution"
+            );
+            let exact: Vec<_> = candidates
+                .into_iter()
+                .filter(|old| {
+                    crate::domain::normalize(&old.name) == crate::domain::normalize(&n.name)
+                })
+                .collect();
+            ensure!(exact.len() <= 1, "ambiguous normalized entity name");
+            let resolved = if let Some(old) = exact.into_iter().next() {
+                old
+            } else if let Some(old) = nodes.iter().find(|old| {
+                crate::domain::normalize(&old.name) == crate::domain::normalize(&n.name)
+            }) {
+                old.clone()
+            } else {
+                n.clone()
+            };
+            remap.insert(n.uuid.clone(), resolved.uuid.clone());
+            if !nodes.iter().any(|old| old.uuid == resolved.uuid) {
+                nodes.push(resolved);
+            }
+        }
+        let mut facts: Vec<LegacyFact> = vec![];
+        for f in &mut p.facts {
+            f.source_node_uuid = remap[&f.source_node_uuid].clone();
+            f.target_node_uuid = remap[&f.target_node_uuid].clone();
+            let rows = self.query(group, "MATCH(a:Entity {uuid:$source})-[r:RELATES_TO]->(b:Entity {uuid:$target}) RETURN properties(r),a.uuid,b.uuid LIMIT 1001", json!({"source":f.source_node_uuid,"target":f.target_node_uuid}), false).await?;
+            ensure!(rows.len() <= 1000, "fact resolution window exhausted");
+            let related: Vec<_> = rows.iter().map(|r| fact(r, group)).collect::<Result<_>>()?;
+            let exact: Vec<_> = related
+                .into_iter()
+                .filter(|old| {
+                    crate::domain::normalize(&old.fact) == crate::domain::normalize(&f.fact)
+                })
+                .collect();
+            ensure!(exact.len() <= 1, "ambiguous normalized fact");
+            if let Some(mut old) = exact.into_iter().next() {
+                if !old.episodes.contains(&p.episode.uuid) {
+                    old.episodes.push(p.episode.uuid.clone());
+                }
+                *f = old;
+            }
+            if !facts.iter().any(|old| {
+                old.source_node_uuid == f.source_node_uuid
+                    && old.target_node_uuid == f.target_node_uuid
+                    && crate::domain::normalize(&old.fact) == crate::domain::normalize(&f.fact)
+            }) {
+                facts.push(f.clone());
+            }
+        }
+        p.entities = nodes;
+        p.facts = facts;
+        p.episode.entity_edges = p.facts.iter().map(|f| f.uuid.clone()).collect();
+        p.validate()?;
+        Ok(p)
     }
     pub async fn commit(&self, payload: &Prepared) -> Result<bool> {
         ensure!(
             self.mode == WriteMode::Synthetic,
             "production compatibility mutations are disabled"
         );
-        payload.validate()?;
+        let payload = self.plan(payload).await?;
         let e = &payload.episode;
         if let Some(existing) = self.episode(&e.group_id, &e.uuid).await? {
             ensure!(
                 existing == *e,
-                "same-UUID update unsupported until baseline validation"
+                "same-UUID episode differs; reconciliation refused"
             );
-            for fact in &payload.facts {
+            for f in &payload.facts {
                 ensure!(
-                    self.edge(&e.group_id, &fact.uuid).await?.as_ref() == Some(fact),
+                    self.edge(&e.group_id, &f.uuid).await?.as_ref() == Some(f),
                     "committed graph differs from prepared facts; reconciliation refused"
                 );
             }
-            for node in &payload.entities {
+            for n in &payload.entities {
                 let found = self
-                    .node(&e.group_id, &node.uuid)
+                    .node(&e.group_id, &n.uuid)
                     .await?
                     .context("prepared entity missing")?;
                 ensure!(
-                    found.uuid == node.uuid
-                        && found.group_id == node.group_id
-                        && found.name == node.name
-                        && found.summary == node.summary
-                        && found.created_at == node.created_at
-                        && found.attributes == node.attributes
-                        && found.name_embedding == node.name_embedding
-                        && node.labels.iter().all(|x| found.labels.contains(x)),
+                    found == *n
+                        || (found.uuid == n.uuid
+                            && found.group_id == n.group_id
+                            && found.name == n.name
+                            && found.summary == n.summary
+                            && found.created_at == n.created_at
+                            && found.attributes == n.attributes
+                            && found.name_embedding == n.name_embedding
+                            && n.labels.iter().all(|x| found.labels.contains(x))),
                     "committed graph differs from prepared entities; reconciliation refused"
+                );
+            }
+            if let Some(b) = &payload.baseline {
+                let rows = self.query(&e.group_id, "MATCH(e:Episodic {uuid:$id})-[m:MENTIONS]->(n:Entity) RETURN m.uuid,n.uuid,m.group_id,m.created_at", json!({"id":e.uuid}), false).await?;
+                ensure!(
+                    rows.len() == b.mentions.len()
+                        && rows.iter().all(|r| r.len() == 4
+                            && r[1]
+                                .as_str()
+                                .and_then(|id| b.mentions.get(id))
+                                .map(|id| json!(id))
+                                == Some(r[0].clone())
+                            && r[2] == json!(e.group_id)
+                            && r[3] == json!(e.created_at)),
+                    "committed MENTIONS differ from durable plan"
                 );
             }
             return Ok(false);
         }
-        let mut entities = vec![];
-        for n in &payload.entities {
+        let baseline = payload
+            .baseline
+            .as_ref()
+            .context("missing durable before state")?;
+        let nodes: Vec<_> = payload.entities.iter().map(|n| {
             let mut props = n.attributes.clone();
             props.extend(json!({"uuid":n.uuid,"group_id":n.group_id,"name":n.name,"summary":n.summary,"created_at":n.created_at,"labels":n.labels,"name_embedding":n.name_embedding}).as_object().unwrap().clone());
-            entities.push(json!({"uuid":n.uuid,"props":props}));
-        }
-        let facts:Vec<_>=payload.facts.iter().map(|f|{let mut props=f.attributes.clone();props.extend(json!({"uuid":f.uuid,"group_id":f.group_id,"name":f.name,"fact":f.fact,"created_at":f.created_at,"valid_at":f.valid_at,"invalid_at":f.invalid_at,"expired_at":f.expired_at,"episodes":f.episodes,"source_node_uuid":f.source_node_uuid,"target_node_uuid":f.target_node_uuid,"fact_embedding":f.fact_embedding}).as_object().unwrap().clone());json!({"source":f.source_node_uuid,"target":f.target_node_uuid,"props":props,"uuid":f.uuid})}).collect();
-        // Only new nodes/edges are accepted; updates require Python baseline comparison.
+            json!({"uuid":n.uuid,"props":props,"mention":baseline.mentions[&n.uuid]})
+        }).collect();
+        let facts: Vec<_> = payload.facts.iter().map(|f| {
+            let mut props = f.attributes.clone();
+            props.extend(json!({"uuid":f.uuid,"group_id":f.group_id,"name":f.name,"fact":f.fact,"created_at":f.created_at,"valid_at":f.valid_at,"invalid_at":f.invalid_at,"expired_at":f.expired_at,"episodes":f.episodes,"source_node_uuid":f.source_node_uuid,"target_node_uuid":f.target_node_uuid,"fact_embedding":f.fact_embedding}).as_object().unwrap().clone());
+            json!({"source":f.source_node_uuid,"target":f.target_node_uuid,"props":props,"uuid":f.uuid})
+        }).collect();
+        let before_nodes: Vec<_> = baseline
+            .entities
+            .values()
+            .filter_map(|v| v.as_ref())
+            .collect();
+        let before_facts: Vec<_> = baseline.facts.values().filter_map(|v| v.as_ref()).collect();
         let labels: std::collections::BTreeSet<_> = payload
             .entities
             .iter()
             .flat_map(|n| n.labels.iter().cloned())
             .filter(|l| l != "Entity")
             .collect();
-        let label_clauses=labels.iter().map(|label|format!(" FOREACH (n IN [x IN $nodes WHERE '{label}' IN x.props.labels] | MERGE (v:Entity {{uuid:n.uuid}}) SET v:{label})")).collect::<String>();
-        let query=r#"OPTIONAL MATCH (existing:Episodic {uuid:$id}) WITH collect(existing) AS existing
- OPTIONAL MATCH (n:Entity) WHERE n.uuid IN $ids WITH existing,collect(n) AS nodes
- OPTIONAL MATCH ()-[r:RELATES_TO]->() WHERE r.uuid IN $fact_ids WITH existing,nodes,collect(r) AS edges
- WHERE size(existing)=0 AND size(nodes)=0 AND size(edges)=0
- FOREACH (n IN $nodes | CREATE (v:Entity) SET v+=n.props SET v.name_embedding=CASE WHEN n.props.name_embedding IS NULL THEN null ELSE vecf32(n.props.name_embedding) END)
- FOREACH (f IN $facts | MERGE (a:Entity {uuid:f.source}) MERGE (b:Entity {uuid:f.target}) CREATE (a)-[r:RELATES_TO]->(b) SET r+=f.props SET r.fact_embedding=CASE WHEN f.props.fact_embedding IS NULL THEN null ELSE vecf32(f.props.fact_embedding) END)
+        let label_clauses = labels.iter().map(|label|format!(" FOREACH (n IN [x IN $nodes WHERE '{label}' IN x.props.labels] | MERGE (v:Entity {{uuid:n.uuid}}) SET v:{label})")).collect::<String>();
+        // All CAS predicates precede every mutation. Aggregates after a failed WHERE must not revive it.
+        let query = r#"OPTIONAL MATCH (e {uuid:$id}) WITH collect(e) AS episodes
+ OPTIONAL MATCH (n) WHERE n.uuid IN $ids WITH episodes,collect(n) AS existing_nodes
+ OPTIONAL MATCH (a)-[r]->(b) WHERE r.uuid IN $fact_ids
+ WITH episodes,existing_nodes,[x IN collect({props:properties(r),source:a.uuid,target:b.uuid,kind:type(r)}) WHERE x.props IS NOT NULL] AS existing_facts
+ WHERE size(episodes)=0 AND size(existing_nodes)=size($before_nodes) AND size(existing_facts)=size($before_facts)
+ AND all(before IN $before_nodes WHERE single(n IN existing_nodes WHERE n.uuid=before.props.uuid AND size(keys(n))=size(keys(before.props)) AND all(k IN keys(before.props) WHERE k='name_embedding' OR n[k]=before.props[k]) AND n.name_embedding=CASE WHEN before.props.name_embedding IS NULL THEN n.name_embedding ELSE vecf32(before.props.name_embedding) END AND size(labels(n))=size(before.labels) AND all(l IN labels(n) WHERE l IN before.labels)))
+ AND all(before IN $before_facts WHERE single(f IN existing_facts WHERE f.kind='RELATES_TO' AND f.props.uuid=before.props.uuid AND f.source=before.source AND f.target=before.target AND size(keys(f.props))=size(keys(before.props)) AND all(k IN keys(before.props) WHERE k='fact_embedding' OR f.props[k]=before.props[k]) AND f.props.fact_embedding=CASE WHEN before.props.fact_embedding IS NULL THEN f.props.fact_embedding ELSE vecf32(before.props.fact_embedding) END))
+ FOREACH (n IN $nodes | MERGE (v:Entity {uuid:n.uuid}) SET v+=n.props SET v.name_embedding=CASE WHEN n.props.name_embedding IS NULL THEN null ELSE vecf32(n.props.name_embedding) END)
+ FOREACH (f IN $facts | MERGE (a:Entity {uuid:f.source}) MERGE (b:Entity {uuid:f.target}) MERGE (a)-[r:RELATES_TO {uuid:f.uuid}]->(b) SET r+=f.props SET r.fact_embedding=CASE WHEN f.props.fact_embedding IS NULL THEN null ELSE vecf32(f.props.fact_embedding) END)
  CREATE (e:Episodic) SET e+=$episode
- FOREACH (n IN $nodes | MERGE (v:Entity {uuid:n.uuid}) CREATE (e)-[m:MENTIONS]->(v) SET m.uuid=randomUUID(),m.group_id=$group,m.created_at=$created)
- RETURN e.uuid"#.replace(" FOREACH (f IN $facts",&format!("{label_clauses} FOREACH (f IN $facts"));
-        let rows=self.query(&e.group_id,&query,json!({"id":e.uuid,"ids":payload.entities.iter().map(|n|n.uuid.clone()).collect::<Vec<_>>(),"fact_ids":e.entity_edges,"nodes":entities,"facts":facts,"episode":e,"group":e.group_id,"created":e.created_at}),true).await?;
+ FOREACH (n IN $nodes | MERGE (v:Entity {uuid:n.uuid}) CREATE(e)-[m:MENTIONS]->(v) SET m.uuid=n.mention,m.group_id=$group,m.created_at=$created)
+ RETURN e.uuid"#.replace(" FOREACH (f IN $facts", &format!("{label_clauses} FOREACH (f IN $facts"));
+        // Missing vectors compare as null-safe absence, rather than null=null (unknown).
+        let query = query.replace("AND n.name_embedding=CASE", "AND (before.props.name_embedding IS NULL AND n.name_embedding IS NULL OR n.name_embedding=CASE").replace("END AND size(labels(n))", "END) AND size(labels(n))").replace("AND f.props.fact_embedding=CASE", "AND (before.props.fact_embedding IS NULL AND f.props.fact_embedding IS NULL OR f.props.fact_embedding=CASE").replace("vecf32(before.props.fact_embedding) END))", "vecf32(before.props.fact_embedding) END)))");
+        let rows = self.query(&e.group_id, &query, json!({"id":e.uuid,"ids":payload.entities.iter().map(|n|&n.uuid).collect::<Vec<_>>(),"fact_ids":e.entity_edges,"before_nodes":before_nodes,"before_facts":before_facts,"nodes":nodes,"facts":facts,"episode":e,"group":e.group_id,"created":e.created_at}), true).await?;
         ensure!(
             !rows.is_empty(),
-            "existing entity/edge/episode update unsupported; no mutation performed"
+            "prepared before state changed; no mutation performed"
         );
         Ok(true)
     }
+    pub async fn apply_mutation(&self, op: &super::journal::Mutation) -> Result<()> {
+        policy::write(&op.group)?;
+        match op.kind.as_str() {
+            "clear_graph" => self.clear(&op.group).await,
+            "delete_episode" => {
+                let id = op.uuid.as_deref().context("missing episode UUID")?;
+                policy::uuid(id)?;
+                self.query(&op.group, "MATCH(n {uuid:$id}) WHERE n.group_id=$group AND (n:Entity OR n:Episodic OR n:Community) WITH collect(n) AS nodes FOREACH(n IN nodes | DETACH DELETE n) RETURN size(nodes)", json!({"id":id,"group":op.group}), true).await?;
+                Ok(())
+            }
+            "delete_entity_edge" => {
+                let id = op.uuid.as_deref().context("missing fact UUID")?;
+                policy::uuid(id)?;
+                self.query(&op.group, "MATCH()-[r:MENTIONS|RELATES_TO|HAS_MEMBER {uuid:$id}]->() WHERE r.group_id=$group WITH collect(r) AS edges FOREACH(r IN edges | DELETE r) RETURN size(edges)", json!({"id":id,"group":op.group}), true).await?;
+                Ok(())
+            }
+            _ => bail!("unknown destructive operation"),
+        }
+    }
     pub async fn clear(&self, group: &str) -> Result<()> {
         policy::write(group)?;
-        self.query(group,"MATCH (n) WITH collect(n) AS nodes FOREACH (n IN nodes | DETACH DELETE n) RETURN size(nodes)",json!({}),true).await?;
+        self.query(group,"MATCH (n) WHERE n.group_id=$group AND (n:Entity OR n:Episodic OR n:Community) WITH collect(n) AS nodes FOREACH (n IN nodes | DETACH DELETE n) RETURN size(nodes)",json!({"group":group}),true).await?;
         Ok(())
     }
 }

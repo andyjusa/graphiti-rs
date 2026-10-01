@@ -53,6 +53,7 @@ fn fixture(group: &str) -> Prepared {
     f["fact_embedding"] = json!(vector());
     let facts = vec![serde_json::from_value(f).unwrap()];
     Prepared {
+        baseline: None,
         episode,
         entities,
         facts,
@@ -178,7 +179,7 @@ fn private_dtos_preserve_vectors_but_public_results_do_not() {
     assert_ne!(p.facts[0].valid_at, p.facts[0].invalid_at);
     assert_ne!(p.facts[0].invalid_at, p.facts[0].expired_at);
     let mut bad = p.clone();
-    bad.facts[0].episodes.push(uuid::Uuid::new_v4().to_string());
+    bad.facts[0].episodes = vec![uuid::Uuid::new_v4().to_string()];
     assert!(bad.validate().is_err());
     let mut bad = p;
     bad.entities[0]
@@ -395,7 +396,7 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
             .await
             .unwrap();
     let _:redis::Value=redis::cmd("GRAPH.QUERY").arg("user_primary").arg(format!("MATCH(e:Episodic {{uuid:'{}'}}),(n:Entity {{uuid:'{}'}}) CREATE(s:Saga {{uuid:'00000000-0000-4000-8000-000000000301',group_id:'user_primary',custom:'retain'}})-[:HAS_EPISODE]->(e) CREATE(c:Community {{uuid:'00000000-0000-4000-8000-000000000302',group_id:'user_primary'}})-[:HAS_MEMBER]->(n)",p.episode.uuid,p.entities[0].uuid)).query_async(&mut connection).await.unwrap();
-    // Existing entity IDs must fail atomically, without creating an episode.
+    // Existing entity IDs can now update without changing identity or unrelated topology.
     let mut collision = p.clone();
     collision.episode.uuid = uuid::Uuid::new_v4().to_string();
     for fact in &mut collision.facts {
@@ -403,13 +404,15 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
         fact.episodes = vec![collision.episode.uuid.clone()];
     }
     collision.episode.entity_edges = collision.facts.iter().map(|f| f.uuid.clone()).collect();
-    assert!(store.commit(&collision).await.is_err());
+    let collision = store.plan(&collision).await.unwrap();
+    assert!(store.commit(&collision).await.unwrap());
+    assert!(!store.commit(&collision).await.unwrap());
     assert!(
         store
             .episode("user_primary", &collision.episode.uuid)
             .await
             .unwrap()
-            .is_none()
+            .is_some()
     );
     // Identical UUIDs and names in another group remain separate identities.
     store.clear("general_chat").await.unwrap();
@@ -565,13 +568,12 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
         .unwrap();
     read.execute("get_status", json!({})).await.unwrap();
     assert!(
-        engine
-            .execute(
-                "delete_episode",
-                json!({"uuid":p.episode.uuid,"group_id":"user_primary"})
-            )
-            .await
-            .is_err()
+        read.execute(
+            "delete_episode",
+            json!({"uuid":p.episode.uuid,"group_id":"user_primary"})
+        )
+        .await
+        .is_err()
     );
     let topology: redis::Value = redis::cmd("GRAPH.RO_QUERY")
         .arg("user_primary")
@@ -642,6 +644,11 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
     let extraction = bodies.iter().find(|v| v.get("messages").is_some()).unwrap();
     assert_eq!(extraction["model"], "gpt-6-luna");
     assert_eq!(extraction["max_tokens"], 512);
+    assert_eq!(extraction["temperature"], 1);
+    assert_eq!(
+        extraction["extra_body"]["chat_template_kwargs"]["enable_thinking"],
+        false
+    );
     assert!(
         bodies
             .iter()
@@ -670,6 +677,7 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
     prepared.facts[0].target_node_uuid = prepared.entities[1].uuid.clone();
     prepared.facts[0].episodes = vec![recovery_id.clone()];
     prepared.episode.entity_edges = vec![prepared.facts[0].uuid.clone()];
+    let prepared = store.plan(&prepared).await.unwrap();
     recovery_journal.prepared(&recovery_job, &prepared).unwrap();
     store.commit(&prepared).await.unwrap();
     drop(recovery_journal);
@@ -842,4 +850,302 @@ async fn compatibility_http_auth_hosts_origin_size_and_legacy_initialization() {
         .await
         .unwrap();
     assert!(oversized.status().is_client_error());
+}
+
+#[test]
+fn destructive_journal_blocks_ingestion_and_preserves_receipt_history() {
+    let path = dir();
+    let j = Journal::open(&path, 8).unwrap();
+    let mut p = fixture("user_primary");
+    let mut r = request(&p.episode.uuid);
+    r.name = p.episode.name.clone();
+    r.episode_body = p.episode.content.clone();
+    r.source_description = p.episode.source_description.clone();
+    j.accept(r.clone()).unwrap();
+    assert!(
+        j.begin_mutation("user_primary", "clear_graph", None)
+            .is_err()
+    );
+    let job = j.next().unwrap().unwrap();
+    p.episode.created_at = job.created.clone();
+    p.episode.valid_at = job.created.clone();
+    j.prepared(&job, &p).unwrap();
+    j.finish(&job, false).unwrap();
+    assert!(
+        j.begin_mutation("user_primary", "clear_graph", None)
+            .is_err()
+    );
+    j.accept(r.clone()).unwrap();
+    let job = j.next().unwrap().unwrap();
+    j.finish(&job, true).unwrap();
+    let op = j
+        .begin_mutation("user_primary", "delete_episode", Some(&p.episode.uuid))
+        .unwrap();
+    assert!(
+        j.accept(request(&uuid::Uuid::new_v4().to_string()))
+            .is_err()
+    );
+    assert!(
+        j.begin_mutation("user_primary", "clear_graph", None)
+            .is_err()
+    );
+    drop(j);
+    let j = Journal::open(&path, 8).unwrap();
+    assert_eq!(j.mutations().unwrap()[0].id, op.id);
+    assert_eq!(
+        j.begin_mutation("user_primary", "delete_episode", Some(&p.episode.uuid))
+            .unwrap()
+            .id,
+        op.id
+    );
+    j.finish_mutation(&op).unwrap();
+    assert!(j.accept(r).is_err());
+    assert!(
+        j.committed("user_primary", &p.episode.uuid)
+            .unwrap()
+            .is_none()
+    );
+    let other = request(&uuid::Uuid::new_v4().to_string());
+    j.accept(other.clone()).unwrap();
+    let job = j.next().unwrap().unwrap();
+    j.finish(&job, true).unwrap();
+    let op = j
+        .begin_mutation("user_primary", "clear_graph", None)
+        .unwrap();
+    j.finish_mutation(&op).unwrap();
+    assert!(j.accept(other).is_err());
+    drop(j);
+    let db = rusqlite::Connection::open(path.join("jobs.sqlite")).unwrap();
+    let count: i64 = db
+        .query_row("SELECT count(*) FROM jobs WHERE state='cleared'", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(count, 2);
+    drop(db);
+    std::fs::remove_dir_all(path).unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires dedicated disposable FalkorDB on loopback port 16379"]
+async fn isolated_upsert_cas_provenance_deletion_clear_and_recovery() {
+    let url = std::env::var("COMPAT_TEST_DB_URL").expect("explicit disposable DB required");
+    assert_eq!(url, "redis://127.0.0.1:16379");
+    let group = "project_parity_00000001";
+    let other = "project_parity_00000002";
+    let store = LegacyStore::connect(&url, WriteMode::Synthetic)
+        .await
+        .unwrap();
+    let mut conn = redis::aio::ConnectionManager::new(redis::Client::open(url.as_str()).unwrap())
+        .await
+        .unwrap();
+    for g in [group, other] {
+        let _: redis::Value = redis::cmd("GRAPH.DELETE")
+            .arg(g)
+            .query_async(&mut conn)
+            .await
+            .unwrap_or(redis::Value::Nil);
+    }
+    let first = store.plan(&fixture(group)).await.unwrap();
+    assert!(store.commit(&first).await.unwrap());
+    let other_p = store.plan(&fixture(other)).await.unwrap();
+    store.commit(&other_p).await.unwrap();
+    let mut second = first.clone();
+    second.baseline = None;
+    second.episode.uuid = uuid::Uuid::new_v4().to_string();
+    second.episode.created_at = "2026-10-03T00:00:00.111111Z".into();
+    second.episode.valid_at = second.episode.created_at.clone();
+    second.entities[0].summary = "updated summary".into();
+    second.entities[0].created_at = second.episode.created_at.clone();
+    second.entities[0]
+        .attributes
+        .insert("new_attr".into(), json!("kept"));
+    second.facts[0].episodes = vec![second.episode.uuid.clone()];
+    second.facts[0].valid_at = Some("2026-10-03T01:00:00.987654+09:00".into());
+    second.facts[0].invalid_at = None;
+    second.facts[0].expired_at = None;
+    let planned = store.plan(&second).await.unwrap();
+    assert_eq!(planned.entities[0].created_at, first.entities[0].created_at);
+    assert_eq!(
+        planned.facts[0].episodes,
+        vec![first.episode.uuid.clone(), second.episode.uuid.clone()]
+    );
+    // CAS detects concurrent changes, including properties outside the intended update.
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(group)
+        .arg(format!(
+            "MATCH(n:Entity {{uuid:'{}'}}) SET n.concurrent='changed'",
+            first.entities[0].uuid
+        ))
+        .query_async(&mut conn)
+        .await
+        .unwrap();
+    assert!(store.commit(&planned).await.is_err());
+    assert!(
+        store
+            .episode(group, &second.episode.uuid)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        store
+            .edge(group, &first.facts[0].uuid)
+            .await
+            .unwrap()
+            .unwrap(),
+        first.facts[0]
+    );
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(group)
+        .arg(format!(
+            "MATCH(n:Entity {{uuid:'{}'}}) REMOVE n.concurrent",
+            first.entities[0].uuid
+        ))
+        .query_async(&mut conn)
+        .await
+        .unwrap();
+    assert!(store.commit(&planned).await.unwrap());
+    assert!(!store.commit(&planned).await.unwrap());
+    assert_eq!(
+        store
+            .edge(group, &first.facts[0].uuid)
+            .await
+            .unwrap()
+            .unwrap(),
+        planned.facts[0]
+    );
+    // Existing UUID cannot be retargeted; no accidental second relationship is created.
+    let mut retarget = second.clone();
+    retarget.episode.uuid = uuid::Uuid::new_v4().to_string();
+    retarget.facts[0].episodes = vec![retarget.episode.uuid.clone()];
+    retarget.facts[0].source_node_uuid = second.entities[1].uuid.clone();
+    assert!(store.plan(&retarget).await.is_err());
+    // Exact normalized names/facts reuse UUIDs and append supporting provenance once.
+    let mut third = fixture(group);
+    third.episode.uuid = uuid::Uuid::new_v4().to_string();
+    for n in &mut third.entities {
+        n.uuid = uuid::Uuid::new_v4().to_string();
+        n.name = format!("  {}  ", n.name);
+    }
+    third.facts[0].uuid = uuid::Uuid::new_v4().to_string();
+    third.facts[0].source_node_uuid = third.entities[0].uuid.clone();
+    third.facts[0].target_node_uuid = third.entities[1].uuid.clone();
+    third.facts[0].episodes = vec![third.episode.uuid.clone()];
+    third.episode.entity_edges = vec![third.facts[0].uuid.clone()];
+    let resolved = store.resolve_exact(&third).await.unwrap();
+    assert_eq!(resolved.entities[0].uuid, first.entities[0].uuid);
+    assert_eq!(resolved.facts[0].uuid, first.facts[0].uuid);
+    assert_eq!(resolved.facts[0].episodes.len(), 3);
+    let resolved = store.plan(&resolved).await.unwrap();
+    store.commit(&resolved).await.unwrap();
+    // Recovery verifies stable MENTIONS identifiers, rather than only the episode row.
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(group)
+        .arg(format!(
+            "MATCH(e:Episodic {{uuid:'{}'}})-[m:MENTIONS]->() SET m.uuid=randomUUID()",
+            third.episode.uuid
+        ))
+        .query_async(&mut conn)
+        .await
+        .unwrap();
+    assert!(store.commit(&resolved).await.is_err());
+    let _:redis::Value=redis::cmd("GRAPH.QUERY").arg(group).arg(format!("MATCH(e:Episodic {{uuid:'{}'}}),(n:Entity {{uuid:'{}'}}) CREATE(s:Saga {{uuid:'00000000-0000-4000-8000-000000000901',group_id:'{group}',retain:true}})-[:HAS_EPISODE]->(e) CREATE(c:Community {{uuid:'00000000-0000-4000-8000-000000000902',group_id:'{group}'}})-[:HAS_MEMBER]->(n) CREATE(u:Unrecognized {{uuid:'00000000-0000-4000-8000-000000000903',group_id:'{group}',retain:true}})",first.episode.uuid,first.entities[0].uuid)).query_async(&mut conn).await.unwrap();
+    let path = dir();
+    let j = Journal::open(&path, 8).unwrap();
+    let op = j
+        .begin_mutation(group, "delete_episode", Some(&first.episode.uuid))
+        .unwrap();
+    store.apply_mutation(&op).await.unwrap();
+    // Simulate DB success followed by process exit before ledger completion.
+    drop(j);
+    let j = Journal::open(&path, 8).unwrap();
+    let op = j.mutations().unwrap().remove(0);
+    store.apply_mutation(&op).await.unwrap();
+    j.finish_mutation(&op).unwrap();
+    assert!(
+        store
+            .episode(group, &first.episode.uuid)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        store
+            .node(group, &first.entities[0].uuid)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    let remaining = store
+        .edge(group, &first.facts[0].uuid)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(remaining.episodes.contains(&first.episode.uuid)); // observed MCP baseline leaves provenance arrays untouched
+    assert!(
+        store
+            .episode(other, &first.episode.uuid)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    let op = j
+        .begin_mutation(group, "delete_entity_edge", Some(&first.facts[0].uuid))
+        .unwrap();
+    store.apply_mutation(&op).await.unwrap();
+    j.finish_mutation(&op).unwrap();
+    assert!(
+        store
+            .edge(group, &first.facts[0].uuid)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        store
+            .episode(group, &second.episode.uuid)
+            .await
+            .unwrap()
+            .unwrap()
+            .entity_edges
+            .contains(&first.facts[0].uuid)
+    );
+    let op = j.begin_mutation(group, "clear_graph", None).unwrap();
+    store.apply_mutation(&op).await.unwrap();
+    j.finish_mutation(&op).unwrap();
+    assert!(
+        store
+            .node(group, &first.entities[0].uuid)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let keep: redis::Value = redis::cmd("GRAPH.RO_QUERY")
+        .arg(group)
+        .arg("MATCH(n) RETURN labels(n),n.retain ORDER BY labels(n)")
+        .arg("--compact")
+        .query_async(&mut conn)
+        .await
+        .unwrap();
+    let rendered = format!("{keep:?}");
+    assert!(rendered.contains("Saga"));
+    assert!(rendered.contains("Unrecognized"));
+    assert!(!rendered.contains("Community"));
+    assert!(
+        store
+            .episode(other, &first.episode.uuid)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    drop(j);
+    std::fs::remove_dir_all(path).unwrap();
+    for g in [group, other] {
+        let _: redis::Value = redis::cmd("GRAPH.DELETE")
+            .arg(g)
+            .query_async(&mut conn)
+            .await
+            .unwrap();
+    }
 }
