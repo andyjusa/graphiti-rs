@@ -181,6 +181,22 @@ fn observed_python_functions_match_rust_on_synthetic_decisions() {
         .unwrap();
         expected.push(json!([resolved, invalidated, duplicates]));
     }
+    for content in [
+        "{\"entities\":[],\"facts\":[]}",
+        "prefix ```json\n{\"entities\":[],\"facts\":[]}\n``` suffix",
+        "```json\n{\"entities\":[],\"facts\":[]}\n```",
+        "{\"entities\":[],\"facts\":[]} {\"ignored\":true}",
+        "{\"type\":\"object\",\"properties\":{\"entities\":{\"value\":[]},\"facts\":{\"value\":[]}}}",
+        "[]",
+        "incomplete {",
+        "null",
+    ] {
+        cases.push(json!({"kind":"decode","content":content}));
+        expected.push(
+            graphiti_rs::compat::providers::decode_extraction(content)
+                .unwrap_or_else(|_| json!({"error":true})),
+        );
+    }
     let mut child = Command::new("python3")
         .args(["-S", "scripts/python-0282-baseline.py"])
         .stdin(Stdio::piped())
@@ -218,7 +234,8 @@ fn baseline_uuid_and_destructive_scope_are_observed_not_assumed() {
         {"kind":"stable_uuid","uuid":"synthetic","exists":false,"now":"2026-10-01T00:00:00Z"},
         {"kind":"delete_episode","uuid":"synthetic"},
         {"kind":"delete_edge","uuid":"synthetic"},
-        {"kind":"clear"}
+        {"kind":"clear"},
+        {"kind":"recipes"}
     ]);
     let mut child = Command::new("python3")
         .args(["-S", "scripts/python-0282-baseline.py"])
@@ -240,6 +257,18 @@ fn baseline_uuid_and_destructive_scope_are_observed_not_assumed() {
         String::from_utf8_lossy(&result.stderr)
     );
     let values: Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(
+        values[5]["recipes"],
+        json!({
+            "EDGE_HYBRID_SEARCH_RRF":{"search_methods":["bm25","cosine_similarity"],"reranker":"rrf"},
+            "EDGE_HYBRID_SEARCH_NODE_DISTANCE":{"search_methods":["bm25","cosine_similarity"],"reranker":"node_distance"},
+            "NODE_HYBRID_SEARCH_RRF":{"search_methods":["bm25","cosine_similarity"],"reranker":"rrf"}
+        })
+    );
+    assert_eq!(
+        values[5]["semantic_min_score"],
+        json!(resolution::SEMANTIC_MIN_SCORE)
+    );
     assert_eq!(values[0]["content"], "old content");
     assert_eq!(values[1]["content"], "new content");
     let episode = values[2].as_array().unwrap();

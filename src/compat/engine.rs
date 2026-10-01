@@ -157,7 +157,7 @@ impl Engine {
                         );
                     }
                     if let Some(prepared) = journal.committed(&group, id)? {
-                        self.store.commit(&prepared).await?;
+                        self.store.verify_receipt(&prepared).await?;
                     }
                 }
                 let receipt = self.journal.as_ref().unwrap().accept(r)?;
@@ -470,8 +470,12 @@ fn fused_order<T>(
         let mut semantic: Vec<_> = items
             .iter()
             .filter(|v| {
-                embedding(v)
-                    .is_some_and(|e| e.len() == vector.len() && e.iter().all(|x| x.is_finite()))
+                embedding(v).is_some_and(|e| {
+                    e.len() == vector.len()
+                        && e.iter().all(|x| x.is_finite())
+                        && score("", "", Some(e), Some(vector))
+                            > super::resolution::SEMANTIC_MIN_SCORE
+                })
             })
             .collect();
         semantic.sort_by(|a, b| {

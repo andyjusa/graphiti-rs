@@ -1,0 +1,17 @@
+{
+  "observed_at": "2026-10-01",
+  "collection": "read-only source/version/binary metadata; no environment, credentials or graph data exported",
+  "graphiti_core": "0.28.2",
+  "image_id": "sha256:ed8f5d566429152635aaf6795ffd4e5bfd11f704ea03d6cc79fa25c41384d854",
+  "redis": "8.2.3",
+  "falkordb_module_version": 41606,
+  "falkordb_module_path": "/var/lib/falkordb/bin/falkordb.so",
+  "falkordb_module_sha256": "82f1f94ed4d86820c0b9770fb80c533bb87c8ece400f91833c05104a33e951e1",
+  "machine": "aarch64",
+  "hardware": "Raspberry Pi 4 Model B Rev 1.2",
+  "mem_total_mib": 3795,
+  "core_graphiti_py_sha256": "8487af6bda1b4efa914f4a827502d4f241a4e3c8ce7973df3c410e4b2ef8153f",
+  "runtime_sitecustomize_sha256": "57d502998a1dd18374ca472d0fa16ffe420f898569a11e75e50dc9209acd5522",
+  "runtime_hermes_main_sha256": "298ecb087f46a935533adc160795ca16464fbeef4fc8c3a5ba4f1df48715f847",
+  "runtime_stable_uuid_patch_sha256": "a74d18137cd8fac3fa0d4964f11a93b782a76299759d3fcccf51b1feb962e999"
+}

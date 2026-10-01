@@ -4,6 +4,7 @@ use super::dto::{LegacyFact, timestamp};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+pub const SEMANTIC_MIN_SCORE: f64 = 0.6;
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct Decision {

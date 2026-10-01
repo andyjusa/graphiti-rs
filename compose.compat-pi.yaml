@@ -1,0 +1,35 @@
+# Review docs/compat/pi-validation.md before running. Synthetic data only.
+name: graphiti-rs-compat-pi
+services:
+  falkordb:
+    image: ${COMPAT_TEST_FALKOR_IMAGE:?set the observed production image ID}
+    entrypoint: [redis-server]
+    command: ["--loadmodule", "/var/lib/falkordb/bin/falkordb.so", "--bind", "0.0.0.0", "--protected-mode", "no", "--dir", "/data", "--appendonly", "yes", "--save", "60", "1"]
+    user: "${COMPAT_TEST_UID:?set test directory owner UID}:${COMPAT_TEST_GID:?set test directory owner GID}"
+    ports: ["127.0.0.1:16379:6379"]
+    volumes:
+      - type: bind
+        source: ${COMPAT_TEST_ROOT:?set a fresh private test directory}/db
+        target: /data
+        bind:
+          create_host_path: false
+    networks: [isolated]
+    read_only: true
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=32m"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    cpus: 1
+    mem_limit: 512m
+    pids_limit: 128
+    labels:
+      task: graphiti-rs-compat-pi-synthetic
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+networks:
+  isolated:
+    internal: true
+    labels:
+      task: graphiti-rs-compat-pi-synthetic

@@ -113,6 +113,53 @@
       "line": 910,
       "source_sha256": "8487af6bda1b4efa914f4a827502d4f241a4e3c8ce7973df3c410e4b2ef8153f",
       "excerpt_sha256": "db57404e6e45eea72b8ed5bdd7e9fb97b5391a52a3c298c70fad530fe9144c33"
+    },
+    {
+      "file": "patches_openrouter_json_decode_first_json.py",
+      "source": "patches/openrouter_json.py",
+      "name": "decode_first_json",
+      "line": 8,
+      "source_sha256": "f0435b4405a9511958c6f660c322d21921efa50c43f590e6bbd0db2ae44d679f",
+      "excerpt_sha256": "dc580eedfc73b9799f45e23d9e56ed313cb8d20bcf64f4cd9b538803ff78b051"
+    },
+    {
+      "file": "patches_openrouter_json_flatten_schema_value_envelope.py",
+      "source": "patches/openrouter_json.py",
+      "name": "flatten_schema_value_envelope",
+      "line": 14,
+      "source_sha256": "f0435b4405a9511958c6f660c322d21921efa50c43f590e6bbd0db2ae44d679f",
+      "excerpt_sha256": "4fe2f1b213ab4b5f798afd8e5ce2f462294b2e0dd9b66043e71e655f5a274093"
+    },
+    {
+      "file": "patches_openrouter_json_normalize_structured_response.py",
+      "source": "patches/openrouter_json.py",
+      "name": "normalize_structured_response",
+      "line": 47,
+      "source_sha256": "f0435b4405a9511958c6f660c322d21921efa50c43f590e6bbd0db2ae44d679f",
+      "excerpt_sha256": "87a7d4d964afc0987d82474dfa1062f26891a34136b54baea98f1d7065cb19b1"
+    },
+    {
+      "file": "adapter_decode_block.py",
+      "source": "patches/sitecustomize.py",
+      "name": "adapter_decode_block",
+      "line": 185,
+      "source_sha256": "57d502998a1dd18374ca472d0fa16ffe420f898569a11e75e50dc9209acd5522",
+      "excerpt_sha256": "50f6ee20ab85f7e5ab245e963117a41fd9ee75cb8962085c454916511323f2f1"
+    },
+    {
+      "file": "search_recipes.py",
+      "source": "core/search/search_config_recipes.py",
+      "name": "search_recipes",
+      "source_sha256": "e06aae4698478499695d084064ec926270b30566284f0c65263e3879339abd94",
+      "excerpt_sha256": "e1b8b0b6ce0050492c6dddcf271be45ebfefc0fe2e3e8c2acab1d32239f2d9a3"
+    },
+    {
+      "file": "search_min_score.py",
+      "source": "core/search/search_utils.py",
+      "name": "DEFAULT_MIN_SCORE",
+      "line": 65,
+      "source_sha256": "06f84efc8ac35a1f2d98f9dad3ce0916bd39290b7e17689ffbcae9915073325c",
+      "excerpt_sha256": "3616fb755345ba123c88748c921bd74dcd7da7b5e5d0b4f32133e7b67956ab8c"
     }
   ]
 }

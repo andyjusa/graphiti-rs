@@ -550,8 +550,49 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
         )
         .await
         .unwrap();
-    assert_eq!(facts["facts"].as_array().unwrap().len(), 1);
+    assert_eq!(facts["facts"].as_array().unwrap().len(), 3);
+    assert_eq!(facts["facts"][0]["source_node_uuid"], center);
+    let embeds_before_empty = state.embeds.load(Ordering::SeqCst);
+    assert!(engine.execute("search_memory_facts",json!({"query":"Gaon","group_ids":["user_primary","general_chat"],"center_node_uuid":center})).await.is_err());
+    assert_eq!(
+        engine
+            .execute("search_nodes", json!({"query":"Gaon","group_ids":[]}))
+            .await
+            .unwrap()["nodes"],
+        json!([])
+    );
+    assert_eq!(
+        engine
+            .execute(
+                "search_memory_facts",
+                json!({"query":"Gaon","group_ids":[]})
+            )
+            .await
+            .unwrap()["facts"],
+        json!([])
+    );
+    assert_eq!(state.embeds.load(Ordering::SeqCst), embeds_before_empty);
     assert!(!facts.to_string().contains("embedding"));
+    let second_id = uuid::Uuid::new_v4().to_string();
+    state.release.add_permits(1);
+    engine
+        .execute(
+            "add_memory",
+            serde_json::to_value(request(&second_id)).unwrap(),
+        )
+        .await
+        .unwrap();
+    poll(&engine, "user_primary", &second_id).await;
+    engine
+        .execute("add_memory", serde_json::to_value(request(&id)).unwrap())
+        .await
+        .unwrap();
+    let shared = store
+        .edge("user_primary", facts["facts"][0]["uuid"].as_str().unwrap())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(shared.episodes.contains(&id) && shared.episodes.contains(&second_id));
     let calls = state.calls.load(Ordering::SeqCst);
     let embed_calls = state.embeds.load(Ordering::SeqCst);
     let mut read = cfg.clone();
@@ -637,7 +678,10 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
     client.cancel().await.unwrap();
     server.await.unwrap();
     let provider = Providers::new(cfg).unwrap();
-    provider.embed(&["line1\nline2".into()]).await.unwrap();
+    provider
+        .embed(&["line1\nline2".into(), "\rline3".into()])
+        .await
+        .unwrap();
     state.bad.store(true, Ordering::SeqCst);
     assert!(provider.embed(&["bad".into()]).await.is_err());
     let bodies = state.bodies.lock().await;
@@ -653,6 +697,11 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
         bodies
             .iter()
             .any(|b| b["requests"][0]["content"]["parts"][0]["text"] == "line1 line2")
+    );
+    assert!(
+        bodies
+            .iter()
+            .any(|b| b["requests"][1]["content"]["parts"][0]["text"] == "\rline3")
     );
     drop(bodies);
     // A DB commit followed by a lost journal completion must reconcile, without another model request.
@@ -738,6 +787,56 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
     );
     assert!(engine.execute("add_memory", failed).await.is_err());
     assert_eq!(state.calls.load(Ordering::SeqCst), before + 1);
+    // Valid destructive MCP calls use durable tombstones and preserve baseline dangling provenance.
+    engine
+        .execute(
+            "delete_episode",
+            json!({"uuid":id,"group_id":"user_primary"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        engine
+            .execute("get_episode", json!({"uuid":id,"group_id":"user_primary"}))
+            .await
+            .unwrap()["found"],
+        false
+    );
+    assert!(
+        engine
+            .execute("add_memory", serde_json::to_value(request(&id)).unwrap())
+            .await
+            .is_err()
+    );
+    let edge_id = facts["facts"][0]["uuid"].as_str().unwrap();
+    assert!(
+        store
+            .edge("user_primary", edge_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .episodes
+            .contains(&id)
+    );
+    engine
+        .execute(
+            "delete_entity_edge",
+            json!({"uuid":edge_id,"group_id":"user_primary"}),
+        )
+        .await
+        .unwrap();
+    assert!(store.edge("user_primary", edge_id).await.unwrap().is_none());
+    engine
+        .execute("clear_graph", json!({"group_ids":["user_primary"]}))
+        .await
+        .unwrap();
+    assert!(
+        store
+            .episode("general_chat", &other.episode.uuid)
+            .await
+            .unwrap()
+            .is_some()
+    );
     drop(read);
     drop(engine);
     tokio::time::sleep(Duration::from_millis(50)).await;
@@ -908,7 +1007,23 @@ fn destructive_journal_blocks_ingestion_and_preserves_receipt_history() {
     let other = request(&uuid::Uuid::new_v4().to_string());
     j.accept(other.clone()).unwrap();
     let job = j.next().unwrap().unwrap();
+    let mut p = fixture("user_primary");
+    p.episode.uuid = job.id.clone();
+    p.episode.name = job.request.name.clone();
+    p.episode.content = job.request.episode_body.clone();
+    p.episode.source_description = job.request.source_description.clone();
+    p.episode.created_at = job.created.clone();
+    p.episode.valid_at = job.created.clone();
+    p.facts[0].episodes = vec![job.id.clone()];
+    assert!(j.finish(&job, true).is_err());
+    j.prepared(&job, &p).unwrap();
     j.finish(&job, true).unwrap();
+    assert!(j.prepared(&job, &p).is_err());
+    let op = j
+        .begin_mutation("user_primary", "delete_entity_edge", Some(&p.facts[0].uuid))
+        .unwrap();
+    j.finish_mutation(&op).unwrap();
+    assert!(j.accept(other.clone()).is_err());
     let op = j
         .begin_mutation("user_primary", "clear_graph", None)
         .unwrap();
@@ -1015,6 +1130,7 @@ async fn isolated_upsert_cas_provenance_deletion_clear_and_recovery() {
             .unwrap(),
         planned.facts[0]
     );
+    store.verify_receipt(&first).await.unwrap();
     // Existing UUID cannot be retargeted; no accidental second relationship is created.
     let mut retarget = second.clone();
     retarget.episode.uuid = uuid::Uuid::new_v4().to_string();

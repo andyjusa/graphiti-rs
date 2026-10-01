@@ -81,6 +81,7 @@ impl Journal {
         db.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
             CREATE TABLE IF NOT EXISTS jobs (group_id TEXT NOT NULL, uuid TEXT NOT NULL, digest TEXT NOT NULL, request TEXT NOT NULL, created_at TEXT NOT NULL, state TEXT NOT NULL, prepared TEXT, error TEXT, PRIMARY KEY(group_id,uuid));
             CREATE TABLE IF NOT EXISTS mutations (id INTEGER PRIMARY KEY, group_id TEXT NOT NULL, kind TEXT NOT NULL, uuid TEXT, state TEXT NOT NULL);
+            CREATE UNIQUE INDEX IF NOT EXISTS one_pending_mutation_per_group ON mutations(group_id) WHERE state='pending';
             UPDATE jobs SET state='failed',error='uncertain model dispatch; automatic replay refused' WHERE state='running';")?;
         Ok(Self {
             db: Mutex::new(db),
@@ -187,21 +188,22 @@ impl Journal {
     }
     pub fn prepared(&self, job: &Job, value: &Prepared) -> Result<()> {
         job.validate_prepared(value)?;
-        self.db
+        let changed = self.db
             .lock()
             .map_err(|_| anyhow::anyhow!("journal unavailable"))?
             .execute(
-                "UPDATE jobs SET state='prepared',prepared=? WHERE group_id=? AND uuid=?",
+                "UPDATE jobs SET state='prepared',prepared=? WHERE group_id=? AND uuid=? AND state='running'",
                 params![serde_json::to_string(value)?, job.group, job.id],
             )?;
+        ensure!(changed == 1, "invalid prepared journal transition");
         Ok(())
     }
     pub fn finish(&self, job: &Job, success: bool) -> Result<()> {
-        self.db
+        let changed = self.db
             .lock()
             .map_err(|_| anyhow::anyhow!("journal unavailable"))?
             .execute(
-                "UPDATE jobs SET state=?,error=? WHERE group_id=? AND uuid=?",
+                "UPDATE jobs SET state=?,error=? WHERE group_id=? AND uuid=? AND state IN ('running','prepared') AND (?=0 OR prepared IS NOT NULL)",
                 params![
                     if success { "committed" } else { "failed" },
                     if success {
@@ -210,9 +212,11 @@ impl Journal {
                         Some("processing failed; no automatic model replay")
                     },
                     job.group,
-                    job.id
+                    job.id,
+                    success
                 ],
             )?;
+        ensure!(changed == 1, "invalid completion journal transition");
         Ok(())
     }
     pub fn tracked(&self, group: &str, id: &str) -> Result<bool> {

@@ -113,6 +113,28 @@ async def run(case):
             f = load(source, 'delete', env)
             await f(NS(uuid=case['uuid']), Driver())
         return queries
+    if case['kind'] == 'recipes':
+        item=next(i for i in MANIFEST['functions'] if i['name']=='search_recipes')
+        data=(ROOT/item['file']).read_bytes()
+        assert hashlib.sha256(data).hexdigest()==item['excerpt_sha256']
+        result={}
+        for node in ast.parse(data).body:
+            config=node.value.keywords[0].value
+            result[node.targets[0].id]={k.arg: [e.attr for e in k.value.elts] if isinstance(k.value,ast.List) else k.value.attr for k in config.keywords}
+        load('core/search/search_utils.py','DEFAULT_MIN_SCORE',env)
+        return {'recipes':result,'semantic_min_score':env['DEFAULT_MIN_SCORE']}
+    if case['kind'] == 'decode':
+        for name in ('decode_first_json','flatten_schema_value_envelope','normalize_structured_response'):
+            load('patches/openrouter_json.py',name,env)
+        item=next(i for i in MANIFEST['functions'] if i['name']=='adapter_decode_block')
+        data=(ROOT/item['file']).read_bytes()
+        assert hashlib.sha256(data).hexdigest()==item['excerpt_sha256']
+        body=ast.parse(data).body
+        wrapper=ast.FunctionDef(name='decode',args=ast.arguments(posonlyargs=[],args=[],kwonlyargs=[],kw_defaults=[],defaults=[]),body=body,decorator_list=[])
+        env.update({'content':case['content'],'schema':{'properties':{'entities':{},'facts':{}}}})
+        exec(compile(ast.fix_missing_locations(ast.Module(body=[wrapper],type_ignores=[])),item['file'],'exec'),env)
+        try: return env['decode']()
+        except (ValueError,IndexError): return {'error':True}
     if case['kind'] == 'stable_uuid':
         # Execute only the actual if/try/create block in an async wrapper.
         item = next(i for i in MANIFEST['functions'] if i['name']=='stable_episode_block')

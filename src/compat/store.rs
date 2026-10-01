@@ -445,6 +445,8 @@ impl LegacyStore {
                             && r[3] == json!(e.created_at)),
                     "committed MENTIONS differ from durable plan"
                 );
+            } else {
+                self.verify_receipt(&payload).await?;
             }
             return Ok(false);
         }
@@ -496,6 +498,57 @@ impl LegacyStore {
             "prepared before state changed; no mutation performed"
         );
         Ok(true)
+    }
+    /// Historical committed receipts allow later legitimate shared-provenance updates.
+    /// Prepared recovery remains stricter and checks the full after-state in commit().
+    pub async fn verify_receipt(&self, p: &Prepared) -> Result<()> {
+        p.validate()?;
+        let e = &p.episode;
+        ensure!(
+            self.episode(&e.group_id, &e.uuid).await?.as_ref() == Some(e),
+            "committed receipt episode differs"
+        );
+        for f in &p.facts {
+            let actual = self
+                .edge(&e.group_id, &f.uuid)
+                .await?
+                .context("committed receipt fact missing")?;
+            ensure!(
+                actual.source_node_uuid == f.source_node_uuid
+                    && actual.target_node_uuid == f.target_node_uuid
+                    && actual.created_at == f.created_at
+                    && actual.episodes.contains(&e.uuid),
+                "committed receipt fact identity/provenance differs"
+            );
+        }
+        for n in &p.entities {
+            ensure!(
+                self.node(&e.group_id, &n.uuid)
+                    .await?
+                    .is_some_and(|actual| actual.created_at == n.created_at),
+                "committed receipt entity identity differs"
+            );
+        }
+        let rows=self.query(&e.group_id,"MATCH(e:Episodic {uuid:$id})-[m:MENTIONS]->(n:Entity) RETURN m.uuid,n.uuid,m.group_id,m.created_at",json!({"id":e.uuid}),false).await?;
+        ensure!(
+            rows.len() == p.entities.len()
+                && rows
+                    .iter()
+                    .all(|r| r.len() == 4
+                        && r[0].as_str().is_some_and(|id| policy::uuid(id).is_ok()))
+                && p.entities.iter().all(|n| rows
+                    .iter()
+                    .filter(|r| r[1] == json!(n.uuid)
+                        && r[2] == json!(e.group_id)
+                        && r[3] == json!(e.created_at)
+                        && p.baseline
+                            .as_ref()
+                            .is_none_or(|b| r[0] == json!(b.mentions[&n.uuid])))
+                    .count()
+                    == 1),
+            "committed receipt mentions differ"
+        );
+        Ok(())
     }
     pub async fn apply_mutation(&self, op: &super::journal::Mutation) -> Result<()> {
         policy::write(&op.group)?;

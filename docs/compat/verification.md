@@ -1,25 +1,25 @@
 # Compatibility verification — 2026-10-01
 
-The implementation is a preview. Synthetic success is not production cutover approval or Python-equivalent Graphiti behavior. [Implementation limits](implementation.md) remain release gates.
+Decision: **no production replacement**. Evidence below separates implementation, synthetic validation, same-Pi preparation and actual cutover. C01–C30 are acceptance categories, not 30 independently passed tests. [Implementation limits](implementation.md) and [Pi validation plan](pi-validation.md) remain release gates.
 
-## Executed checks
+## Current evidence
 
-- `cargo fmt --check` and `cargo clippy --offline --locked --all-targets --all-features -- -D warnings`.
-- `cargo test --offline --locked --all-features`: 22 unit/provider/policy tests passed, including six compatibility tests. Optional real-model tests were not repeated in this compatibility change.
-- `TEST_FALKORDB_URL=redis://127.0.0.1:16379 cargo test --offline --locked --test store --test mcp -- --ignored`: nine existing standalone integration tests passed.
-- `COMPAT_TEST_DB_URL=redis://127.0.0.1:16379 cargo test --offline --locked --features graphiti-compat --test compat -- --include-ignored`: eight compatibility tests passed, including two DB/HTTP integrations.
+- Local `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` and `cargo test --all-features` passed; 25 nonignored tests passed. DB and actual local-model tests are ignored locally because Docker is unavailable.
+- Two differential tests run 34 synthetic inputs against selected observed Python 0.28.2 bodies. Source excerpt hashes are checked; fake DTO/driver/model decisions and frozen time are used. This is not full Python pipeline, graph-driver, numerical provider or transport parity.
+- The new existing-UUID/CAS/provenance/deletion/clear/recovery DB test passed on GitHub FalkorDB 4.14.11 at commit `352e559`. That run failed a separate old center-filter expectation, which was corrected to the observed source-node reranking behavior. Latest full DB suite is pending CI; inspect results.json before making a pass claim.
+- Same-Pi image/module/source/binary metadata was read-only verified. `compose.compat-pi.yaml config --format json` rendered the isolated configuration correctly; no test container was created on the Pi. No original memories/secrets were transferred, no provider call was made, and no operational container/gateway/auth/route was changed.
 
-These runs cover 33 distinct tests. C01–C30 below are acceptance categories, not 30 independently passed executable tests. The fixture's original design statuses remain unchanged; results are separately recorded in [results.json](results.json).
+## Historical evidence and cleanup
 
-The disposable DB used a newly created internal network and labelled volume/container, loopback model mocks, no operational mounts, Redis 8.2.2 and FalkorDB 4.14.11. This differs from the recorded production module. Its image ID was `sha256:3e3870883d8cc4a20171d59fbafeb7cf29b57c09d71c29287fdacf4fedb8a078`. It ran as UID 999 with one CPU/512 MiB, a read-only root filesystem, all capabilities dropped, and no-new-privileges. Owner-private dummy key files verified separate LLM/Gemini headers; no actual key was read.
+The previous preview commit `728c4ec` passed its 33 local distinct tests and GitHub checks; those results do not certify newly changed code. Its disposable Mac DB used Redis8.2.2/FalkorDB4.14.11, UID999, one CPU/512MiB, internal networking, read-only root, dropped capabilities and new dummy credentials. Image ID: `sha256:3e3870883d8cc4a20171d59fbafeb7cf29b57c09d71c29287fdacf4fedb8a078`.
 
-Docker Desktop could not reach a published port on the internal network. Tests retained that network and used a temporary loopback relay through `docker exec` into the owned container. No production network was attached. This relay invalidates latency comparisons; none are claimed. Temporary credential/journal directories and the relay were cleaned up after validation. Docker became unavailable before container/network/volume cleanup; those three labelled resources remain pending cleanup. No global Docker restart or unrelated resource deletion was attempted. Once the daemon is running, verify the `task=graphiti-rs-compat-20261001` labels, then remove only `graphiti-rs-compat-db`, `graphiti-rs-compat-data`, and `graphiti-rs-compat-net`.
+Docker Desktop could not reach the internal network's published port, so a temporary loopback relay through the owned container was used. The relay and dummy files were removed; no latency comparison is claimed. Docker then became unavailable. Owned container `graphiti-rs-compat-db`, volume `graphiti-rs-compat-data` and network `graphiti-rs-compat-net` remain pending cleanup. Verify each exact `task=graphiti-rs-compat-20261001` label before removing only these resources when Docker returns. No global restart/prune was attempted.
 
-An earlier working-tree snapshot also built as a Linux ARM64 Docker image with `graphiti-compat` and ran `--help`. That image predates final journal/clear/response safeguards and is not a deployment artifact. CI now builds the final branch with the compatibility feature on ARM64; its final status must be checked separately. No actual Raspberry Pi measurement or production-module restore was performed.
+An earlier ARM64 Docker build predates the final guards and is not a deployable artifact. ARM64 CI is a build gate only; the actual same-Pi module/persistence/resource/restore/gateway/rollback gates remain unexecuted.
 
 ## Acceptance coverage
 
-`verified` describes the stated synthetic/policy evidence only. `partial` identifies an incomplete acceptance category. `blocked` identifies a missing baseline or live integration prerequisite; `not_executed` identifies operations outside this work's scope.
+`verified` refers only to the stated synthetic/policy evidence. `partial` identifies remaining parity/schema/resource work. `blocked` identifies a live integration prerequisite. `not_executed` identifies an operational gate outside this change.
 
 | Case | Status | Evidence and limitation |
 | --- | --- | --- |
@@ -30,26 +30,26 @@ An earlier working-tree snapshot also built as a Linux ARM64 Docker image with `
 | C05 | partial | Read-only ACL policy and rejected additions tested; complete per-tool zero-I/O instrumentation pending. |
 | C06 | partial | Unknown-group policy and addition rejection tested; complete per-tool zero-I/O instrumentation pending. |
 | C07 | verified | Approved project-name pattern and invalid suffixes tested at the policy boundary. |
-| C08 | verified | Null/empty/multiple/duplicate destructive groups rejected; valid MCP clear remains disabled. |
+| C08 | verified | Explicit raw clear target enforcement and durable destructive ledger tested; only synthetic mode permits valid clear. |
 | C09 | verified | Required group enforced by shared Key shape; missing group produces protocol error. |
-| C10 | verified | Deduplicated multi-group search and deterministic round-robin/global maximum tested with mocks. |
+| C10 | verified | Default/empty/duplicate read groups and round-robin merging matched observed helper behavior; empty groups call no models. |
 | C11 | partial | Global bound and sorting covered on small fixture; bounded lexical DB window is not full timestamp ordering parity. |
-| C12 | partial | Entity labels and centered facts tested; Python graph expansion/center-distance semantics unverified. |
+| C12 | partial | Observed MCP recipes exclude BFS. RRF=1, source-node center ordering, single-group center rule and type filters tested; full BM25/vector retrieval quality differs. |
 | C13 | verified | Gated worker distinguishes queue acceptance from exact committed lookup. |
 | C14 | verified | Concurrent same-UUID acceptance dispatches once; committed retry leaves original record intact. |
-| C15 | verified | Changed body under the same UUID fails closed before extraction. |
-| C16 | verified | Private durable journal, single-worker lock, uncertain dispatch refusal, prepared vector/time recovery tested. |
-| C17 | verified | Committed DB write with prepared journal recovers to committed without another model dispatch. |
+| C15 | verified | Changed same-UUID input fails closed. Observed Python loads old body/metadata instead of replacing it; strict rejection is intentional. |
+| C16 | verified | Private WAL/FULL journal, single worker, strict prepare/completion transitions, uncertain model refusal and destructive tombstone history tested. |
+| C17 | partial | Durable exact before-state and stable MENTIONS recovery added; final DB/worker suite pending latest CI; disk-full/OOM/runtime-error recovery untested. |
 | C18 | verified | Invalid provider response is journaled as failed, produces no visible episode, and is not automatically replayed. |
 | C19 | verified | UUIDs and independent created/valid/invalid/expired RFC3339 strings roundtrip without precision loss. |
-| C20 | partial | Structural labels, flat scalar/list attributes, vecf32, MENTIONS and retained Saga/Community links tested; real schema breadth pending. |
-| C21 | blocked | Patched Python provenance/orphan deletion baseline unavailable; all MCP legacy deletions disabled. |
-| C22 | blocked | Invalidation, shared provenance, resolution, and supersession baseline parity not established. |
-| C23 | partial | Mock gpt-6-luna/model endpoint/body and bounds tested; production generation limits and extraction pipeline not matched. |
-| C24 | partial | Native Gemini batch/count/3072/newline validation and separate private dummy-file headers tested; production profile numerical parity not tested. |
+| C20 | partial | Legacy scalar/list attributes, labels, vecf32 and existing entity/fact UUID updates preserve created_at/topology in synthetic DB test; restored schema breadth untested. |
+| C21 | partial | Actual MCP wrapper calls node.delete, not Graphiti.remove_episode. Synthetic store deletion retains entities/facts and dangling provenance; clear retains Saga/unknown labels. Journal pending recovery/tombstones added; production alias/schema behavior untested. |
+| C22 | partial | Observed exact fact reuse/shared provenance and supplied duplicate/contradiction decisions match selected Python bodies. Fuzzy/model entity resolution, summary updates, complete extraction and contradiction discovery remain unported. |
+| C23 | partial | Mock gpt-6-luna temperature=1/max_tokens<=4096/enable_thinking=false and observed decoder match. Preview extraction prompt and bounded retry/timeout differ; no real generation comparison. |
+| C24 | partial | Native Gemini 3072/count/finite/nonzero and LF-only preprocessing covered with dummy credentials. Batch limit 8 differs from observed 32; no numerical provider parity. |
 | C25 | partial | Missing/wrong bearer, Host, Origin, oversized input and two protocol-version initializations tested; existing OAuth relay not exercised. |
 | C26 | blocked | No actual bridge/session/routing operation authorized or performed. |
 | C27 | verified | Legacy connect/status/read create no native graph/index; isolated graph indexes remain empty. |
-| C28 | not_executed | No Pi backup, restore, operational data transfer, or production module test performed. |
-| C29 | not_executed | No write freeze, route switch, deployment, rollback, or live journal reconciliation performed. |
-| C30 | not_executed | No actual Raspberry Pi RSS/CPU/latency benchmark performed. |
+| C28 | not_executed | Actual Pi image/Redis8.2.3/module41606/source/binary hashes read-only verified. Isolated same-Pi compose/runbook prepared; no backup/restore or current-module test executed. |
+| C29 | not_executed | Concrete gateway/reconnect/freeze/accounting/rollback gates documented; no routing/deployment/write freeze performed. |
+| C30 | not_executed | Actual Pi4/aarch64/3795MiB metadata observed; resource/workload/latency/restart budget plan prepared but no benchmark executed. |

@@ -1,6 +1,6 @@
 {
   "date": "2026-10-01",
-  "scope": "Mac ARM64, isolated FalkorDB 4.14.11, synthetic records and loopback model mocks; no production replacement certification",
+  "scope": "Mac ARM64 unit/source-function mocks plus GitHub CI synthetic FalkorDB 4.14.11; observed Pi metadata only; no production replacement certification",
   "cases": [
     {
       "id": "C01",
@@ -40,7 +40,7 @@
     {
       "id": "C08",
       "status": "verified",
-      "evidence": "Null/empty/multiple/duplicate destructive groups rejected; valid MCP clear remains disabled."
+      "evidence": "Explicit raw clear target enforcement and durable destructive ledger tested; only synthetic mode permits valid clear."
     },
     {
       "id": "C09",
@@ -50,7 +50,7 @@
     {
       "id": "C10",
       "status": "verified",
-      "evidence": "Deduplicated multi-group search and deterministic round-robin/global maximum tested with mocks."
+      "evidence": "Default/empty/duplicate read groups and round-robin merging matched observed helper behavior; empty groups call no models."
     },
     {
       "id": "C11",
@@ -60,7 +60,7 @@
     {
       "id": "C12",
       "status": "partial",
-      "evidence": "Entity labels and centered facts tested; Python graph expansion/center-distance semantics unverified."
+      "evidence": "Observed MCP recipes exclude BFS. RRF=1, source-node center ordering, single-group center rule and type filters tested; full BM25/vector retrieval quality differs."
     },
     {
       "id": "C13",
@@ -75,17 +75,17 @@
     {
       "id": "C15",
       "status": "verified",
-      "evidence": "Changed body under the same UUID fails closed before extraction."
+      "evidence": "Changed same-UUID input fails closed. Observed Python loads old body/metadata instead of replacing it; strict rejection is intentional."
     },
     {
       "id": "C16",
       "status": "verified",
-      "evidence": "Private durable journal, single-worker lock, uncertain dispatch refusal, prepared vector/time recovery tested."
+      "evidence": "Private WAL/FULL journal, single worker, strict prepare/completion transitions, uncertain model refusal and destructive tombstone history tested."
     },
     {
       "id": "C17",
-      "status": "verified",
-      "evidence": "Committed DB write with prepared journal recovers to committed without another model dispatch."
+      "status": "partial",
+      "evidence": "Durable exact before-state and stable MENTIONS recovery added; final DB/worker suite pending latest CI; disk-full/OOM/runtime-error recovery untested."
     },
     {
       "id": "C18",
@@ -100,27 +100,27 @@
     {
       "id": "C20",
       "status": "partial",
-      "evidence": "Structural labels, flat scalar/list attributes, vecf32, MENTIONS and retained Saga/Community links tested; real schema breadth pending."
+      "evidence": "Legacy scalar/list attributes, labels, vecf32 and existing entity/fact UUID updates preserve created_at/topology in synthetic DB test; restored schema breadth untested."
     },
     {
       "id": "C21",
-      "status": "blocked",
-      "evidence": "Patched Python provenance/orphan deletion baseline unavailable; all MCP legacy deletions disabled."
+      "status": "partial",
+      "evidence": "Actual MCP wrapper calls node.delete, not Graphiti.remove_episode. Synthetic store deletion retains entities/facts and dangling provenance; clear retains Saga/unknown labels. Journal pending recovery/tombstones added; production alias/schema behavior untested."
     },
     {
       "id": "C22",
-      "status": "blocked",
-      "evidence": "Invalidation, shared provenance, resolution, and supersession baseline parity not established."
+      "status": "partial",
+      "evidence": "Observed exact fact reuse/shared provenance and supplied duplicate/contradiction decisions match selected Python bodies. Fuzzy/model entity resolution, summary updates, complete extraction and contradiction discovery remain unported."
     },
     {
       "id": "C23",
       "status": "partial",
-      "evidence": "Mock gpt-6-luna/model endpoint/body and bounds tested; production generation limits and extraction pipeline not matched."
+      "evidence": "Mock gpt-6-luna temperature=1/max_tokens<=4096/enable_thinking=false and observed decoder match. Preview extraction prompt and bounded retry/timeout differ; no real generation comparison."
     },
     {
       "id": "C24",
       "status": "partial",
-      "evidence": "Native Gemini batch/count/3072/newline validation and separate private dummy-file headers tested; production profile numerical parity not tested."
+      "evidence": "Native Gemini 3072/count/finite/nonzero and LF-only preprocessing covered with dummy credentials. Batch limit 8 differs from observed 32; no numerical provider parity."
     },
     {
       "id": "C25",
@@ -140,17 +140,66 @@
     {
       "id": "C28",
       "status": "not_executed",
-      "evidence": "No Pi backup, restore, operational data transfer, or production module test performed."
+      "evidence": "Actual Pi image/Redis8.2.3/module41606/source/binary hashes read-only verified. Isolated same-Pi compose/runbook prepared; no backup/restore or current-module test executed."
     },
     {
       "id": "C29",
       "status": "not_executed",
-      "evidence": "No write freeze, route switch, deployment, rollback, or live journal reconciliation performed."
+      "evidence": "Concrete gateway/reconnect/freeze/accounting/rollback gates documented; no routing/deployment/write freeze performed."
     },
     {
       "id": "C30",
       "status": "not_executed",
-      "evidence": "No actual Raspberry Pi RSS/CPU/latency benchmark performed."
+      "evidence": "Actual Pi4/aarch64/3795MiB metadata observed; resource/workload/latency/restart budget plan prepared but no benchmark executed."
     }
-  ]
+  ],
+  "replacement_decision": "no_go",
+  "validation": {
+    "local": {
+      "status": "passed",
+      "commands": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features"
+      ],
+      "nonignored_tests": 25
+    },
+    "python_differential": {
+      "status": "passed",
+      "executable_tests": 2,
+      "synthetic_inputs": 34,
+      "level": "selected observed source bodies with fake DTO/driver/model decisions; not full Python Graphiti pipeline",
+      "manifest": "tests/fixtures/python-0282/manifest.json"
+    },
+    "isolated_db": {
+      "status": "pending_latest_commit",
+      "environment": "GitHub Ubuntu service, FalkorDB 4.14.11, loopback provider mocks",
+      "earlier_upsert_cas_test": "passed in run 36817803396; old center-filter expectation failed in another test and was corrected"
+    },
+    "same_pi": {
+      "status": "prepared_not_executed",
+      "record": "docs/compat/observed-production.json",
+      "plan": "docs/compat/pi-validation.md",
+      "compose": "compose.compat-pi.yaml",
+      "compose_render": "passed; no resources created",
+      "backup_restore": false,
+      "benchmarks": false,
+      "provider_calls": false
+    },
+    "actual_cutover": {
+      "status": "not_executed",
+      "production_mutations_enabled": false,
+      "gateway_auth_routes_changed": false
+    },
+    "cleanup": {
+      "status": "pending_docker_unavailable",
+      "owned_resources": [
+        "graphiti-rs-compat-db",
+        "graphiti-rs-compat-data",
+        "graphiti-rs-compat-net"
+      ],
+      "label": "task=graphiti-rs-compat-20261001",
+      "global_restart": false
+    }
+  }
 }

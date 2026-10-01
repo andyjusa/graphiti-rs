@@ -87,7 +87,7 @@ impl Providers {
             .pointer("/choices/0/message/content")
             .and_then(Value::as_str)
             .context("missing extraction response")?;
-        let x: Extraction = serde_json::from_str(content)
+        let x: Extraction = serde_json::from_value(decode_extraction(content)?)
             .map_err(|_| anyhow::anyhow!("invalid extraction JSON"))?;
         ensure!(
             x.entities.len() <= 128 && x.facts.len() <= 128,
@@ -177,6 +177,59 @@ impl Providers {
         prepared.validate()?;
         Ok(prepared)
     }
+}
+/// Observed adapter decoding: fenced/prefixed JSON, first complete value, exact value-envelope.
+pub fn decode_extraction(content: &str) -> Result<Value> {
+    ensure!(
+        content.len() <= 2 * 1024 * 1024,
+        "extraction response exceeds bound"
+    );
+    let mut cleaned = content.trim();
+    if cleaned.starts_with("```") {
+        if let Some((_, body)) = cleaned.split_once('\n') {
+            cleaned = body;
+        }
+        if let Some(body) = cleaned.strip_suffix("```") {
+            cleaned = body.trim_end();
+        }
+    }
+    if let Some(start) = cleaned.find(['{', '[']) {
+        cleaned = &cleaned[start..];
+    }
+    if let Some(end) = cleaned.rfind(['}', ']']) {
+        cleaned = &cleaned[..=end];
+    }
+    let mut parsed: Value = serde_json::Deserializer::from_str(cleaned)
+        .into_iter::<Value>()
+        .next()
+        .context("empty extraction JSON")?
+        .map_err(|_| anyhow::anyhow!("invalid extraction JSON"))?;
+    if let Some(map) = parsed.as_object() {
+        let allowed = [
+            "$defs",
+            "additionalProperties",
+            "definitions",
+            "description",
+            "properties",
+            "required",
+            "title",
+            "type",
+        ];
+        if map.get("type") == Some(&json!("object"))
+            && map.keys().all(|k| allowed.contains(&k.as_str()))
+            && let Some(props) = map.get("properties").and_then(Value::as_object)
+            && props.len() == 2
+            && props.contains_key("entities")
+            && props.contains_key("facts")
+            && props
+                .values()
+                .all(|v| v.as_object().is_some_and(|v| v.contains_key("value")))
+        {
+            parsed = json!({"entities":props["entities"]["value"],"facts":props["facts"]["value"]});
+        }
+    }
+    ensure!(parsed.is_object(), "extraction response must be an object");
+    Ok(parsed)
 }
 pub fn validate_vector(vector: &[f32]) -> Result<()> {
     ensure!(
