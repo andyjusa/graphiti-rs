@@ -1,0 +1,97 @@
+{
+  "baseline_commit": "f299d2ef15e0aaf757e4292a67f7e1da86547631",
+  "source_sha256": {
+    "src/compat/engine.rs": "735a9ebabde5480268cc9cbd2d38994d5d4c36a2b917f3201f6f552e57e85730",
+    "tests/compat.rs": "894783f6860ad54df692c9070bd70e459235478d63672f5c56b47eeeaf4b978f",
+    "tests/support/worker_failure.rs": "5051157923762b9d670bfea673d2e8c8ed3b308dca132ed096f09dddc591a547"
+  },
+  "before_fix": {
+    "result": "failed",
+    "assertion": "dead ingestion worker still reports healthy"
+  },
+  "local": {
+    "format": "passed",
+    "clippy_all_targets_all_features": "passed",
+    "non_ignored_tests_passed": 30,
+    "compat_disposable_db_tests_passed": 11,
+    "worker_failure_assertions": {
+      "accepted_jobs": 1,
+      "embedding_requests_after_restart": 0,
+      "health_after_failure": "error",
+      "health_after_restart": "ok",
+      "journal_after_restart": "committed",
+      "journal_before_restart": "prepared",
+      "llm_requests_after_restart": 0,
+      "mock_embedding_requests": 4,
+      "mock_llm_requests": 3,
+      "mutations_refused": 4,
+      "real_provider_calls": 0
+    }
+  },
+  "pi": {
+    "assertions": {
+      "accepted_jobs": 1,
+      "embedding_requests_after_restart": 0,
+      "health_after_failure": "error",
+      "health_after_restart": "ok",
+      "journal_after_restart": "committed",
+      "journal_before_restart": "prepared",
+      "llm_requests_after_restart": 0,
+      "mock_embedding_requests": 4,
+      "mock_llm_requests": 3,
+      "mutations_refused": 4,
+      "real_provider_calls": 0
+    },
+    "test": "worker_failure::stopped_worker_refuses_new_jobs_and_reconciles_prepared_commit_on_restart",
+    "passed": true,
+    "arm_test_binary_sha256": "43e199331ac9326a7cc4c36b010d467d2fe2a5134bc7a140b8332b6d8ed0f990",
+    "database_module": [
+      {
+        "name": "graph",
+        "ver": 41606,
+        "path": "/var/lib/falkordb/bin/falkordb.so",
+        "args": []
+      },
+      {
+        "name": "vectorset",
+        "ver": 1,
+        "path": "",
+        "args": []
+      }
+    ],
+    "fresh_db_keys_before": 0,
+    "fresh_db_keys_after": 2,
+    "synthetic_nodes_after_clear": 0,
+    "synthetic_edges_after_clear": 0,
+    "real_provider_calls": 0,
+    "operational_writes": 0
+  },
+  "preservation": {
+    "backup_sha256_unchanged": true,
+    "audit_sha256_unchanged": true,
+    "owned_container_removed": true,
+    "owned_network_removed": true,
+    "owned_relay_stopped": true,
+    "anonymous_volumes_created": false,
+    "original_service": {
+      "id_unchanged": true,
+      "start_unchanged": true,
+      "running": true,
+      "healthy": true
+    },
+    "original_gateway": {
+      "id_unchanged": true,
+      "start_unchanged": true,
+      "running": true,
+      "healthy": null
+    },
+    "read_only_restore": {
+      "id_unchanged": true,
+      "start_unchanged": true,
+      "running": true,
+      "healthy": true
+    }
+  },
+  "auxiliary_db_key_prefix": "telemetry",
+  "scope": "Isolated Rust completion failure/restart gate; operational cutover and exhaustive cross-SDK fault parity remain pending"
+}

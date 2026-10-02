@@ -8,7 +8,10 @@ use super::{
 };
 use anyhow::{Result, ensure};
 use serde_json::{Value, json};
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 use tokio::sync::{Mutex, Notify, Semaphore};
 use tokio_util::sync::CancellationToken;
 
@@ -20,6 +23,14 @@ pub struct Engine {
     mutation: Arc<Mutex<()>>,
     reads: Semaphore,
     cancel: CancellationToken,
+    worker_alive: Arc<AtomicBool>,
+}
+// Owned by the spawned future: normal exit, panic, and cancellation all stop acceptance.
+struct WorkerLifetime(Arc<AtomicBool>);
+impl Drop for WorkerLifetime {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
 }
 impl Drop for Engine {
     fn drop(&mut self) {
@@ -46,6 +57,7 @@ impl Engine {
             mutation: Arc::new(Mutex::new(())),
             reads: Semaphore::new(2),
             cancel: CancellationToken::new(),
+            worker_alive: Arc::new(AtomicBool::new(false)),
         });
         if let Some(journal) = &engine.journal {
             let journal = journal.clone();
@@ -55,7 +67,10 @@ impl Engine {
             let mutation = engine.mutation.clone();
             let config = engine.config.clone();
             let providers = Providers::new(config.clone())?;
+            engine.worker_alive.store(true, Ordering::Release);
+            let worker = WorkerLifetime(engine.worker_alive.clone());
             tokio::spawn(async move {
+                let _worker = worker;
                 loop {
                     let notified = notify.notified();
                     tokio::pin!(notified);
@@ -180,6 +195,7 @@ impl Engine {
                 let group = r.validate()?.to_owned();
                 self.writable()?;
                 let _guard = self.mutation.lock().await;
+                self.writable()?;
                 if let Some(id) = &r.uuid
                     && let Some(e) = self.store.episode(&group, id).await?
                 {
@@ -387,6 +403,7 @@ impl Engine {
                 r.write()?;
                 self.writable()?;
                 let _guard = self.mutation.lock().await;
+                self.writable()?;
                 ensure!(
                     !self.journal.as_ref().unwrap().pending(&r.group_id)?,
                     "group has pending ingestion; deletion refused"
@@ -420,6 +437,7 @@ impl Engine {
                 let group = policy::clear(r.group_ids.as_deref())?;
                 self.writable()?;
                 let _guard = self.mutation.lock().await;
+                self.writable()?;
                 ensure!(
                     !self.journal.as_ref().unwrap().pending(group)?,
                     "group has pending ingestion; clear refused"
@@ -433,6 +451,13 @@ impl Engine {
                 )
             }
             "get_status" => {
+                if self.config.mode == WriteMode::Synthetic
+                    && !self.worker_alive.load(Ordering::Acquire)
+                {
+                    return Ok(
+                        json!({"status":"error","message":"Ingestion worker stopped; restart the server to recover durable jobs"}),
+                    );
+                }
                 let ok = self.store.ping().await.is_ok();
                 Ok(
                     json!({"status":if ok{"ok"}else{"error"},"message":if ok{"Graphiti MCP server is running and connected to falkordb database"}else{"Database connection failed"}}),
@@ -445,6 +470,10 @@ impl Engine {
         ensure!(
             self.config.mode == WriteMode::Synthetic,
             "production compatibility mutations are disabled"
+        );
+        ensure!(
+            self.worker_alive.load(Ordering::Acquire),
+            "ingestion worker stopped; restart the server to recover durable jobs"
         );
         Ok(())
     }

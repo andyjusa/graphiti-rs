@@ -1,6 +1,8 @@
 #![cfg(feature = "graphiti-compat")]
 #[path = "support/configured_profile.rs"]
 mod configured_profile;
+#[path = "support/worker_failure.rs"]
+mod worker_failure;
 use graphiti_rs::compat::{
     config::{CompatConfig, WriteMode},
     dto::*,
