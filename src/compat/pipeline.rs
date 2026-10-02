@@ -261,6 +261,7 @@ pub async fn prepare(
         .await?;
     let mut facts_before = BTreeMap::new();
     let mut facts: BTreeMap<String, LegacyFact> = BTreeMap::new();
+    let mut invalidated_facts: BTreeMap<String, LegacyFact> = BTreeMap::new();
     let mut resolved_references = vec![];
     let mut invalidated_references = vec![];
     let mut summary_edges = vec![];
@@ -325,13 +326,20 @@ pub async fn prepare(
             summary_edges.push(resolved.clone());
         }
         resolved_references.push(resolved.uuid.clone());
-        facts.insert(resolved.uuid.clone(), resolved);
+        facts.entry(resolved.uuid.clone()).or_insert(resolved);
         for updated in invalidated {
             invalidated_references.push(updated.uuid.clone());
-            facts.insert(updated.uuid.clone(), updated);
+            invalidated_facts
+                .entry(updated.uuid.clone())
+                .or_insert(updated);
         }
         ensure!(
-            facts.len() <= 256,
+            facts
+                .keys()
+                .chain(invalidated_facts.keys())
+                .collect::<HashSet<_>>()
+                .len()
+                <= 256,
             "resolved and invalidated facts exceed bound"
         );
     }
@@ -349,8 +357,13 @@ pub async fn prepare(
     for (node, vector) in nodes.iter_mut().zip(name_vectors) {
         node.name_embedding = Some(vector);
     }
-    // Preserve resolved references followed by invalidation references, including
-    // repeated UUIDs. Unique planned fact values retain extraction-step updates.
+    // Duplicate UUIDs in this pipeline refer to pre-existing facts: each new
+    // extracted edge receives its own UUID and candidates come from the DB.
+    // The observed Falkor bulk query retains the first existing-edge payload.
+    // Resolved payloads precede invalidations, independently of extraction order.
+    for (id, invalidated) in invalidated_facts {
+        facts.entry(id).or_insert(invalidated);
+    }
     resolved_references.extend(invalidated_references);
     let mut seen_facts = HashSet::new();
     let mut facts: Vec<_> = resolved_references

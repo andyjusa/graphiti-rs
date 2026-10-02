@@ -4,6 +4,7 @@ use graphiti_rs::compat::config::{EntityType, IngestionPipeline};
 
 #[derive(Clone, Default)]
 struct RelationMock {
+    reuse_first: bool,
     trace: Arc<tokio::sync::Mutex<Vec<Value>>>,
 }
 fn relation(source: &str, target: &str, name: &str, fact: &str, time: &str) -> Value {
@@ -165,6 +166,9 @@ async fn relation_llm(
                 ],
                 _ => unreachable!(),
             };
+            if stage(tag(user, "CURRENT_MESSAGE").unwrap()) == 2 && s.reuse_first {
+                edges.rotate_right(1);
+            }
             if stage(tag(user, "CURRENT_MESSAGE").unwrap()) == 0 {
                 edges.push(relation(
                     "Gaon",
@@ -259,11 +263,22 @@ async fn relation_llm(
 #[tokio::test]
 #[ignore = "requires exclusively owned disposable FalkorDB on loopback port 16379"]
 async fn interacting_reuse_invalidation_alias_self_loop_and_historical_relations() {
+    interacting_case(false).await;
+}
+#[tokio::test]
+#[ignore = "requires exclusively owned disposable FalkorDB on loopback port 16379"]
+async fn overlap_order_reuse_before_invalidation() {
+    interacting_case(true).await;
+}
+async fn interacting_case(reuse_first: bool) {
     assert_eq!(
         std::env::var("COMPAT_TEST_DB_URL").unwrap(),
         "redis://127.0.0.1:16379"
     );
-    let state = RelationMock::default();
+    let state = RelationMock {
+        reuse_first,
+        ..Default::default()
+    };
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
     let app = axum::Router::new()
@@ -323,12 +338,14 @@ async fn interacting_reuse_invalidation_alias_self_loop_and_historical_relations
                 .iter()
                 .find(|f| f.fact == "Gaon works at Saebit.")
                 .unwrap();
-            assert!(old.invalid_at.is_none());
-            assert!(old.expired_at.is_none());
-            assert!(
-                old.episodes.contains(&id),
-                "reused fact must retain support"
-            );
+            if !reuse_first {
+                assert!(old.invalid_at.is_none());
+                assert!(old.expired_at.is_none());
+                assert!(
+                    old.episodes.contains(&id),
+                    "reused fact must retain support"
+                );
+            }
             for (fact, until) in [
                 ("Nari works at Saebit.", "2026-09-12T00:00:00Z"),
                 ("Saebit partners with Delta.", "2026-09-10T00:00:00Z"),
@@ -338,7 +355,10 @@ async fn interacting_reuse_invalidation_alias_self_loop_and_historical_relations
                 assert!(invalidated.expired_at.is_some());
                 assert!(!invalidated.episodes.contains(&id));
             }
-            assert_eq!(episode.entity_edges[3], episode.entity_edges[4]);
+            assert_eq!(
+                episode.entity_edges[if reuse_first { 0 } else { 3 }],
+                episode.entity_edges[4]
+            );
         }
         if index == 3 {
             for (fact, until) in [
@@ -368,11 +388,11 @@ async fn interacting_reuse_invalidation_alias_self_loop_and_historical_relations
             .mode(0o600)
             .open(path)
             .unwrap();
-        f.write_all(&serde_json::to_vec_pretty(&json!({"actual_provider_calls":0,"snapshots":snapshots,"steps":*state.trace.lock().await})).unwrap()).unwrap();
+        f.write_all(&serde_json::to_vec_pretty(&json!({"actual_provider_calls":0,"fixture_order":if reuse_first{"reuse_first"}else{"reuse_last"},"snapshots":snapshots,"steps":*state.trace.lock().await})).unwrap()).unwrap();
     }
     println!(
         "INTERACTING_RELATION_REPORT {}",
-        json!({"episodes":4,"entities":6,"cumulative_facts":[6,6,9,11],"mock_llm_requests":state.trace.lock().await.len(),"actual_provider_calls":0})
+        json!({"episodes":4,"entities":6,"fixture_order":if reuse_first{"reuse_first"}else{"reuse_last"},"cumulative_facts":[6,6,9,11],"mock_llm_requests":state.trace.lock().await.len(),"actual_provider_calls":0})
     );
     engine.store.clear(&group).await.unwrap();
     drop(engine);

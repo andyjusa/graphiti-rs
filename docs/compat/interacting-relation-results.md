@@ -35,4 +35,6 @@ COMPAT_TEST_DB_URL=redis://127.0.0.1:16379 cargo test --locked --all-features --
 
 `COMPAT_RELATION_REPORT` writes a new owner-private replay file. The Python replay requires that file as `/tmp/relation-rust.json`, the existing `python-pi-pipeline.py` helper and original edge patch inside the pinned disposable SDK container. Ownership/resource checks belong to the private Pi orchestration; the replay script is not an operational ingestion command.
 
+A subsequent extraction-order counterexample and correction are recorded in [overlap-order-results.md](overlap-order-results.md). Both fixed orders now match the actual SDK.
+
 This closes this bounded interacting-relation cohort. Wider cross-SDK fault/restart and overlapping-write cases, real provider/new-query quality, fresh OAuth and operational cutover remain pending.
