@@ -84,4 +84,3 @@ test rejects_wrong_embedding_space ... ok
 test shared_provenance_survives_deletion ... ok
 
 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.44s
-
