@@ -6,12 +6,12 @@ use std::time::Duration;
 // Relationship-first reads preserve the deployed bound-node edge-index workaround.
 // Closed query shapes are used; no arbitrary Cypher rewriting.
 pub const EDGE_LOOKUP_QUERY: &str = "MATCH ()-[e:RELATES_TO {uuid:$id}]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) RETURN properties(e),n.uuid,m.uuid";
-pub const EDGE_FACTS_QUERY: &str = "MATCH ()-[e:RELATES_TO]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND (size($terms)=0 OR any(t IN $terms WHERE toLower(e.fact) CONTAINS t)) RETURN properties(e),n.uuid,m.uuid ORDER BY e.uuid LIMIT $limit";
-pub const EDGE_RELATED_QUERY: &str = "MATCH ()-[e:RELATES_TO]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND n.uuid=$source AND m.uuid=$target RETURN properties(e),n.uuid,m.uuid LIMIT 1001";
+pub const EDGE_FACTS_QUERY: &str = "MATCH ()-[e:RELATES_TO]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND (size($terms)=0 OR any(t IN $terms WHERE toLower(e.fact) CONTAINS t)) RETURN properties(e),n.uuid,m.uuid ORDER BY e.uuid LIMIT $limit";
+pub const EDGE_RELATED_QUERY: &str = "MATCH ()-[e:RELATES_TO]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND n.uuid=$source AND m.uuid=$target RETURN properties(e),n.uuid,m.uuid LIMIT 1001";
 #[derive(Clone)]
 pub struct LegacyStore {
     connection: ConnectionManager,
-    mode: WriteMode,
+    pub(super) mode: WriteMode,
 }
 impl LegacyStore {
     pub async fn connect(url: &str, mode: WriteMode) -> Result<Self> {
@@ -43,7 +43,7 @@ impl LegacyStore {
         .map_err(|_| anyhow::anyhow!("database ping failed"))?;
         Ok(())
     }
-    async fn query(
+    pub(super) async fn query(
         &self,
         group: &str,
         query: &str,
@@ -212,7 +212,7 @@ impl LegacyStore {
             .query(
                 group,
                 EDGE_RELATED_QUERY,
-                json!({"source":source,"target":target}),
+                json!({"group":group,"source":source,"target":target}),
                 false,
             )
             .await?;
@@ -256,7 +256,7 @@ impl LegacyStore {
             .take(8)
             .map(str::to_owned)
             .collect();
-        let rows=self.query(group,"MATCH (n:Entity) WHERE (size($terms)=0 OR any(t IN $terms WHERE toLower(n.name) CONTAINS t OR toLower(n.summary) CONTAINS t)) AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) RETURN properties(n),labels(n) ORDER BY n.uuid LIMIT $limit",json!({"terms":terms,"types":types.unwrap_or(&[]),"limit":limit}),false).await?;
+        let rows=self.query(group,"MATCH (n:Entity) WHERE n.group_id=$group AND (size($terms)=0 OR any(t IN $terms WHERE toLower(n.name) CONTAINS t OR toLower(n.summary) CONTAINS t)) AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) RETURN properties(n),labels(n) ORDER BY n.uuid LIMIT $limit",json!({"group":group,"terms":terms,"types":types.unwrap_or(&[]),"limit":limit}),false).await?;
         rows.iter().map(|row| entity(row, group)).collect()
     }
     pub async fn facts(
@@ -279,7 +279,7 @@ impl LegacyStore {
             .query(
                 group,
                 EDGE_FACTS_QUERY,
-                json!({"terms":terms,"limit":limit}),
+                json!({"group":group,"terms":terms,"limit":limit}),
                 false,
             )
             .await?;
@@ -398,7 +398,7 @@ impl LegacyStore {
             .query(
                 group,
                 &fallback,
-                json!({"terms":terms,"limit":limit,"ids":allowed.unwrap_or(&[])}),
+                json!({"group":group,"terms":terms,"limit":limit,"ids":allowed.unwrap_or(&[])}),
                 false,
             )
             .await?;
@@ -660,7 +660,7 @@ impl LegacyStore {
                 .query(
                     group,
                     EDGE_RELATED_QUERY,
-                    json!({"source":f.source_node_uuid,"target":f.target_node_uuid}),
+                    json!({"group":group,"source":f.source_node_uuid,"target":f.target_node_uuid}),
                     false,
                 )
                 .await?;
@@ -894,7 +894,7 @@ fn attributes(p: &Map<String, Value>, known: &[&str]) -> Map<String, Value> {
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect()
 }
-fn fact(row: &[Value], group: &str) -> Result<LegacyFact> {
+pub(super) fn fact(row: &[Value], group: &str) -> Result<LegacyFact> {
     let mut p = map(&row[0])?;
     identity(
         &p,
@@ -969,7 +969,7 @@ fn decode(v: &R) -> Result<Value> {
     })
 }
 
-fn entity(row: &[Value], group: &str) -> Result<LegacyEntity> {
+pub(super) fn entity(row: &[Value], group: &str) -> Result<LegacyEntity> {
     let mut p = map(&row[0])?;
     identity(
         &p,

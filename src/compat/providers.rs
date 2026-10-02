@@ -59,7 +59,7 @@ impl Providers {
             "\n\nReturn exactly one JSON object containing concrete extracted values that conforms to this schema. Return a value instance, not the schema definition, and do not copy keys such as type/properties/required unless they are actual output fields. Keep the complete response concise and under 400 generated tokens; deduplicate repeated entities and facts, and include only values directly supported by the input:\n{}", serde_json::to_string(&schema)?));
         let mut request = self.client.post(format!("{}/chat/completions", self.config.llm_base.trim_end_matches('/')))
             .json(&json!({"model":self.config.llm_model,"max_tokens":self.config.max_tokens,"temperature":1,
-                "extra_body":{"chat_template_kwargs":{"enable_thinking":false}},
+                "chat_template_kwargs":{"enable_thinking":false},
                 "response_format":{"type":"json_object"},"messages":messages}));
         if let Some(file) = &self.config.llm_key_file {
             request = request.bearer_auth(read_secret(file)?);
@@ -101,7 +101,7 @@ impl Providers {
     }
     pub async fn prepare(&self, job: &Job) -> Result<Prepared> {
         let system = "Extract the supplied episode as JSON with entities:[{name,summary,labels,attributes}] and facts:[{source,target,name,fact,valid_at,attributes}]. source and target are zero-based entity indices. Use only explicit information. Do not invent facts. Max 128 entities and 128 facts. valid_at is an RFC3339 string or null. attributes contain only scalar values or scalar lists.";
-        let mut request=self.client.post(format!("{}/chat/completions",self.config.llm_base.trim_end_matches('/'))).json(&json!({"model":self.config.llm_model,"max_tokens":self.config.max_tokens,"temperature":1,"extra_body":{"chat_template_kwargs":{"enable_thinking":false}},"response_format":{"type":"json_object"},"messages":[{"role":"system","content":system},{"role":"user","content":format!("Reference time: {}\nName: {}\nSource: {}\nEpisode: {}",job.created,job.request.name,job.request.source,job.request.episode_body)}]}));
+        let mut request=self.client.post(format!("{}/chat/completions",self.config.llm_base.trim_end_matches('/'))).json(&json!({"model":self.config.llm_model,"max_tokens":self.config.max_tokens,"temperature":1,"chat_template_kwargs":{"enable_thinking":false},"response_format":{"type":"json_object"},"messages":[{"role":"system","content":system},{"role":"user","content":format!("Reference time: {}\nName: {}\nSource: {}\nEpisode: {}",job.created,job.request.name,job.request.source,job.request.episode_body)}]}));
         if let Some(file) = &self.config.llm_key_file {
             request = request.bearer_auth(read_secret(file)?);
         }

@@ -317,11 +317,11 @@ fn observed_python_functions_match_rust_on_synthetic_decisions() {
             graphiti_rs::compat::store::EDGE_LOOKUP_QUERY,
         ),
         (
-            "MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity) WHERE (size($terms)=0 OR any(t IN $terms WHERE toLower(e.fact) CONTAINS t)) RETURN properties(e),n.uuid,m.uuid ORDER BY e.uuid LIMIT $limit",
+            "MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity) WHERE e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND (size($terms)=0 OR any(t IN $terms WHERE toLower(e.fact) CONTAINS t)) RETURN properties(e),n.uuid,m.uuid ORDER BY e.uuid LIMIT $limit",
             graphiti_rs::compat::store::EDGE_FACTS_QUERY,
         ),
         (
-            "MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity) WHERE n.uuid=$source AND m.uuid=$target RETURN properties(e),n.uuid,m.uuid LIMIT 1001",
+            "MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity) WHERE e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND n.uuid=$source AND m.uuid=$target RETURN properties(e),n.uuid,m.uuid LIMIT 1001",
             graphiti_rs::compat::store::EDGE_RELATED_QUERY,
         ),
     ] {

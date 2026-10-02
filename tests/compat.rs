@@ -73,6 +73,125 @@ fn vector() -> Vec<f32> {
     v[0] = 1.;
     v
 }
+
+#[tokio::test]
+#[ignore = "requires dedicated disposable FalkorDB on loopback port 16379"]
+async fn restore_audit_reads_all_pages_and_refuses_malformed_identity_without_writes() {
+    use graphiti_rs::compat::audit;
+    let url = std::env::var("COMPAT_TEST_DB_URL").expect("explicit disposable DB required");
+    assert_eq!(url, "redis://127.0.0.1:16379");
+    let group = "project_read_audit_20261002";
+    let writer = LegacyStore::connect(&url, WriteMode::Synthetic)
+        .await
+        .unwrap();
+    writer.clear(group).await.unwrap();
+    let mut last_node = String::new();
+    let mut last_target = String::new();
+    let mut last_fact = String::new();
+    let mut last_episode = String::new();
+    for _ in 0..129 {
+        let mut p = fixture(group);
+        p.episode.uuid = uuid::Uuid::new_v4().to_string();
+        for node in &mut p.entities {
+            node.uuid = uuid::Uuid::new_v4().to_string();
+        }
+        p.facts[0].uuid = uuid::Uuid::new_v4().to_string();
+        p.facts[0].source_node_uuid = p.entities[0].uuid.clone();
+        p.facts[0].target_node_uuid = p.entities[1].uuid.clone();
+        p.facts[0].episodes = vec![p.episode.uuid.clone()];
+        p.episode.entity_edges = vec![p.facts[0].uuid.clone()];
+        last_node = p.entities[0].uuid.clone();
+        last_target = p.entities[1].uuid.clone();
+        last_fact = p.facts[0].uuid.clone();
+        last_episode = p.episode.uuid.clone();
+        assert!(writer.commit(&p).await.unwrap());
+    }
+    assert!(audit::inspect(&writer, group).await.is_err());
+    let reader = LegacyStore::connect(&url, WriteMode::ReadOnly)
+        .await
+        .unwrap();
+    let first = audit::inspect(&reader, group).await.unwrap();
+    assert_eq!(
+        (first.entities, first.episodes, first.facts),
+        (258, 129, 129)
+    );
+    assert_eq!((first.entity_vectors, first.fact_vectors), (258, 129));
+    let second = audit::inspect(&reader, group).await.unwrap();
+    assert_eq!(first.identity_sha256, second.identity_sha256);
+    assert_eq!(first.vector_sha256, second.vector_sha256);
+    let mut connection =
+        redis::aio::ConnectionManager::new(redis::Client::open(url.as_str()).unwrap())
+            .await
+            .unwrap();
+    // Reproduce inherited foreign copies in a graph without an index. The
+    // maintenance audit counts them; candidate queries exclude them before
+    // LIMIT, and a direct lookup retains the same strict group guard.
+    for query in [
+        format!(
+            "MATCH(n:Entity) WHERE n.uuid IN ['{last_node}','{last_target}'] SET n.group_id='general_chat'"
+        ),
+        format!("MATCH()-[e:RELATES_TO {{uuid:'{last_fact}'}}]->() SET e.group_id='general_chat'"),
+        format!("MATCH(e:Episodic {{uuid:'{last_episode}'}}) SET e.group_id='general_chat'"),
+    ] {
+        let _: redis::Value = redis::cmd("GRAPH.QUERY")
+            .arg(group)
+            .arg(query)
+            .query_async(&mut connection)
+            .await
+            .unwrap();
+    }
+    let classified = audit::inspect(&reader, group).await.unwrap();
+    assert_eq!(
+        (classified.entities, classified.episodes, classified.facts),
+        (258, 129, 129)
+    );
+    assert_eq!(
+        (
+            classified.mis_scoped_entities,
+            classified.mis_scoped_episodes,
+            classified.mis_scoped_facts
+        ),
+        (2, 1, 1)
+    );
+    assert_ne!(first.identity_sha256, classified.identity_sha256);
+    assert_eq!(first.vector_sha256, classified.vector_sha256);
+    assert_eq!(
+        reader.nodes(group, "", None, 1000).await.unwrap().len(),
+        256
+    );
+    assert_eq!(
+        reader.facts(group, "", None, 1000).await.unwrap().len(),
+        128
+    );
+    assert_eq!(
+        reader
+            .keyword_facts_filtered(group, "", None, 1000, None)
+            .await
+            .unwrap()
+            .len(),
+        128
+    );
+    assert!(
+        reader
+            .related_facts(group, &last_node, &last_target)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(reader.node(group, &last_node).await.is_err());
+    assert!(reader.edge(group, &last_fact).await.is_err());
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(group)
+        .arg(format!(
+            "MATCH(n:Entity {{uuid:'{last_node}'}}) REMOVE n.uuid"
+        ))
+        .query_async(&mut connection)
+        .await
+        .unwrap();
+    let error = audit::inspect(&reader, group).await.err().unwrap();
+    assert!(error.to_string().contains("omitted records"));
+    writer.clear(group).await.unwrap();
+}
 fn config(path: PathBuf, base: &str) -> CompatConfig {
     CompatConfig {
         pipeline: graphiti_rs::compat::config::IngestionPipeline::CombinedPreview,
@@ -363,10 +482,8 @@ async fn staged_llm(
     assert_eq!(v["response_format"], json!({"type":"json_object"}));
     assert_eq!(v["model"], "gpt-6-luna");
     assert_eq!(v["temperature"], 1);
-    assert_eq!(
-        v["extra_body"]["chat_template_kwargs"]["enable_thinking"],
-        false
-    );
+    assert_eq!(v["chat_template_kwargs"]["enable_thinking"], false);
+    assert!(v.get("extra_body").is_none());
     let user = v["messages"][1]["content"].as_str().unwrap();
     let schema: Value = serde_json::from_str(user.rsplit_once("input:\n").unwrap().1).unwrap();
     let title = schema["title"].as_str().unwrap();
@@ -1131,10 +1248,18 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
     assert_eq!(extraction["model"], "gpt-6-luna");
     assert_eq!(extraction["max_tokens"], 512);
     assert_eq!(extraction["temperature"], 1);
-    assert_eq!(
-        extraction["extra_body"]["chat_template_kwargs"]["enable_thinking"],
-        false
-    );
+    assert_eq!(extraction["chat_template_kwargs"]["enable_thinking"], false);
+    let sdk: Value = serde_json::from_str(include_str!("fixtures/observed-sdk-wire.json")).unwrap();
+    for field in [
+        "model",
+        "max_tokens",
+        "temperature",
+        "response_format",
+        "chat_template_kwargs",
+    ] {
+        assert_eq!(extraction[field], sdk["bodies"][0][field]);
+    }
+    assert!(extraction.get("extra_body").is_none());
     assert!(
         bodies
             .iter()
