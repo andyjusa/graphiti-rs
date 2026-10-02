@@ -583,6 +583,54 @@ fn provider_configuration_and_vector_drift_fail_closed() {
     validate_vector(&vector()).unwrap();
 }
 
+#[test]
+fn operational_mode_requires_deployed_profile_and_private_credentials() {
+    use graphiti_rs::compat::config::IngestionPipeline;
+    let root = dir();
+    std::fs::create_dir_all(&root).unwrap();
+    let secret = root.join("synthetic-key");
+    std::fs::write(&secret, "synthetic-validation-only").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&secret, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    let mut c = config(
+        root.join("journal"),
+        "https://factchat-cloud.mindlogic.ai/v1/gateway",
+    );
+    c.mode = WriteMode::Operational;
+    c.pipeline = IngestionPipeline::Graphiti;
+    c.redis_url = "redis://falkordb:6379".into();
+    c.gemini_base = "https://generativelanguage.googleapis.com/v1beta".into();
+    assert!(c.validate().is_err());
+    c.llm_key_file = Some(secret.clone());
+    c.gemini_key_file = Some(secret.clone());
+    c.validate().unwrap();
+    let mut changed = c.clone();
+    changed.pipeline = IngestionPipeline::CombinedPreview;
+    assert!(changed.validate().is_err());
+    let mut changed = c.clone();
+    changed.gemini_base = "http://localhost:12345".into();
+    assert!(changed.validate().is_err());
+    let mut changed = c.clone();
+    changed.llm_base = "https://example.com/v1/gateway".into();
+    assert!(changed.validate().is_err());
+    let mut changed = c.clone();
+    changed.redis_url = "https://falkordb:6379".into();
+    assert!(changed.validate().is_err());
+    let mut changed = c.clone();
+    changed.max_tokens = 0;
+    assert!(changed.validate().is_err());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&secret, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(c.validate().is_err());
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 #[derive(Clone)]
 struct Mock {
     calls: Arc<AtomicUsize>,

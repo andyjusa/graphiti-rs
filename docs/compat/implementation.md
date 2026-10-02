@@ -1,6 +1,6 @@
 # Graphiti 0.28.2 compatibility preview
 
-The optional feature exposes the ten recorded MCP tools and legacy-schema reads. **Production mutations and real provider calls remain disabled. It is not ready to replace the operational Python server.** The independent lightweight server and its optional local embeddings remain available on `main`.
+The optional feature exposes the ten recorded MCP tools, legacy-schema reads and staged ingestion. It defaults to read-only; the explicit operational profile enables writes and fresh query embeddings using the existing deployed providers. See [operational configuration and current cutover status](operational-mode.md). The independent lightweight server and its optional local embeddings remain available on `main`.
 
 ## Configuration
 
@@ -12,7 +12,7 @@ COMPAT_DB_URL=redis://127.0.0.1:16379 \
 
 The example DB is disposable. The address must be explicit. `COMPAT_WRITE_MODE=read-only` is the default: reads make no model calls and create no indexes. HTTP uses `/mcp`, bearer/Host/Origin/request-size checks, `GRAPHITI_BIND`, `HTTP_ALLOWED_HOSTS`, and the private credential file `COMPAT_TOKEN_FILE`.
 
-`synthetic` mode requires loopback DB port 16379, loopback LLM/Gemini mocks, an explicit `COMPAT_MAX_TOKENS` of 1–4096 and a private `COMPAT_JOURNAL_DIR`. It enables new episode ingestion, existing entity/fact UUID reuse, and journaled deletion/clearing **only in an exclusively owned disposable DB**. Loopback alone is not proof of ownership. No production write mode exists.
+`synthetic` mode requires loopback DB port16379, loopback LLM/Gemini mocks, an explicit `COMPAT_MAX_TOKENS` of1–4096 and a private `COMPAT_JOURNAL_DIR`. It enables ingestion and journaled mutations only in an exclusively owned disposable DB. Loopback alone is not proof of ownership. `operational` additionally requires the staged Graphiti pipeline, the exact deployed HTTPS provider endpoints and separate owner-private credential files; it uses the same bounds and journal protections.
 
 ACLs authorize five recorded named read groups and the project-name pattern; `hermes` and `family_shared` stay read-only. Default group is `user_primary`. Duplicate read groups preserve first occurrence; an explicit empty group list returns empty without a model call. Destructive calls require an explicit UUID/group or exactly one raw clear group, and never inherit a default.
 

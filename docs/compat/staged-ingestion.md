@@ -1,6 +1,6 @@
 # Staged ingestion validation
 
-The compatibility worker now runs the observed Graphiti0.28.2 MCP ingestion stages by default. See [implementation](implementation.md) and the active [replacement checklist](replacement-plan.md). Operational writes remain disabled pending original-memory/provider/gateway/cutover evidence.
+The compatibility worker now runs the observed Graphiti0.28.2 MCP ingestion stages by default. See [implementation](implementation.md) and the active [replacement checklist](replacement-plan.md). Explicit operational configuration and bounded real-provider evidence are now available in [operational-mode.md](operational-mode.md); actual cutover remains a separate gate.
 
 ## Evidence
 

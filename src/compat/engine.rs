@@ -38,9 +38,12 @@ impl Drop for Engine {
     }
 }
 impl Engine {
+    pub fn write_mode(&self) -> WriteMode {
+        self.config.mode
+    }
     pub async fn new(config: CompatConfig) -> Result<Arc<Self>> {
         config.validate()?;
-        let journal = if config.mode == WriteMode::Synthetic {
+        let journal = if config.mode.writable() {
             Some(Arc::new(Journal::open(
                 config.journal_dir.as_ref().unwrap(),
                 config.capacity,
@@ -451,9 +454,7 @@ impl Engine {
                 )
             }
             "get_status" => {
-                if self.config.mode == WriteMode::Synthetic
-                    && !self.worker_alive.load(Ordering::Acquire)
-                {
+                if self.config.mode.writable() && !self.worker_alive.load(Ordering::Acquire) {
                     return Ok(
                         json!({"status":"error","message":"Ingestion worker stopped; restart the server to recover durable jobs"}),
                     );
@@ -468,8 +469,8 @@ impl Engine {
     }
     fn writable(&self) -> Result<()> {
         ensure!(
-            self.config.mode == WriteMode::Synthetic,
-            "production compatibility mutations are disabled"
+            self.config.mode.writable(),
+            "compatibility mutations require a writable mode"
         );
         ensure!(
             self.worker_alive.load(Ordering::Acquire),

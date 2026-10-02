@@ -65,9 +65,20 @@ pub fn response(name: &str, value: anyhow::Result<Value>) -> Result<CallToolResu
 impl ServerHandler for CompatService {
     fn get_info(&self) -> ServerConfig {
         let mut info = ServerConfig::new(ServerCapabilities::builder().enable_tools().build());
-        info.server_info =
-            Implementation::new("graphiti-rs-compat-preview", env!("CARGO_PKG_VERSION"));
-        info.instructions=Some("Graphiti 0.28.2 contract preview. Production writes are disabled. add_memory acceptance is not graph completion; use exact get_episode. Retrieval and mutations are not certified Python parity.".into());
+        let operational = self.engine.write_mode() == super::config::WriteMode::Operational;
+        info.server_info = Implementation::new(
+            if operational {
+                "graphiti-rs"
+            } else {
+                "graphiti-rs-compat-preview"
+            },
+            env!("CARGO_PKG_VERSION"),
+        );
+        info.instructions = Some(if operational {
+            "Graphiti memory server. add_memory acceptance is not graph completion; confirm completion using get_episode with its exact UUID and group. Scoped read and write permissions apply."
+        } else {
+            "Graphiti 0.28.2 contract preview. Operational writes are disabled. add_memory acceptance is not graph completion; use exact get_episode."
+        }.into());
         info
     }
     fn get_tool(&self, name: &str) -> Option<Tool> {

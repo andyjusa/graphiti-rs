@@ -1,0 +1,30 @@
+# Operational Graphiti 0.28.2 mode
+
+`COMPAT_WRITE_MODE=operational` enables the verified staged ingestion worker and fresh semantic-query embeddings against the existing Graphiti storage format. The default remains `read-only`. Synthetic mode retains its loopback-only database and model guards.
+
+Operational mode requires the deployed `gpt-6-luna` model at `https://factchat-cloud.mindlogic.ai/v1/gateway` and the existing `gemini-embedding-2` raw-text 3072-dimensional space at `https://generativelanguage.googleapis.com/v1beta`. Both credentials must come from ordinary owner-private files. It rejects the combined preview pipeline, endpoint changes, missing keys, an unbounded token setting and missing durable journal configuration. Optional local embeddings remain supported for independent standalone spaces; they cannot replace the original vectors in this compatibility profile.
+
+Use `compose.operational.yaml` with explicit verified image digests and existing private paths. Config contains `entity-types.json` and `backend-token` (the bearer value without the `Bearer ` prefix). Journal directories must have mode0700 and credential files mode0600, readable by container UID1000. Only the two required model files are mounted. The Redis and Rust services have no published ports; an existing authenticated ingress connects over the explicitly selected private Docker network.
+
+The same durable job bounds, prepared-commit reconciliation, failure handling and group permissions apply to synthetic and operational workers. Dispatch failures are recorded without automatically repeating generation. A failed ingestion worker refuses new mutations and reports an error through `get_status`. Accepted jobs are not completed episodes; callers confirm them with `get_episode` using the returned UUID and explicit group.
+
+## Initial restore and cutover
+
+1. Keep the old service, its data and configuration available. Audit accepted jobs and block new ingress requests while draining. Capture a final DB backup and record its hash outside Git.
+2. Restore to a separate private directory using the same observed FalkorDB module. A bare `dump.rdb` must first load with `appendonly=no`: starting Redis with `appendonly=yes` and no AOF can create an empty database instead. Enable AOF only after confirming the expected records, wait for its rewrite to succeed, and validate persistence before adopting the `appendonly=yes` service configuration. Copying a stopped service's complete existing AOF directory also preserves its current durable state.
+3. Confirm all original graphs and opaque records against the frozen source with bounded, paginated reads. Do not materialize all stored vectors in a single maintenance-process response on the Pi.
+4. Verify real generation, fresh embeddings, existing episode reads and controlled English/Korean write/read/search in an exclusively owned synthetic group. Apply the reviewed gateway header patch, retaining the OAuth SQLite state and existing credentials.
+5. Route `/mcp` to the Rust service. The ingress must retain the validated backend `Authorization` header because Rust authenticates it independently. The gateway must forward `Mcp-Method` and `Mcp-Name`, including duplicates, so modern transport validation remains effective.
+6. Check the active connector and stateless bridge, exact ten-tool schemas, legacy/modern requests, authorization refusals, persistence and controlled post-switch write/read. Keep the old Python ingestion service stopped to avoid multiple writers.
+
+Rollback must freeze ingress, reconcile the Rust journal, and preserve any writes accepted after cutover. Stop Rust before starting the old writer. Back up the current Rust DB and use its complete durable state when restoring the old service; never silently return to an earlier snapshot and discard newly committed memories. Restore the previous ingress/gateway configuration and reconnect clients. A rollback rehearsal must use disposable copies until its operational steps are authorized and reviewed.
+
+## Bounded verification on 2026-10-03
+
+An actual ARM64 Rust server loaded a current 144-key private snapshot on Pi4. It read two existing episodes, exposed the ten original tool schemas, committed two controlled English/Korean episodes, and returned the expected facts and entities through fresh hybrid searches. The two journal jobs finished as `committed`. After those requests Rust used approximately5.48MiB and the restored FalkorDB approximately424MiB; this is a post-request snapshot, not peak RSS or a throughput benchmark.
+
+A separate bounded provider probe made two generation requests and one four-text embedding batch. English and Korean extraction succeeded with the deployed classification configuration. All four vectors had3072 dimensions; the English paraphrase cosine was0.9632 versus0.2699 for an unrelated sentence. This small synthetic cohort does not establish general multilingual accuracy.
+
+Local ordinary tests (32 distinct) and fifteen isolated compatibility tests pass, as do formatting and all-target/all-feature Clippy. An initial local disposable DB launch failed because the image entrypoint tried to create a directory on its read-only root; the explicit Redis entrypoint corrected it, after which all fifteen DB tests passed.
+
+Operational cutover is not yet certified. The initial unpaged whole-data comparison put memory pressure on the Pi; its SSH session was stopped and the comparison was rewritten to page32 records. At the last check the operating route was unchanged, the original data had not been deleted, and Pi access recovery was pending. The successful staged/provider results are retained privately alongside the snapshot and source hashes.

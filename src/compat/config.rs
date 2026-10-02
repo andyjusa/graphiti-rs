@@ -7,6 +7,12 @@ use std::{
 pub enum WriteMode {
     ReadOnly,
     Synthetic,
+    Operational,
+}
+impl WriteMode {
+    pub fn writable(self) -> bool {
+        self != Self::ReadOnly
+    }
 }
 #[derive(Clone, Copy, PartialEq)]
 pub enum IngestionPipeline {
@@ -60,7 +66,8 @@ impl CompatConfig {
             mode: match get("COMPAT_WRITE_MODE", "read-only").as_str() {
                 "read-only" => WriteMode::ReadOnly,
                 "synthetic" => WriteMode::Synthetic,
-                _ => anyhow::bail!("production compatibility mutations are not enabled"),
+                "operational" => WriteMode::Operational,
+                _ => anyhow::bail!("unknown compatibility write mode"),
             },
             journal_dir: std::env::var_os("COMPAT_JOURNAL_DIR").map(PathBuf::from),
             llm_base: get(
@@ -115,6 +122,16 @@ impl CompatConfig {
             self.llm_model == "gpt-6-luna",
             "compatibility model must remain gpt-6-luna"
         );
+        if self.mode.writable() {
+            ensure!(
+                (1..=4096).contains(&self.max_tokens),
+                "explicit bounded COMPAT_MAX_TOKENS required"
+            );
+            ensure!(
+                self.journal_dir.is_some(),
+                "private journal directory required"
+            );
+        }
         if self.mode == WriteMode::Synthetic {
             let url = reqwest::Url::parse(&self.redis_url)
                 .map_err(|_| anyhow::anyhow!("invalid compatibility DB URL"))?;
@@ -127,14 +144,38 @@ impl CompatConfig {
                     && loopback(&reqwest::Url::parse(&self.gemini_base)?),
                 "synthetic mode only calls loopback model mocks"
             );
+        }
+        if self.mode == WriteMode::Operational {
             ensure!(
-                (1..=4096).contains(&self.max_tokens),
-                "explicit bounded COMPAT_MAX_TOKENS required"
+                self.pipeline == IngestionPipeline::Graphiti,
+                "operational mode requires the staged Graphiti pipeline"
+            );
+            let db = reqwest::Url::parse(&self.redis_url)
+                .map_err(|_| anyhow::anyhow!("invalid compatibility DB URL"))?;
+            ensure!(
+                matches!(db.scheme(), "redis" | "rediss") && db.host_str().is_some(),
+                "invalid operational DB URL"
             );
             ensure!(
-                self.journal_dir.is_some(),
-                "private journal directory required"
+                self.llm_base.trim_end_matches('/')
+                    == "https://factchat-cloud.mindlogic.ai/v1/gateway",
+                "operational LLM endpoint differs from the deployed profile"
             );
+            ensure!(
+                self.gemini_base.trim_end_matches('/')
+                    == "https://generativelanguage.googleapis.com/v1beta",
+                "operational embedding endpoint differs from the deployed profile"
+            );
+            read_secret(
+                self.llm_key_file
+                    .as_deref()
+                    .context("operational LLM credential file required")?,
+            )?;
+            read_secret(
+                self.gemini_key_file
+                    .as_deref()
+                    .context("operational embedding credential file required")?,
+            )?;
         }
         Ok(())
     }

@@ -53,8 +53,8 @@ impl LegacyStore {
         if write {
             policy::write(group)?;
             ensure!(
-                self.mode == WriteMode::Synthetic,
-                "compatibility mutations require validated synthetic mode; production writes disabled"
+                self.mode.writable(),
+                "compatibility mutations require a writable mode"
             );
         } else {
             policy::read(group)?;
@@ -695,8 +695,8 @@ impl LegacyStore {
     }
     pub async fn commit(&self, payload: &Prepared) -> Result<bool> {
         ensure!(
-            self.mode == WriteMode::Synthetic,
-            "production compatibility mutations are disabled"
+            self.mode.writable(),
+            "compatibility mutations require a writable mode"
         );
         let payload = self.plan(payload).await?;
         let e = &payload.episode;
