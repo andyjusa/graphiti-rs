@@ -1,0 +1,113 @@
+{
+  "scope": "Two flat synthetic legacy fact attributes across generic-model/exact/invalidation paths; no operating replacement",
+  "baseline_counterexample": {
+    "verified_on_actual_pi": true,
+    "failed_episode": 1,
+    "episode_references_both": 3,
+    "sdk_model_reuse_attributes": {},
+    "old_rust_model_reuse_attributes": {
+      "fixture_note": "Synthetic legacy metadata",
+      "fixture_weight": 7
+    }
+  },
+  "corrected_rust": {
+    "actual_provider_calls": 0,
+    "cumulative_facts": [
+      6,
+      6,
+      9,
+      11
+    ],
+    "entities": 6,
+    "episodes": 4,
+    "fixture_order": "reuse_last",
+    "metadata_seeded": true,
+    "mock_llm_requests": 21,
+    "binary_sha256": "0ca853523f55fc371c164f2045895b63825b65fb9924a5b1759dd618b813c178",
+    "passed": true
+  },
+  "actual_sdk": {
+    "scope": "Actual deployed SDK interacting reuse/invalidation and temporal history; supplied semantic decisions with fact-index rebasing",
+    "package": "graphiti-core 0.28.2",
+    "python": "3.11.2",
+    "episodes": 4,
+    "entities": 6,
+    "cumulative_facts": [
+      6,
+      6,
+      9,
+      11
+    ],
+    "episode_reference_counts": [
+      6,
+      3,
+      7,
+      4
+    ],
+    "mock_llm_requests": 21,
+    "edge_candidate_sets_match": 8,
+    "rebased_decisions": 3,
+    "canonical_graphs_match": true,
+    "schemas_match_real_pydantic": true,
+    "expired_at_instants_match": true,
+    "basis_vector_records_match": 56,
+    "actual_provider_calls": 0,
+    "graphiti_source_sha256": "8487af6bda1b4efa914f4a827502d4f241a4e3c8ce7973df3c410e4b2ef8153f",
+    "edge_patch_sha256": "7abd25af31520e3951625c7a3739033bf9469b0d466c592243d9eaa8b3153939",
+    "limits": "Synthetic generic relations, mocked basis vectors and supplied decisions. Ranking ties may produce different candidate order in independently allocated fresh graphs; candidate sets must match. No real-provider quality, original-data writes or operational cutover."
+  },
+  "sdk_metadata_controls": {
+    "model_reuse_clears_generic_attributes": true,
+    "exact_reuse_retains_legacy_attributes": true,
+    "later_invalidation_retains_legacy_attributes": true
+  },
+  "local_checks": {
+    "non_ignored_tests": 31,
+    "isolated_compatibility_tests": 15,
+    "format": true,
+    "all_target_all_feature_clippy": true
+  },
+  "source_sha256": {
+    "src/compat/store.rs": "a712b771c9475ce6193ca16a07b06ccf6b52a3268e1cb0e5dd3e2952c48b8b17",
+    "tests/support/interacting_relations.rs": "9f29b620e68e2d1fcc7eb172961701e90055e673bde66f46b88c04f2ca42c730",
+    "scripts/python-pi-fact-metadata.py": "6215fbafff9abf55654c53a8d6a51bfae40dbf2b82c9d467e7ef0a238c70d88c",
+    "scripts/python-pi-interacting-relations.py": "458c8f983ef76d31180a1edc9dd9cdfde02592f85a4f20a1173efc5b77cdd088"
+  },
+  "database": {
+    "pi": "FalkorDB 4.16.6",
+    "local": "FalkorDB 4.14.11"
+  },
+  "preservation": {
+    "services": {
+      "original_ingestion": {
+        "id_unchanged": true,
+        "start_unchanged": true,
+        "running": true,
+        "healthy": true
+      },
+      "original_oauth": {
+        "id_unchanged": true,
+        "start_unchanged": true,
+        "running": true,
+        "healthy": null
+      },
+      "readonly_original_restore": {
+        "id_unchanged": true,
+        "start_unchanged": true,
+        "running": true,
+        "healthy": true
+      }
+    },
+    "backup_sha256_unchanged": true,
+    "audit_sha256_unchanged": true,
+    "owned_container_removed": true,
+    "owned_network_removed": true,
+    "owned_relay_stopped": true,
+    "anonymous_volumes_created": false,
+    "operational_writes": 0,
+    "real_provider_calls": 0
+  },
+  "paid_calls": 0,
+  "operational_writes": 0,
+  "limits": "Four fixed synthetic episodes, supplied decisions and basis vectors. Candidate fact sets must match; indices rebased. No real-provider/new-query quality, exhaustive metadata/overlap/fault parity, fresh OAuth or operating switch."
+}

@@ -566,7 +566,7 @@ impl LegacyStore {
         nodes: &[LegacyEntity],
         facts: &[LegacyFact],
     ) -> Result<Prepared> {
-        let planned = self.plan(payload).await?;
+        let mut planned = self.plan(payload).await?;
         let before = planned
             .baseline
             .as_ref()
@@ -604,6 +604,14 @@ impl LegacyStore {
                 "fact changed during model resolution"
             );
         }
+        // The staged pipeline has already resolved each fact's attributes.
+        // Exact reuse/invalidation carries old values; generic model reuse clears
+        // them. Do not restore cleared attributes through the legacy merge plan.
+        for (resolved, observed) in planned.facts.iter_mut().zip(&payload.facts) {
+            ensure!(resolved.uuid == observed.uuid, "planned fact order changed");
+            resolved.attributes = observed.attributes.clone();
+        }
+        planned.validate()?;
         Ok(planned)
     }
     /// A bounded, exact-text fast path only. Fuzzy/LLM entity resolution is a release gate.
@@ -776,7 +784,7 @@ impl LegacyStore {
  AND all(before IN $before_nodes WHERE single(n IN existing_nodes WHERE n.uuid=before.props.uuid AND size(keys(n))=size(keys(before.props)) AND all(k IN keys(before.props) WHERE k='name_embedding' OR n[k]=before.props[k]) AND n.name_embedding=CASE WHEN before.props.name_embedding IS NULL THEN n.name_embedding ELSE vecf32(before.props.name_embedding) END AND size(labels(n))=size(before.labels) AND all(l IN labels(n) WHERE l IN before.labels)))
  AND all(before IN $before_facts WHERE single(f IN existing_facts WHERE f.kind='RELATES_TO' AND f.entity_endpoints AND f.source_group=$group AND f.target_group=$group AND f.props.uuid=before.props.uuid AND f.source=before.source AND f.target=before.target AND size(keys(f.props))=size(keys(before.props)) AND all(k IN keys(before.props) WHERE k='fact_embedding' OR f.props[k]=before.props[k]) AND f.props.fact_embedding=CASE WHEN before.props.fact_embedding IS NULL THEN f.props.fact_embedding ELSE vecf32(before.props.fact_embedding) END))
  FOREACH (n IN $nodes | MERGE (v:Entity {uuid:n.uuid}) SET v+=n.props SET v.name_embedding=CASE WHEN n.props.name_embedding IS NULL THEN null ELSE vecf32(n.props.name_embedding) END)
- FOREACH (f IN $facts | MERGE (a:Entity {uuid:f.source}) MERGE (b:Entity {uuid:f.target}) MERGE (a)-[r:RELATES_TO {uuid:f.uuid}]->(b) SET r+=f.props SET r.fact_embedding=CASE WHEN f.props.fact_embedding IS NULL THEN null ELSE vecf32(f.props.fact_embedding) END)
+ FOREACH (f IN $facts | MERGE (a:Entity {uuid:f.source}) MERGE (b:Entity {uuid:f.target}) MERGE (a)-[r:RELATES_TO {uuid:f.uuid}]->(b) SET r=f.props SET r.fact_embedding=CASE WHEN f.props.fact_embedding IS NULL THEN null ELSE vecf32(f.props.fact_embedding) END)
  CREATE (e:Episodic) SET e+=$episode
  FOREACH (n IN $nodes | MERGE (v:Entity {uuid:n.uuid}) CREATE(e)-[m:MENTIONS]->(v) SET m.uuid=n.mention,m.group_id=$group,m.created_at=$created)
  RETURN e.uuid"#.replace(" FOREACH (f IN $facts", &format!("{label_clauses} FOREACH (f IN $facts"));

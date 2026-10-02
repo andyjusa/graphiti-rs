@@ -263,14 +263,19 @@ async fn relation_llm(
 #[tokio::test]
 #[ignore = "requires exclusively owned disposable FalkorDB on loopback port 16379"]
 async fn interacting_reuse_invalidation_alias_self_loop_and_historical_relations() {
-    interacting_case(false).await;
+    interacting_case(false, false).await;
 }
 #[tokio::test]
 #[ignore = "requires exclusively owned disposable FalkorDB on loopback port 16379"]
 async fn overlap_order_reuse_before_invalidation() {
-    interacting_case(true).await;
+    interacting_case(true, false).await;
 }
-async fn interacting_case(reuse_first: bool) {
+#[tokio::test]
+#[ignore = "requires exclusively owned disposable FalkorDB on loopback port 16379"]
+async fn existing_metadata_exact_model_reuse_and_invalidation() {
+    interacting_case(false, true).await;
+}
+async fn interacting_case(reuse_first: bool, seed_metadata: bool) {
     assert_eq!(
         std::env::var("COMPAT_TEST_DB_URL").unwrap(),
         "redis://127.0.0.1:16379"
@@ -320,9 +325,48 @@ async fn interacting_case(reuse_first: bool) {
         engine.execute("add_memory",json!({"uuid":id,"name":format!("interacting-{index}"),"source":source,"episode_body":body,"group_id":group})).await.unwrap();
         poll(&engine, &group, &id).await;
         let nodes = engine.store.nodes(&group, "", None, 100).await.unwrap();
-        let facts = engine.store.facts(&group, "", None, 100).await.unwrap();
+        let mut facts = engine.store.facts(&group, "", None, 100).await.unwrap();
+        if seed_metadata && index == 0 {
+            let client = redis::Client::open("redis://127.0.0.1:16379").unwrap();
+            let mut conn = client.get_multiplexed_async_connection().await.unwrap();
+            for text in ["Gaon works at Saebit.", "Nari works at Saebit."] {
+                let fact = facts.iter().find(|f| f.fact == text).unwrap();
+                let query = format!(
+                    "CYPHER id={} MATCH()-[r:RELATES_TO]->() WHERE r.uuid=$id SET r.fixture_note='Synthetic legacy metadata',r.fixture_weight=7 RETURN r.uuid",
+                    serde_json::to_string(&fact.uuid).unwrap()
+                );
+                let _: redis::Value = redis::cmd("GRAPH.QUERY")
+                    .arg(&group)
+                    .arg(query)
+                    .query_async(&mut conn)
+                    .await
+                    .unwrap();
+            }
+            facts = engine.store.facts(&group, "", None, 100).await.unwrap();
+        }
         assert_eq!(nodes.len(), 6);
         assert_eq!(facts.len(), [6, 6, 9, 11][index]);
+        if seed_metadata && index > 0 {
+            assert!(
+                facts
+                    .iter()
+                    .find(|f| f.fact == "Gaon works at Saebit.")
+                    .unwrap()
+                    .attributes
+                    .is_empty()
+            );
+            assert_eq!(
+                facts
+                    .iter()
+                    .find(|f| f.fact == "Nari works at Saebit.")
+                    .unwrap()
+                    .attributes,
+                json!({"fixture_note":"Synthetic legacy metadata","fixture_weight":7})
+                    .as_object()
+                    .unwrap()
+                    .clone()
+            );
+        }
         for node in &nodes {
             if let Some(old) = identity.insert(node.name.clone(), node.uuid.clone()) {
                 assert_eq!(old, node.uuid, "alias changed identity");
@@ -388,11 +432,11 @@ async fn interacting_case(reuse_first: bool) {
             .mode(0o600)
             .open(path)
             .unwrap();
-        f.write_all(&serde_json::to_vec_pretty(&json!({"actual_provider_calls":0,"fixture_order":if reuse_first{"reuse_first"}else{"reuse_last"},"snapshots":snapshots,"steps":*state.trace.lock().await})).unwrap()).unwrap();
+        f.write_all(&serde_json::to_vec_pretty(&json!({"actual_provider_calls":0,"fixture_order":if reuse_first{"reuse_first"}else{"reuse_last"},"metadata_seeded":seed_metadata,"snapshots":snapshots,"steps":*state.trace.lock().await})).unwrap()).unwrap();
     }
     println!(
         "INTERACTING_RELATION_REPORT {}",
-        json!({"episodes":4,"entities":6,"fixture_order":if reuse_first{"reuse_first"}else{"reuse_last"},"cumulative_facts":[6,6,9,11],"mock_llm_requests":state.trace.lock().await.len(),"actual_provider_calls":0})
+        json!({"episodes":4,"entities":6,"metadata_seeded":seed_metadata,"fixture_order":if reuse_first{"reuse_first"}else{"reuse_last"},"cumulative_facts":[6,6,9,11],"mock_llm_requests":state.trace.lock().await.len(),"actual_provider_calls":0})
     );
     engine.store.clear(&group).await.unwrap();
     drop(engine);
