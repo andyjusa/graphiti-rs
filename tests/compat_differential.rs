@@ -40,6 +40,118 @@ fn canonical(mut value: Value) -> Value {
     }
     value
 }
+
+#[test]
+fn observed_python_prompts_and_entity_similarity_match_staged_pipeline() {
+    use graphiti_rs::compat::{dto::LegacyEntity, node_resolution as names, prompts};
+    let stages = [
+        "extract_nodes.extract_message",
+        "extract_nodes.extract_json",
+        "extract_nodes.extract_text",
+        "extract_nodes.extract_summaries_batch",
+        "extract_edges.edge",
+        "dedupe_nodes.nodes",
+        "dedupe_edges.resolve_edge",
+    ];
+    let mut cases = vec![];
+    let mut expected = vec![];
+    for text in [
+        "Gaon: I work at Saebit.",
+        "가온은 새빛에서 일한다.\n나리: '안녕'",
+        "Mixed \"quotes\", apostrophe's, tab\t and emoji 🦀",
+    ] {
+        let context = json!({"episode_content":text,"episode_timestamp":"2026-10-02T00:00:00Z","previous_episodes":["가온: 이전 대화.","A\nB"],"source_description":"Synthetic JSON","custom_extraction_instructions":"","entity_types":[{"entity_type_id":0,"entity_type_name":"Entity","entity_type_description":"default"}],"reference_time":"2026-10-02T00:00:00Z","nodes":[{"name":"Gaon","entity_types":["Entity","Person"]}],"edge_types":[],"extracted_nodes":[{"id":0,"name":"Gaon","entity_type":["Entity"],"entity_type_description":"default"}],"existing_nodes":[{"name":"Gaon","entity_types":["Entity"],"summary":"Original \"summary\""}],"entities":[{"name":"가온","summary":"Existing\nsummary","attributes":{"active":true,"optional":null}}],"existing_edges":[{"idx":0,"fact":"Gaon works at Saebit."}],"edge_invalidation_candidates":[{"idx":1,"fact":"Gaon works elsewhere."}],"new_edge":"Gaon works at Hanul."});
+        for stage in stages {
+            cases.push(json!({"kind":"prompt","stage":stage,"context":context}));
+            expected.push(serde_json::to_value(prompts::render(stage, &context).unwrap()).unwrap());
+        }
+    }
+    for name in [
+        "",
+        "a",
+        "ab",
+        "aaa aaa",
+        "Gaon",
+        "SAEBIT",
+        "  John\tDoe ",
+        "Acme—Research's",
+        "가온 새빛",
+        "İstanbul",
+        "O'Reilly",
+        "Long_company_name",
+        "John\u{001c}Doe",
+    ] {
+        let fuzzy = names::fuzzy_name(name);
+        let shingles = names::shingles(&fuzzy);
+        cases.push(json!({"kind":"name","name":name}));
+        expected.push(json!({"fuzzy":fuzzy,"high_entropy":names::high_entropy(&fuzzy),"shingles":shingles,"signature":names::signature(&shingles)}));
+    }
+    for (name, candidates) in [
+        ("Saebit", vec!["Saebit", "Gaon"]),
+        ("Gaon", vec!["Gaon"]),
+        ("가온", vec!["가온"]),
+        ("Saebit", vec!["Saebit", " SAEBIT "]),
+        ("OpenAI Research", vec!["OpenAI_Research", "Other company"]),
+        ("Unrelated Company", vec!["Other Company"]),
+        ("John Doe", vec![]),
+    ] {
+        let nodes:Vec<LegacyEntity>=candidates.iter().enumerate().map(|(i,name)|serde_json::from_value(json!({"uuid":i.to_string(),"group_id":"user_primary","name":name,"summary":"","labels":["Entity"],"created_at":"2026-10-02T00:00:00Z","attributes":{}})).unwrap()).collect();
+        cases.push(json!({"kind":"resolve","name":name,"candidates":candidates}));
+        expected.push(json!(names::CandidateIndex::new(&nodes).resolve(name)));
+    }
+    for text in [
+        "가온\u{200b} 새빛\u{feff}",
+        "A\u{0001}B\nC\rD\tE\u{200d}🦀",
+        "",
+    ] {
+        cases.push(json!({"kind":"clean","text":text}));
+        expected.push(json!(graphiti_rs::compat::providers::clean_input(text)));
+    }
+    for text in [
+        "Short summary.".to_owned(),
+        "가온은 새빛에서 일한다. ".repeat(80),
+        "No boundaries ".repeat(80),
+        format!("{}! trailing sentence", "a".repeat(499)),
+        format!("One sentence!\t{}", "b".repeat(600)),
+    ] {
+        cases.push(json!({"kind":"summary","text":text}));
+        expected.push(json!(graphiti_rs::compat::pipeline::truncate_summary(
+            &text
+        )));
+    }
+    eprintln!(
+        "independent pipeline baseline: {} synthetic cases",
+        cases.len()
+    );
+    let mut child = Command::new("python3")
+        .args(["-S", "scripts/python-0282-pipeline-baseline.py"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&serde_json::to_vec(&cases).unwrap())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let actual: Vec<Value> = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(actual.len(), expected.len());
+    for (i, (a, b)) in actual.iter().zip(&expected).enumerate() {
+        assert_eq!(
+            a, b,
+            "independent observed baseline case {}: {}",
+            i, cases[i]
+        );
+    }
+}
 #[test]
 fn observed_python_functions_match_rust_on_synthetic_decisions() {
     let now = "2026-10-01T10:00:00.123456Z";

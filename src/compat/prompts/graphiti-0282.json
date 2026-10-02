@@ -1,0 +1,715 @@
+{
+  "package": "graphiti-core 0.28.2 observed source",
+  "license": "Apache-2.0; Copyright 2024 Zep Software, Inc.",
+  "profile": "deployed MCP: classification-only entities, empty edge_types",
+  "source_sha256": {
+    "extract_nodes.py": "86f208c2f4cd2e6ab743ba035f8a98f293bfa305d01d269c0d8707c5a54c2fa9",
+    "extract_edges.py": "243acdc58c0d72009a5cf0ec03305bf088b09cd47401716488fb16307fc02f9b",
+    "dedupe_nodes.py": "ff316648e57e9db6da73a7236b2419a2832262a34229f94b2aef53da14410529",
+    "dedupe_edges.py": "47cd72e062cd7df4a14b878d9215765ba9fb3ea1244892d9e0b3cb0e6fe13ccd",
+    "snippets.py": "13addc5b3c981631088155e6b5f3753fabe43205bae44086df881f81c8016389"
+  },
+  "prompts": {
+    "extract_nodes.extract_message": {
+      "messages": [
+        {
+          "role": "system",
+          "chunks": [
+            {
+              "literal": "You are an AI assistant that extracts entity nodes from conversational messages. \n    Your primary task is to extract and classify the speaker and other significant entities mentioned in the conversation."
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "chunks": [
+            {
+              "literal": "\n<ENTITY TYPES>\n"
+            },
+            {
+              "context": "entity_types",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n</ENTITY TYPES>\n\n<PREVIOUS MESSAGES>\n"
+            },
+            {
+              "context": "previous_episodes",
+              "style": "json",
+              "offset": 0
+            },
+            {
+              "literal": "\n</PREVIOUS MESSAGES>\n\n<CURRENT MESSAGE>\n"
+            },
+            {
+              "context": "episode_content",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n</CURRENT MESSAGE>\n\nInstructions:\n\nYou are given a conversation context and a CURRENT MESSAGE. Your task is to extract **entity nodes** mentioned **explicitly or implicitly** in the CURRENT MESSAGE.\nPronoun references such as he/she/they or this/that/those should be disambiguated to the names of the \nreference entities. Only extract distinct entities from the CURRENT MESSAGE. Don't extract pronouns like you, me, he/she/they, we/us as entities.\n\n1. **Speaker Extraction**: Always extract the speaker (the part before the colon `:` in each dialogue line) as the first entity node.\n   - If the speaker is mentioned again in the message, treat both mentions as a **single entity**.\n\n2. **Entity Identification**:\n   - Extract all significant entities, concepts, or actors that are **explicitly or implicitly** mentioned in the CURRENT MESSAGE.\n   - **Exclude** entities mentioned only in the PREVIOUS MESSAGES (they are for context only).\n\n3. **Entity Classification**:\n   - Use the descriptions in ENTITY TYPES to classify each extracted entity.\n   - Assign the appropriate `entity_type_id` for each one.\n\n4. **Exclusions**:\n   - Do NOT extract entities representing relationships or actions.\n   - Do NOT extract dates, times, or other temporal information—these will be handled separately.\n\n5. **Formatting**:\n   - Be **explicit and unambiguous** in naming entities (e.g., use full names when available).\n\n"
+            },
+            {
+              "context": "custom_extraction_instructions",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n"
+            }
+          ]
+        }
+      ],
+      "schema": {
+        "title": "ExtractedEntities",
+        "type": "object",
+        "properties": {
+          "extracted_entities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ExtractedEntity"
+            },
+            "title": "Extracted Entities",
+            "description": "List of extracted entities"
+          }
+        },
+        "required": [
+          "extracted_entities"
+        ],
+        "$defs": {
+          "ExtractedEntity": {
+            "title": "ExtractedEntity",
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "title": "Name",
+                "description": "Name of the extracted entity"
+              },
+              "entity_type_id": {
+                "type": "integer",
+                "title": "Entity Type Id",
+                "description": "ID of the classified entity type. Must be one of the provided entity_type_id integers."
+              }
+            },
+            "required": [
+              "name",
+              "entity_type_id"
+            ]
+          }
+        }
+      }
+    },
+    "extract_nodes.extract_json": {
+      "messages": [
+        {
+          "role": "system",
+          "chunks": [
+            {
+              "literal": "You are an AI assistant that extracts entity nodes from JSON. \n    Your primary task is to extract and classify relevant entities from JSON files"
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "chunks": [
+            {
+              "literal": "\n<ENTITY TYPES>\n"
+            },
+            {
+              "context": "entity_types",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n</ENTITY TYPES>\n\n<SOURCE DESCRIPTION>:\n"
+            },
+            {
+              "context": "source_description",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n</SOURCE DESCRIPTION>\n<JSON>\n"
+            },
+            {
+              "context": "episode_content",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n</JSON>\n\n"
+            },
+            {
+              "context": "custom_extraction_instructions",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n\nGiven the above source description and JSON, extract relevant entities from the provided JSON.\nFor each entity extracted, also determine its entity type based on the provided ENTITY TYPES and their descriptions.\nIndicate the classified entity type by providing its entity_type_id.\n\nGuidelines:\n1. Extract all entities that the JSON represents. This will often be something like a \"name\" or \"user\" field\n2. Extract all entities mentioned in all other properties throughout the JSON structure\n3. Do NOT extract any properties that contain dates\n"
+            }
+          ]
+        }
+      ],
+      "schema": {
+        "title": "ExtractedEntities",
+        "type": "object",
+        "properties": {
+          "extracted_entities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ExtractedEntity"
+            },
+            "title": "Extracted Entities",
+            "description": "List of extracted entities"
+          }
+        },
+        "required": [
+          "extracted_entities"
+        ],
+        "$defs": {
+          "ExtractedEntity": {
+            "title": "ExtractedEntity",
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "title": "Name",
+                "description": "Name of the extracted entity"
+              },
+              "entity_type_id": {
+                "type": "integer",
+                "title": "Entity Type Id",
+                "description": "ID of the classified entity type. Must be one of the provided entity_type_id integers."
+              }
+            },
+            "required": [
+              "name",
+              "entity_type_id"
+            ]
+          }
+        }
+      }
+    },
+    "extract_nodes.extract_text": {
+      "messages": [
+        {
+          "role": "system",
+          "chunks": [
+            {
+              "literal": "You are an AI assistant that extracts entity nodes from text. \n    Your primary task is to extract and classify the speaker and other significant entities mentioned in the provided text."
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "chunks": [
+            {
+              "literal": "\n<ENTITY TYPES>\n"
+            },
+            {
+              "context": "entity_types",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n</ENTITY TYPES>\n\n<TEXT>\n"
+            },
+            {
+              "context": "episode_content",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n</TEXT>\n\nGiven the above text, extract entities from the TEXT that are explicitly or implicitly mentioned.\nFor each entity extracted, also determine its entity type based on the provided ENTITY TYPES and their descriptions.\nIndicate the classified entity type by providing its entity_type_id.\n\n"
+            },
+            {
+              "context": "custom_extraction_instructions",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n\nGuidelines:\n1. Extract significant entities, concepts, or actors mentioned in the conversation.\n2. Avoid creating nodes for relationships or actions.\n3. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).\n4. Be as explicit as possible in your node names, using full names and avoiding abbreviations.\n"
+            }
+          ]
+        }
+      ],
+      "schema": {
+        "title": "ExtractedEntities",
+        "type": "object",
+        "properties": {
+          "extracted_entities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ExtractedEntity"
+            },
+            "title": "Extracted Entities",
+            "description": "List of extracted entities"
+          }
+        },
+        "required": [
+          "extracted_entities"
+        ],
+        "$defs": {
+          "ExtractedEntity": {
+            "title": "ExtractedEntity",
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "title": "Name",
+                "description": "Name of the extracted entity"
+              },
+              "entity_type_id": {
+                "type": "integer",
+                "title": "Entity Type Id",
+                "description": "ID of the classified entity type. Must be one of the provided entity_type_id integers."
+              }
+            },
+            "required": [
+              "name",
+              "entity_type_id"
+            ]
+          }
+        }
+      }
+    },
+    "extract_nodes.extract_summaries_batch": {
+      "messages": [
+        {
+          "role": "system",
+          "chunks": [
+            {
+              "literal": "You are a helpful assistant that generates concise entity summaries from provided context."
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "chunks": [
+            {
+              "literal": "\nGiven the MESSAGES and a list of ENTITIES, generate an updated summary for each entity that needs one.\nEach summary must be under "
+            },
+            {
+              "literal": "500"
+            },
+            {
+              "literal": " characters.\n\n"
+            },
+            {
+              "literal": "Guidelines:\n        1. Output only factual content. Never explain what you're doing, why, or mention limitations/constraints. \n        2. Only use the provided messages, entity, and entity context to set attribute values.\n        3. Keep the summary concise and to the point. STATE FACTS DIRECTLY IN UNDER 250 CHARACTERS.\n\n        Example summaries:\n        BAD: \"This is the only activity in the context. The user listened to this song. No other details were provided to include in this summary.\"\n        GOOD: \"User played 'Blue Monday' by New Order (electronic genre) on 2024-12-03 at 14:22 UTC.\"\n        BAD: \"Based on the messages provided, the user attended a meeting. This summary focuses on that event as it was the main topic discussed.\"\n        GOOD: \"User attended Q3 planning meeting with sales team on March 15.\"\n        BAD: \"The context shows John ordered pizza. Due to length constraints, other details are omitted from this summary.\"\n        GOOD: \"John ordered pepperoni pizza from Mario's at 7:30 PM, delivered to office.\"\n        "
+            },
+            {
+              "literal": "\n\n<MESSAGES>\n"
+            },
+            {
+              "context": "previous_episodes",
+              "style": "json",
+              "offset": 0
+            },
+            {
+              "literal": "\n"
+            },
+            {
+              "context": "episode_content",
+              "style": "json",
+              "offset": 0
+            },
+            {
+              "literal": "\n</MESSAGES>\n\n<ENTITIES>\n"
+            },
+            {
+              "context": "entities",
+              "style": "json",
+              "offset": 0
+            },
+            {
+              "literal": "\n</ENTITIES>\n\nFor each entity, combine relevant information from the MESSAGES with any existing summary content.\nOnly return summaries for entities that have meaningful information to summarize.\nIf an entity has no relevant information in the messages and no existing summary, you may skip it.\n"
+            }
+          ]
+        }
+      ],
+      "schema": {
+        "title": "SummarizedEntities",
+        "type": "object",
+        "properties": {
+          "summaries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/SummarizedEntity"
+            },
+            "title": "Summaries",
+            "description": "List of entity summaries. Only include entities that need summary updates."
+          }
+        },
+        "required": [
+          "summaries"
+        ],
+        "$defs": {
+          "SummarizedEntity": {
+            "title": "SummarizedEntity",
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "title": "Name",
+                "description": "Name of the entity being summarized"
+              },
+              "summary": {
+                "type": "string",
+                "title": "Summary",
+                "description": "Updated summary for the entity"
+              }
+            },
+            "required": [
+              "name",
+              "summary"
+            ]
+          }
+        }
+      }
+    },
+    "extract_edges.edge": {
+      "messages": [
+        {
+          "role": "system",
+          "chunks": [
+            {
+              "literal": "You are an expert fact extractor that extracts fact triples from text. 1. Extracted fact triples should also be extracted with relevant date information.2. Treat the CURRENT TIME as the time the CURRENT MESSAGE was sent. All temporal information should be extracted relative to this time."
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "chunks": [
+            {
+              "literal": "\n<PREVIOUS_MESSAGES>\n"
+            },
+            {
+              "context": "previous_episodes",
+              "style": "json",
+              "offset": 0
+            },
+            {
+              "literal": "\n</PREVIOUS_MESSAGES>\n\n<CURRENT_MESSAGE>\n"
+            },
+            {
+              "context": "episode_content",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n</CURRENT_MESSAGE>\n\n<ENTITIES>\n"
+            },
+            {
+              "context": "nodes",
+              "style": "json",
+              "offset": 0
+            },
+            {
+              "literal": "\n</ENTITIES>\n\n<REFERENCE_TIME>\n"
+            },
+            {
+              "context": "reference_time",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "  # ISO 8601 (UTC); used to resolve relative time mentions\n</REFERENCE_TIME>\n"
+            },
+            {
+              "literal": ""
+            },
+            {
+              "literal": "\n# TASK\nExtract all factual relationships between the given ENTITIES based on the CURRENT MESSAGE.\nOnly extract facts that:\n- involve two DISTINCT ENTITIES from the ENTITIES list,\n- are clearly stated or unambiguously implied in the CURRENT MESSAGE,\n    and can be represented as edges in a knowledge graph.\n- Facts should include entity names rather than pronouns whenever possible.\n\nYou may use information from the PREVIOUS MESSAGES only to disambiguate references or support continuity.\n\n\n"
+            },
+            {
+              "context": "custom_extraction_instructions",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n\n# EXTRACTION RULES\n\n1. **Entity Name Validation**: `source_entity_name` and `target_entity_name` must use only the `name` values from the ENTITIES list provided above.\n   - **CRITICAL**: Using names not in the list will cause the edge to be rejected\n2. Each fact must involve two **distinct** entities.\n3. Do not emit duplicate or semantically redundant facts.\n4. The `fact` should closely paraphrase the original source sentence(s). Do not verbatim quote the original text.\n5. Use `REFERENCE_TIME` to resolve vague or relative temporal expressions (e.g., \"last week\").\n6. Do **not** hallucinate or infer temporal bounds from unrelated events.\n\n# RELATION TYPE RULES\n\n- If FACT_TYPES are provided and the relationship matches one of the types (considering the entity type signature), use that fact_type_name as the `relation_type`.\n- Otherwise, derive a `relation_type` from the relationship predicate in SCREAMING_SNAKE_CASE (e.g., WORKS_AT, LIVES_IN, IS_FRIENDS_WITH).\n\n# DATETIME RULES\n\n- Use ISO 8601 with \"Z\" suffix (UTC) (e.g., 2025-04-30T00:00:00Z).\n- If the fact is ongoing (present tense), set `valid_at` to REFERENCE_TIME.\n- If a change/termination is expressed, set `invalid_at` to the relevant timestamp.\n- Leave both fields `null` if no explicit or resolvable time is stated.\n- If only a date is mentioned (no time), assume 00:00:00.\n- If only a year is mentioned, use January 1st at 00:00:00.\n        "
+            }
+          ]
+        }
+      ],
+      "schema": {
+        "title": "ExtractedEdges",
+        "type": "object",
+        "properties": {
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Edge"
+            },
+            "title": "Edges"
+          }
+        },
+        "required": [
+          "edges"
+        ],
+        "$defs": {
+          "Edge": {
+            "title": "Edge",
+            "type": "object",
+            "properties": {
+              "source_entity_name": {
+                "type": "string",
+                "title": "Source Entity Name",
+                "description": "The name of the source entity from the ENTITIES list"
+              },
+              "target_entity_name": {
+                "type": "string",
+                "title": "Target Entity Name",
+                "description": "The name of the target entity from the ENTITIES list"
+              },
+              "relation_type": {
+                "type": "string",
+                "title": "Relation Type",
+                "description": "The type of relationship between the entities, in SCREAMING_SNAKE_CASE (e.g., WORKS_AT, LIVES_IN, IS_FRIENDS_WITH)"
+              },
+              "fact": {
+                "type": "string",
+                "title": "Fact",
+                "description": "A natural language description of the relationship between the entities, paraphrased from the source text"
+              },
+              "valid_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Valid At",
+                "description": "The date and time when the relationship described by the edge fact became true or was established. Use ISO 8601 format (YYYY-MM-DDTHH:MM:SS.SSSSSSZ)",
+                "default": null
+              },
+              "invalid_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Invalid At",
+                "description": "The date and time when the relationship described by the edge fact stopped being true or ended. Use ISO 8601 format (YYYY-MM-DDTHH:MM:SS.SSSSSSZ)",
+                "default": null
+              }
+            },
+            "required": [
+              "source_entity_name",
+              "target_entity_name",
+              "relation_type",
+              "fact"
+            ]
+          }
+        }
+      }
+    },
+    "dedupe_nodes.nodes": {
+      "messages": [
+        {
+          "role": "system",
+          "chunks": [
+            {
+              "literal": "You are a helpful assistant that determines whether or not ENTITIES extracted from a conversation are duplicates of existing entities."
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "chunks": [
+            {
+              "literal": "\n        <PREVIOUS MESSAGES>\n        "
+            },
+            {
+              "context": "previous_episodes",
+              "style": "json",
+              "offset": 0
+            },
+            {
+              "literal": "\n        </PREVIOUS MESSAGES>\n        <CURRENT MESSAGE>\n        "
+            },
+            {
+              "context": "episode_content",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n        </CURRENT MESSAGE>\n\n\n        Each of the following ENTITIES were extracted from the CURRENT MESSAGE.\n        Each entity in ENTITIES is represented as a JSON object with the following structure:\n        {\n            id: integer id of the entity,\n            name: \"name of the entity\",\n            entity_type: [\"Entity\", \"<optional additional label>\", ...],\n            entity_type_description: \"Description of what the entity type represents\"\n        }\n\n        <ENTITIES>\n        "
+            },
+            {
+              "context": "extracted_nodes",
+              "style": "json",
+              "offset": 0
+            },
+            {
+              "literal": "\n        </ENTITIES>\n\n        <EXISTING ENTITIES>\n        "
+            },
+            {
+              "context": "existing_nodes",
+              "style": "json",
+              "offset": 0
+            },
+            {
+              "literal": "\n        </EXISTING ENTITIES>\n\n        Each entry in EXISTING ENTITIES is an object with the following structure:\n        {\n            name: \"name of the candidate entity\",\n            entity_types: [\"Entity\", \"<optional additional label>\", ...],\n            ...<additional attributes such as summaries or metadata>\n        }\n\n        For each of the above ENTITIES, determine if the entity is a duplicate of any of the EXISTING ENTITIES.\n\n        Entities should only be considered duplicates if they refer to the *same real-world object or concept*.\n\n        Do NOT mark entities as duplicates if:\n        - They are related but distinct.\n        - They have similar names or purposes but refer to separate instances or concepts.\n\n        Task:\n        ENTITIES contains "
+            },
+            {
+              "context": "extracted_nodes",
+              "style": "length",
+              "offset": 0
+            },
+            {
+              "literal": " entities with IDs 0 through "
+            },
+            {
+              "context": "extracted_nodes",
+              "style": "length",
+              "offset": -1
+            },
+            {
+              "literal": ".\n        Your response MUST include EXACTLY "
+            },
+            {
+              "context": "extracted_nodes",
+              "style": "length",
+              "offset": 0
+            },
+            {
+              "literal": " resolutions with IDs 0 through "
+            },
+            {
+              "context": "extracted_nodes",
+              "style": "length",
+              "offset": -1
+            },
+            {
+              "literal": ". Do not skip or add IDs.\n\n        For every entity, return an object with the following keys:\n        {\n            \"id\": integer id from ENTITIES,\n            \"name\": the best full name for the entity (preserve the original name unless a duplicate has a more complete name),\n            \"duplicate_name\": the name of the EXISTING ENTITY that is the best duplicate match, or empty string if there is no duplicate\n        }\n\n        - Only use names that appear in EXISTING ENTITIES.\n        - Use empty string if there is no duplicate.\n        - Never fabricate entity names.\n        "
+            }
+          ]
+        }
+      ],
+      "schema": {
+        "title": "NodeResolutions",
+        "type": "object",
+        "properties": {
+          "entity_resolutions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/NodeDuplicate"
+            },
+            "title": "Entity Resolutions",
+            "description": "List of resolved nodes"
+          }
+        },
+        "required": [
+          "entity_resolutions"
+        ],
+        "$defs": {
+          "NodeDuplicate": {
+            "title": "NodeDuplicate",
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "title": "Id",
+                "description": "integer id of the entity"
+              },
+              "name": {
+                "type": "string",
+                "title": "Name",
+                "description": "Name of the entity. Should be the most complete and descriptive name of the entity. Do not include any JSON formatting in the Entity name such as {}."
+              },
+              "duplicate_name": {
+                "type": "string",
+                "title": "Duplicate Name",
+                "description": "Name of the duplicate entity from EXISTING ENTITIES. If no duplicate entity is found, use an empty string."
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "duplicate_name"
+            ]
+          }
+        }
+      }
+    },
+    "dedupe_edges.resolve_edge": {
+      "messages": [
+        {
+          "role": "system",
+          "chunks": [
+            {
+              "literal": "You are a helpful assistant that de-duplicates facts from fact lists and determines which existing facts are contradicted by the new fact."
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "chunks": [
+            {
+              "literal": "\n        Task:\n        You will receive TWO lists of facts with CONTINUOUS idx numbering across both lists.\n        EXISTING FACTS are indexed first, followed by FACT INVALIDATION CANDIDATES.\n\n        1. DUPLICATE DETECTION:\n           - If the NEW FACT represents identical factual information as any fact in EXISTING FACTS, return those idx values in duplicate_facts.\n           - Facts with similar information that contain key differences should NOT be marked as duplicates.\n           - If no duplicates, return an empty list for duplicate_facts.\n\n        2. CONTRADICTION DETECTION:\n           - Determine which facts the NEW FACT contradicts from either list.\n           - A fact from EXISTING FACTS can be both a duplicate AND contradicted (e.g., semantically the same but the new fact updates/supersedes it).\n           - Return all contradicted idx values in contradicted_facts.\n           - If no contradictions, return an empty list for contradicted_facts.\n\n        IMPORTANT:\n        - duplicate_facts: ONLY idx values from EXISTING FACTS (cannot include FACT INVALIDATION CANDIDATES)\n        - contradicted_facts: idx values from EITHER list (EXISTING FACTS or FACT INVALIDATION CANDIDATES)\n        - The idx values are continuous across both lists (INVALIDATION CANDIDATES start where EXISTING FACTS end)\n\n        Guidelines:\n        1. Some facts may be very similar but will have key differences, particularly around numeric values.\n           Do not mark these as duplicates.\n\n        <EXISTING FACTS>\n        "
+            },
+            {
+              "context": "existing_edges",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n        </EXISTING FACTS>\n\n        <FACT INVALIDATION CANDIDATES>\n        "
+            },
+            {
+              "context": "edge_invalidation_candidates",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n        </FACT INVALIDATION CANDIDATES>\n\n        <NEW FACT>\n        "
+            },
+            {
+              "context": "new_edge",
+              "style": "python",
+              "offset": 0
+            },
+            {
+              "literal": "\n        </NEW FACT>\n        "
+            }
+          ]
+        }
+      ],
+      "schema": {
+        "title": "EdgeDuplicate",
+        "type": "object",
+        "properties": {
+          "duplicate_facts": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Duplicate Facts",
+            "description": "List of idx values of duplicate facts (only from EXISTING FACTS range). Empty list if none."
+          },
+          "contradicted_facts": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Contradicted Facts",
+            "description": "List of idx values of contradicted facts (from full idx range). Empty list if none."
+          }
+        },
+        "required": [
+          "duplicate_facts",
+          "contradicted_facts"
+        ]
+      }
+    }
+  }
+}

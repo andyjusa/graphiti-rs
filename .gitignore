@@ -6,3 +6,5 @@
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+
+__pycache__/

@@ -110,7 +110,7 @@ class Server:
                     "FALKORDB_URL": "redis://127.0.0.1:16379",
                     "GRAPHITI_GRAPH": NATIVE_GRAPH,
                     "GRAPHITI_TOKEN": "synthetic-fixture-token",
-                    "EMBEDDING_PROVIDER": "disabled", **extra}
+                    "EMBEDDING_PROVIDER": "disabled", "COMPAT_INGESTION_PIPELINE": "combined-preview", **extra}
         self.argv = [str(root / "bin/graphiti-rs"), "--transport", "http"]
         if compat:
             self.argv += ["--storage-format", "graphiti-0282"]

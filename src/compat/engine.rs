@@ -1,5 +1,5 @@
 use super::{
-    config::{CompatConfig, WriteMode},
+    config::{CompatConfig, IngestionPipeline, WriteMode},
     dto::*,
     journal::Journal,
     policy,
@@ -53,7 +53,8 @@ impl Engine {
             let notify = engine.notify.clone();
             let cancel = engine.cancel.clone();
             let mutation = engine.mutation.clone();
-            let providers = Providers::new(engine.config.clone())?;
+            let config = engine.config.clone();
+            let providers = Providers::new(config.clone())?;
             tokio::spawn(async move {
                 loop {
                     let notified = notify.notified();
@@ -103,10 +104,27 @@ impl Engine {
                         let payload = if let Some(p) = &job.prepared {
                             p.clone()
                         } else {
-                            let extracted = providers.prepare(&job).await?;
-                            let _guard = mutation.lock().await;
-                            let resolved = store.resolve_exact(&extracted).await?;
-                            let p = store.plan(&resolved).await?;
+                            let p = match config.pipeline {
+                                IngestionPipeline::Graphiti => {
+                                    let prepared =
+                                        super::pipeline::prepare(&config, &providers, &store, &job)
+                                            .await?;
+                                    let _guard = mutation.lock().await;
+                                    store
+                                        .plan_observed(
+                                            &prepared.payload,
+                                            &prepared.nodes_before,
+                                            &prepared.facts_before,
+                                        )
+                                        .await?
+                                }
+                                IngestionPipeline::CombinedPreview => {
+                                    let extracted = providers.prepare(&job).await?;
+                                    let _guard = mutation.lock().await;
+                                    let resolved = store.resolve_exact(&extracted).await?;
+                                    store.plan(&resolved).await?
+                                }
+                            };
                             journal.prepared(&job, &p)?;
                             p
                         };

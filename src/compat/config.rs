@@ -8,9 +8,21 @@ pub enum WriteMode {
     ReadOnly,
     Synthetic,
 }
+#[derive(Clone, Copy, PartialEq)]
+pub enum IngestionPipeline {
+    Graphiti,
+    CombinedPreview,
+}
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
+pub struct EntityType {
+    pub name: String,
+    pub description: String,
+}
 #[derive(Clone)]
 pub struct CompatConfig {
     pub redis_url: String,
+    pub pipeline: IngestionPipeline,
+    pub entity_types: Vec<EntityType>,
     pub mode: WriteMode,
     pub journal_dir: Option<PathBuf>,
     pub llm_base: String,
@@ -26,7 +38,23 @@ pub struct CompatConfig {
 impl CompatConfig {
     pub fn from_env() -> Result<Self> {
         let get = |n: &str, d: &str| std::env::var(n).unwrap_or_else(|_| d.into());
+        let entity_types = if let Some(path) = std::env::var_os("COMPAT_ENTITY_TYPES_FILE") {
+            let data = std::fs::read(path).context("entity type file unavailable")?;
+            ensure!(
+                data.len() <= 256 * 1024,
+                "entity type configuration exceeds bound"
+            );
+            serde_json::from_slice(&data).context("invalid entity type configuration")?
+        } else {
+            vec![]
+        };
         let c = Self {
+            pipeline: match get("COMPAT_INGESTION_PIPELINE", "graphiti").as_str() {
+                "graphiti" => IngestionPipeline::Graphiti,
+                "combined-preview" => IngestionPipeline::CombinedPreview,
+                _ => anyhow::bail!("unknown ingestion pipeline"),
+            },
+            entity_types,
             redis_url: std::env::var("COMPAT_DB_URL")
                 .context("COMPAT_DB_URL must be supplied explicitly")?,
             mode: match get("COMPAT_WRITE_MODE", "read-only").as_str() {
@@ -55,6 +83,22 @@ impl CompatConfig {
         Ok(c)
     }
     pub fn validate(&self) -> Result<()> {
+        let mut names = std::collections::HashSet::new();
+        ensure!(self.entity_types.len() <= 32, "too many entity types");
+        for kind in &self.entity_types {
+            ensure!(
+                !kind.name.is_empty()
+                    && kind.name != "Entity"
+                    && kind.name.len() <= 128
+                    && kind
+                        .name
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    && names.insert(&kind.name)
+                    && kind.description.len() <= 8192,
+                "invalid entity type definition"
+            );
+        }
         ensure!(
             (1..=64).contains(&self.capacity),
             "invalid compatibility queue capacity"

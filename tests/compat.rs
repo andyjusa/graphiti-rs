@@ -62,6 +62,7 @@ fn fixture(group: &str) -> Prepared {
     let facts = vec![serde_json::from_value(f).unwrap()];
     Prepared {
         baseline: None,
+        invalidated_fact_ids: vec![],
         episode,
         entities,
         facts,
@@ -74,6 +75,8 @@ fn vector() -> Vec<f32> {
 }
 fn config(path: PathBuf, base: &str) -> CompatConfig {
     CompatConfig {
+        pipeline: graphiti_rs::compat::config::IngestionPipeline::CombinedPreview,
+        entity_types: vec![],
         redis_url: "redis://127.0.0.1:16379".into(),
         mode: WriteMode::Synthetic,
         journal_dir: Some(path),
@@ -340,6 +343,437 @@ async fn poll(engine: &Engine, group: &str, id: &str) -> Value {
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
     panic!("synthetic episode did not commit");
+}
+
+#[derive(Clone, Default)]
+struct StagedMock {
+    trace: Arc<tokio::sync::Mutex<Vec<Value>>>,
+}
+fn tag<'a>(input: &'a str, name: &str) -> Option<&'a str> {
+    input
+        .split_once(&format!("<{name}>"))?
+        .1
+        .split_once(&format!("</{name}>"))
+        .map(|p| p.0.trim())
+}
+async fn staged_llm(
+    axum::extract::State(s): axum::extract::State<StagedMock>,
+    axum::Json(v): axum::Json<Value>,
+) -> axum::Json<Value> {
+    assert_eq!(v["response_format"], json!({"type":"json_object"}));
+    assert_eq!(v["model"], "gpt-6-luna");
+    assert_eq!(v["temperature"], 1);
+    assert_eq!(
+        v["extra_body"]["chat_template_kwargs"]["enable_thinking"],
+        false
+    );
+    let user = v["messages"][1]["content"].as_str().unwrap();
+    let schema: Value = serde_json::from_str(user.rsplit_once("input:\n").unwrap().1).unwrap();
+    let title = schema["title"].as_str().unwrap();
+    let content = match title {
+        "ExtractedEntities" => {
+            let current = tag(user, "CURRENT MESSAGE")
+                .or_else(|| tag(user, "TEXT"))
+                .or_else(|| tag(user, "JSON"))
+                .unwrap();
+            let names = if current.contains("다온") {
+                vec![("다온", 1), ("누리", 2)]
+            } else if current.contains("Ravi") {
+                vec![("Ravi", 1), ("Delta", 2)]
+            } else if current.contains("Mira") {
+                vec![("Mira", 1)]
+            } else if current.contains("Nari") {
+                vec![("Nari", 1)]
+            } else if current.contains("Hanul") {
+                vec![("Gaon", 1), ("Hanul", 2)]
+            } else if current.starts_with("G.") {
+                vec![("G.", 1), ("Saebit", 2)]
+            } else {
+                vec![("Gaon", 1), ("Saebit", 2)]
+            };
+            json!({"extracted_entities":names.into_iter().map(|(name,kind)| json!({"name":name,"entity_type_id":kind})).collect::<Vec<_>>()})
+        }
+        "NodeResolutions" => {
+            let nodes: Value = serde_json::from_str(tag(user, "ENTITIES").unwrap()).unwrap();
+            let existing: Value =
+                serde_json::from_str(tag(user, "EXISTING ENTITIES").unwrap()).unwrap();
+            json!({"entity_resolutions":nodes.as_array().unwrap().iter().map(|n| {
+                let name=n["name"].as_str().unwrap();
+                json!({"id":n["id"],"name":name,"duplicate_name":existing.as_array().unwrap().iter().find(|n|n["name"] == if name == "G." {"Gaon"} else {name}).and_then(|n|n["name"].as_str()).unwrap_or("")})
+            }).collect::<Vec<_>>()})
+        }
+        "ExtractedEdges" => {
+            let current = tag(user, "CURRENT_MESSAGE").unwrap();
+            if current.contains("Nari") || current.contains("Mira") {
+                json!({"edges":[]})
+            } else {
+                let (source, target, fact, time) = if current.contains("다온") {
+                    (
+                        "다온",
+                        "누리",
+                        "다온은 누리에서 일한다.",
+                        "2026-10-02T00:00:00Z",
+                    )
+                } else if current.contains("Ravi") {
+                    (
+                        "Ravi",
+                        "Delta",
+                        "Ravi works at Delta.",
+                        "2026-10-02T00:00:00Z",
+                    )
+                } else if current.contains("Hanul") {
+                    (
+                        "Gaon",
+                        "Hanul",
+                        "Gaon works at Hanul.",
+                        "2026-10-02T00:00:00Z",
+                    )
+                } else if current.starts_with("G.") {
+                    (
+                        "G.",
+                        "Saebit",
+                        "Gaon is employed by Saebit.",
+                        "2026-10-01T00:00:00Z",
+                    )
+                } else {
+                    (
+                        "Gaon",
+                        "Saebit",
+                        "Gaon works at Saebit.",
+                        "2026-10-01T00:00:00Z",
+                    )
+                };
+                json!({"edges":[{"source_entity_name":source,"target_entity_name":target,"relation_type":"WORKS_AT","fact":fact,"valid_at":time,"invalid_at":null}]})
+            }
+        }
+        "EdgeDuplicate" => {
+            if tag(user, "NEW FACT").unwrap().contains("Hanul") {
+                json!({"duplicate_facts":[],"contradicted_facts":[0]})
+            } else if tag(user, "NEW FACT").unwrap().contains("employed by") {
+                json!({"duplicate_facts":[0],"contradicted_facts":[]})
+            } else {
+                json!({"duplicate_facts":[],"contradicted_facts":[]})
+            }
+        }
+        "SummarizedEntities" => {
+            if user.contains("Mira likes quiet evenings.") {
+                json!({"summaries":[{"name":"Mira","summary":"Mira likes quiet evenings."}]})
+            } else {
+                json!({"summaries":[{"name":"Nari","summary":"Nari enjoys quiet mornings."}]})
+            }
+        }
+        _ => panic!("unexpected schema {title}"),
+    };
+    let mut recorded = v;
+    recorded["mock_response"] = content.clone();
+    s.trace.lock().await.push(recorded);
+    axum::Json(json!({"choices":[{"message":{"content":content.to_string()}}]}))
+}
+async fn staged_embeddings(axum::Json(v): axum::Json<Value>) -> axum::Json<Value> {
+    axum::Json(
+        json!({"embeddings":v["requests"].as_array().unwrap().iter().map(|_|json!({"values":vector()})).collect::<Vec<_>>()}),
+    )
+}
+
+#[tokio::test]
+#[ignore = "requires dedicated disposable FalkorDB on loopback port 16379"]
+async fn staged_ingestion_alias_duplicates_temporal_invalidation_summary_and_restart() {
+    use graphiti_rs::compat::config::{EntityType, IngestionPipeline};
+    let url = std::env::var("COMPAT_TEST_DB_URL").expect("explicit disposable DB required");
+    assert_eq!(url, "redis://127.0.0.1:16379");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let state = StagedMock::default();
+    let app = axum::Router::new()
+        .route("/chat/completions", axum::routing::post(staged_llm))
+        .route(
+            "/models/gemini-embedding-2:batchEmbedContents",
+            axum::routing::post(staged_embeddings),
+        )
+        .with_state(state.clone());
+    let mock = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let path = dir();
+    let mut c = config(path.clone(), &base);
+    c.pipeline = IngestionPipeline::Graphiti;
+    c.entity_types = vec![
+        EntityType {
+            name: "Person".into(),
+            description: "A person".into(),
+        },
+        EntityType {
+            name: "Organization".into(),
+            description: "A company".into(),
+        },
+    ];
+    let engine = Engine::new(c.clone()).await.unwrap();
+    engine
+        .store
+        .clear("project_staged_pipeline_20261002")
+        .await
+        .unwrap();
+    let episodes: Vec<_> = (0..7).map(|_| uuid::Uuid::new_v4().to_string()).collect();
+    let texts = [
+        "Gaon works at Saebit.",
+        "G. works at Saebit.",
+        "Gaon now works at Hanul.",
+        "Nari enjoys quiet mornings.",
+        "다온은 누리에서 일한다.",
+        r#"{"person":"Ravi","organization":"Delta","job":"works"}"#,
+        "Mira likes quiet evenings.",
+    ];
+    let sources = [
+        "message", "message", "message", "message", "message", "json", "text",
+    ];
+    let mut first_fact = None;
+    let mut gaon = None;
+    let mut snapshots = vec![];
+    for (i, (id, text)) in episodes.iter().zip(texts).enumerate() {
+        let args = json!({"uuid":id,"name":format!("staged-{i}"),"episode_body":text,"group_id":"project_staged_pipeline_20261002","source":sources[i]});
+        engine.execute("add_memory", args.clone()).await.unwrap();
+        poll(&engine, "project_staged_pipeline_20261002", id).await;
+        let ep = engine
+            .store
+            .episode("project_staged_pipeline_20261002", id)
+            .await
+            .unwrap()
+            .unwrap();
+        if i == 0 {
+            assert_eq!(ep.entity_edges.len(), 1);
+            let f = engine
+                .store
+                .edge("project_staged_pipeline_20261002", &ep.entity_edges[0])
+                .await
+                .unwrap()
+                .unwrap();
+            gaon = Some(f.source_node_uuid.clone());
+            first_fact = Some(f);
+        } else if i == 1 {
+            let old = first_fact.as_ref().unwrap();
+            assert_eq!(ep.entity_edges, vec![old.uuid.clone()]);
+            let f = engine
+                .store
+                .edge("project_staged_pipeline_20261002", &old.uuid)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(f.fact, old.fact);
+            assert_eq!(f.created_at, old.created_at);
+            assert_eq!(f.episodes, episodes[..2]);
+            let alias = engine
+                .store
+                .keyword_nodes("project_staged_pipeline_20261002", "G.", None, 10)
+                .await
+                .unwrap();
+            assert!(alias.iter().all(|n| n.name != "G."));
+        } else if i == 2 {
+            let old = first_fact.as_ref().unwrap();
+            assert_eq!(ep.entity_edges.len(), 2);
+            assert!(ep.entity_edges.contains(&old.uuid));
+            let f = engine
+                .store
+                .edge("project_staged_pipeline_20261002", &old.uuid)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(f.invalid_at.as_deref(), Some("2026-10-02T00:00:00Z"));
+            assert!(f.expired_at.is_some());
+            assert_eq!(f.episodes, episodes[..2]);
+            assert_eq!(f.created_at, old.created_at);
+            let n = engine
+                .store
+                .node("project_staged_pipeline_20261002", gaon.as_ref().unwrap())
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(n.summary, "Gaon works at Saebit.\nGaon works at Hanul.");
+            let added = ep.entity_edges.iter().find(|id| *id != &old.uuid).unwrap();
+            let new = engine
+                .store
+                .edge("project_staged_pipeline_20261002", added)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(new.source_node_uuid, old.source_node_uuid);
+            assert_ne!(new.target_node_uuid, old.target_node_uuid);
+            assert_eq!(new.episodes, vec![id.clone()]);
+        } else if i == 3 {
+            assert!(ep.entity_edges.is_empty());
+            let n = engine
+                .store
+                .keyword_nodes("project_staged_pipeline_20261002", "Nari", None, 10)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|n| n.name == "Nari")
+                .unwrap();
+            assert_eq!(n.summary, "Nari enjoys quiet mornings.");
+            assert!(n.labels.contains(&"Person".to_owned()));
+        }
+        if i == 4 || i == 5 {
+            assert_eq!(ep.entity_edges.len(), 1);
+            let fact = engine
+                .store
+                .edge("project_staged_pipeline_20261002", &ep.entity_edges[0])
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                fact.fact,
+                if i == 4 {
+                    "다온은 누리에서 일한다."
+                } else {
+                    "Ravi works at Delta."
+                }
+            );
+            assert_eq!(fact.episodes, vec![id.clone()]);
+        } else if i == 6 {
+            assert!(ep.entity_edges.is_empty());
+            let node = engine
+                .store
+                .nodes("project_staged_pipeline_20261002", "Mira", None, 10)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|n| n.name == "Mira")
+                .unwrap();
+            assert_eq!(node.summary, "Mira likes quiet evenings.");
+        }
+        snapshots.push(json!({"episode":ep,
+            "nodes":engine.store.nodes("project_staged_pipeline_20261002","",None,100).await.unwrap(),
+            "facts":engine.store.facts("project_staged_pipeline_20261002","",None,100).await.unwrap()}));
+        let count = state.trace.lock().await.len();
+        engine.execute("add_memory", args).await.unwrap();
+        assert_eq!(state.trace.lock().await.len(), count);
+    }
+    // Every later node prompt receives earlier committed messages in chronological order.
+    let trace = state.trace.lock().await;
+    let node_prompts: Vec<_> = trace
+        .iter()
+        .filter(|r| {
+            r["messages"][0]["content"]
+                .as_str()
+                .unwrap()
+                .contains("entity nodes from conversational messages")
+        })
+        .collect();
+    assert_eq!(node_prompts.len(), 5);
+    assert!(
+        tag(
+            node_prompts[3]["messages"][1]["content"].as_str().unwrap(),
+            "PREVIOUS MESSAGES"
+        )
+        .unwrap()
+        .contains(texts[0])
+    );
+    // JSON/text episodes receive no message-source history in their dedupe stage.
+    for (id, source) in [(5, "json"), (6, "text")] {
+        let dedupe = trace
+            .iter()
+            .find(|r| {
+                r["messages"][0]["content"]
+                    .as_str()
+                    .unwrap()
+                    .contains("duplicates of existing entities")
+                    && tag(
+                        r["messages"][1]["content"].as_str().unwrap(),
+                        "CURRENT MESSAGE",
+                    ) == Some(texts[id])
+            })
+            .unwrap();
+        assert_eq!(
+            tag(
+                dedupe["messages"][1]["content"].as_str().unwrap(),
+                "PREVIOUS MESSAGES"
+            ),
+            Some("[]"),
+            "source {source}"
+        );
+    }
+    let count = trace.len();
+    if let Some(path) = std::env::var_os("COMPAT_STAGED_REPORT") {
+        std::fs::write(path,serde_json::to_vec_pretty(&json!({"scope":"exclusively synthetic staged pipeline with mock providers","actual_provider_calls":0,"snapshots":snapshots,"steps":*trace})).unwrap()).unwrap();
+    }
+    drop(trace);
+    drop(engine);
+    let mut reopened = None;
+    for _ in 0..100 {
+        match Engine::new(c.clone()).await {
+            Ok(e) => {
+                reopened = Some(e);
+                break;
+            }
+            Err(_) => tokio::time::sleep(Duration::from_millis(20)).await,
+        }
+    }
+    let engine = reopened.expect("worker released private journal");
+    engine.execute("add_memory",json!({"uuid":episodes[2],"name":"staged-2","episode_body":texts[2],"group_id":"project_staged_pipeline_20261002","source":"message"})).await.unwrap();
+    assert_eq!(state.trace.lock().await.len(), count);
+    let original = engine
+        .store
+        .node("project_staged_pipeline_20261002", gaon.as_ref().unwrap())
+        .await
+        .unwrap()
+        .unwrap();
+    let mut stale = Prepared {
+        baseline: None,
+        invalidated_fact_ids: vec![],
+        entities: vec![original.clone()],
+        facts: vec![],
+        episode: LegacyEpisode {
+            uuid: uuid::Uuid::new_v4().to_string(),
+            name: "concurrent context".into(),
+            content: "synthetic".into(),
+            source: "message".into(),
+            source_description: "".into(),
+            group_id: "project_staged_pipeline_20261002".into(),
+            created_at: original.created_at.clone(),
+            valid_at: original.created_at.clone(),
+            entity_edges: vec![],
+        },
+    };
+    stale.entities[0].summary = "stale model update".into();
+    let mut connection =
+        redis::aio::ConnectionManager::new(redis::Client::open(url.as_str()).unwrap())
+            .await
+            .unwrap();
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg("project_staged_pipeline_20261002")
+        .arg(format!(
+            "MATCH(n:Entity {{uuid:'{}'}}) SET n.summary='concurrent owner update'",
+            original.uuid
+        ))
+        .query_async(&mut connection)
+        .await
+        .unwrap();
+    let error = engine
+        .store
+        .plan_observed(&stale, &[original], &[])
+        .await
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("entity changed during model resolution")
+    );
+    assert_eq!(
+        engine
+            .store
+            .node("project_staged_pipeline_20261002", gaon.as_ref().unwrap())
+            .await
+            .unwrap()
+            .unwrap()
+            .summary,
+        "concurrent owner update"
+    );
+    engine
+        .store
+        .clear("project_staged_pipeline_20261002")
+        .await
+        .unwrap();
+    drop(engine);
+    mock.abort();
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    std::fs::remove_dir_all(path).unwrap();
 }
 
 #[tokio::test]

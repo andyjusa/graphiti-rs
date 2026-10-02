@@ -142,6 +142,9 @@ pub struct Prepared {
     pub episode: LegacyEpisode,
     pub entities: Vec<LegacyEntity>,
     pub facts: Vec<LegacyFact>,
+    /// Existing facts updated only for historical invalidation, not new support.
+    #[serde(default)]
+    pub invalidated_fact_ids: Vec<String>,
 }
 /// Exact pre-write properties, retained durably with the prepared graph.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -197,6 +200,11 @@ impl Prepared {
                 super::providers::validate_vector(v)?;
             }
         }
+        let invalidated: std::collections::HashSet<_> = self.invalidated_fact_ids.iter().collect();
+        ensure!(
+            invalidated.len() == self.invalidated_fact_ids.len(),
+            "duplicate invalidation UUID"
+        );
         let mut facts = std::collections::HashSet::new();
         for f in &self.facts {
             policy::uuid(&f.uuid)?;
@@ -205,16 +213,25 @@ impl Prepared {
                 !ids.contains(&f.uuid) && f.uuid != e.uuid,
                 "node/fact UUID collision"
             );
+            policy::uuid(&f.source_node_uuid)?;
+            policy::uuid(&f.target_node_uuid)?;
+            let invalidation = invalidated.contains(&f.uuid);
             ensure!(
                 f.group_id == e.group_id
-                    && ids.contains(&f.source_node_uuid)
-                    && ids.contains(&f.target_node_uuid),
+                    && (invalidation
+                        || ids.contains(&f.source_node_uuid) && ids.contains(&f.target_node_uuid)),
                 "fact group or endpoint mismatch"
             );
             ensure!(
-                f.episodes.contains(&e.uuid) && f.episodes.len() <= 1024,
+                (invalidation || f.episodes.contains(&e.uuid)) && f.episodes.len() <= 1024,
                 "fact provenance must include its episode and respect bounds"
             );
+            if invalidation {
+                ensure!(
+                    f.invalid_at.is_some() && f.expired_at.is_some(),
+                    "invalidation requires historical timestamps"
+                );
+            }
             for id in &f.episodes {
                 policy::uuid(id)?;
             }
@@ -230,6 +247,10 @@ impl Prepared {
                 super::providers::validate_vector(v)?;
             }
         }
+        ensure!(
+            invalidated.iter().all(|id| facts.contains(*id)),
+            "invalidation UUID missing from facts"
+        );
         ensure!(
             e.entity_edges.len() == facts.len()
                 && e.entity_edges
@@ -278,6 +299,12 @@ impl Prepared {
                 }
             }
             for (id, before) in &b.facts {
+                if invalidated.contains(id) {
+                    ensure!(
+                        before.is_some(),
+                        "invalidation must update an existing fact"
+                    );
+                }
                 if let Some(before) = before {
                     ensure!(
                         before.props.get("uuid").and_then(Value::as_str) == Some(id)
@@ -291,6 +318,15 @@ impl Prepared {
                             == Some(&after.created_at),
                         "existing fact created_at cannot change"
                     );
+                    if invalidated.contains(id) {
+                        for key in ["uuid", "group_id", "name", "fact", "episodes"] {
+                            let after_props = serde_json::to_value(after)?;
+                            ensure!(
+                                after_props.get(key) == before.props.get(key),
+                                "invalidation cannot change fact identity/content/provenance"
+                            );
+                        }
+                    }
                     ensure!(
                         after.source_node_uuid == before.source
                             && after.target_node_uuid == before.target,

@@ -11,3 +11,7 @@ synthetic test harness; function bodies in the recorded excerpts are retained.
 The hermes_main and patches/* excerpts are user-owned operational wrappers.
 They are included only as source evidence; whole startup modules are never
 imported by the synthetic differential runner.
+
+Full prompt sources and the stdlib-only dedup helper retain their original
+Apache-2.0 notices. Their source hashes are pinned in prompt-source-hashes.json
+and dedup-source-hash.json. The prompt compiler produces inert Rust data.

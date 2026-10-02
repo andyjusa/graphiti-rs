@@ -174,6 +174,54 @@ impl LegacyStore {
             Ok(best.into_iter().map(|(episode,_)| episode).collect())
         }).await.context("episode scan timed out; no partial results returned")?
     }
+    pub async fn context_episodes(
+        &self,
+        group: &str,
+        reference: &str,
+        source: &str,
+    ) -> Result<Vec<LegacyEpisode>> {
+        let reference = timestamp(reference)?;
+        tokio::time::timeout(Duration::from_secs(30), async {
+            let mut best = vec![]; let mut after = String::new();
+            loop {
+                let rows = self.query(group,
+                    "MATCH(e:Episodic) WHERE e.group_id=$group AND e.uuid>$after RETURN properties(e),e.uuid ORDER BY e.uuid LIMIT 128",
+                    json!({"group":group,"after":after}),false).await?;
+                for row in &rows {
+                    after=row[1].as_str().context("missing context episode UUID")?.to_owned();
+                    let props=map(&row[0])?; identity(&props,group,&after)?;
+                    let ep:LegacyEpisode=serde_json::from_value(Value::Object(props))?;
+                    let time=timestamp(&ep.valid_at)?;
+                    if ep.source==source && time<=reference { best.push((ep,time)); }
+                }
+                best.sort_by(|a,b| b.1.cmp(&a.1).then_with(|| a.0.uuid.cmp(&b.0.uuid))); best.truncate(10);
+                if rows.len()<128 { break; }
+            }
+            best.reverse(); Ok(best.into_iter().map(|(e,_)|e).collect())
+        }).await.context("episode context scan timed out; no partial context used")?
+    }
+    pub async fn related_facts(
+        &self,
+        group: &str,
+        source: &str,
+        target: &str,
+    ) -> Result<Vec<LegacyFact>> {
+        policy::uuid(source)?;
+        policy::uuid(target)?;
+        let rows = self
+            .query(
+                group,
+                EDGE_RELATED_QUERY,
+                json!({"source":source,"target":target}),
+                false,
+            )
+            .await?;
+        ensure!(
+            rows.len() <= 1000,
+            "related fact resolution window exhausted"
+        );
+        rows.iter().map(|r| fact(r, group)).collect()
+    }
     pub async fn edge(&self, group: &str, id: &str) -> Result<Option<LegacyFact>> {
         policy::uuid(id)?;
         let rows = self
@@ -296,6 +344,26 @@ impl LegacyStore {
         center: Option<&str>,
         limit: usize,
     ) -> Result<Vec<LegacyFact>> {
+        self.keyword_facts_filtered(group, query, center, limit, None)
+            .await
+    }
+    pub async fn keyword_facts_filtered(
+        &self,
+        group: &str,
+        query: &str,
+        center: Option<&str>,
+        limit: usize,
+        allowed: Option<&[String]>,
+    ) -> Result<Vec<LegacyFact>> {
+        if let Some(ids) = allowed {
+            if ids.is_empty() {
+                return Ok(vec![]);
+            }
+            ensure!(ids.len() <= 1000, "fact filter exceeds bound");
+            for id in ids {
+                policy::uuid(id)?;
+            }
+        }
         ensure!((1..=1000).contains(&limit), "candidate limit exceeds bound");
         if let Some(center) = center {
             policy::uuid(center)?;
@@ -313,11 +381,31 @@ impl LegacyStore {
                 return Ok(vec![]);
             };
             let rows = self.query(group,
-                "CALL db.idx.fulltext.queryRelationships('RELATES_TO',$query) YIELD relationship AS e,score WITH e,score,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC,e.uuid LIMIT $limit",
-                json!({"query":query,"group":group,"limit":limit}),false).await?;
+                "CALL db.idx.fulltext.queryRelationships('RELATES_TO',$query) YIELD relationship AS e,score WITH e,score,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND (size($ids)=0 OR e.uuid IN $ids) RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC,e.uuid LIMIT $limit",
+                json!({"query":query,"group":group,"limit":limit,"ids":allowed.unwrap_or(&[])}),false).await?;
             return rows.iter().map(|r| fact(r, group)).collect();
         }
-        let mut facts = self.facts(group, query, center, limit).await?;
+        let terms: Vec<_> = crate::domain::normalize(query)
+            .split_whitespace()
+            .take(8)
+            .map(str::to_owned)
+            .collect();
+        let fallback = EDGE_FACTS_QUERY.replace(
+            "RETURN properties(e)",
+            "AND (size($ids)=0 OR e.uuid IN $ids) RETURN properties(e)",
+        );
+        let rows = self
+            .query(
+                group,
+                &fallback,
+                json!({"terms":terms,"limit":limit,"ids":allowed.unwrap_or(&[])}),
+                false,
+            )
+            .await?;
+        let mut facts = rows
+            .iter()
+            .map(|r| fact(r, group))
+            .collect::<Result<Vec<_>>>()?;
         facts.sort_by(|a, b| {
             super::fulltext::substring_rank(query, &b.fact)
                 .cmp(&super::fulltext::substring_rank(query, &a.fact))
@@ -347,11 +435,30 @@ impl LegacyStore {
         vector: &[f32],
         limit: usize,
     ) -> Result<Vec<LegacyFact>> {
+        self.semantic_facts_filtered(group, vector, limit, None)
+            .await
+    }
+    pub async fn semantic_facts_filtered(
+        &self,
+        group: &str,
+        vector: &[f32],
+        limit: usize,
+        allowed: Option<&[String]>,
+    ) -> Result<Vec<LegacyFact>> {
+        if let Some(ids) = allowed {
+            if ids.is_empty() {
+                return Ok(vec![]);
+            }
+            ensure!(ids.len() <= 1000, "fact filter exceeds bound");
+            for id in ids {
+                policy::uuid(id)?;
+            }
+        }
         super::providers::validate_vector(vector)?;
         ensure!((1..=1000).contains(&limit), "candidate limit exceeds bound");
         let rows = self.query(group,
-            "MATCH ()-[e:RELATES_TO]->() WITH *,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND e.fact_embedding IS NOT NULL WITH e,n,m,(2-vec.cosineDistance(e.fact_embedding,vecf32($vector)))/2 AS score WHERE score>$min RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC,e.uuid LIMIT $limit",
-            json!({"group":group,"vector":vector,"min":super::resolution::SEMANTIC_MIN_SCORE,"limit":limit}), false).await?;
+            "MATCH ()-[e:RELATES_TO]->() WITH *,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND e.fact_embedding IS NOT NULL AND (size($ids)=0 OR e.uuid IN $ids) WITH e,n,m,(2-vec.cosineDistance(e.fact_embedding,vecf32($vector)))/2 AS score WHERE score>$min RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC,e.uuid LIMIT $limit",
+            json!({"group":group,"vector":vector,"min":super::resolution::SEMANTIC_MIN_SCORE,"ids":allowed.unwrap_or(&[]),"limit":limit}), false).await?;
         rows.iter().map(|r| fact(r, group)).collect()
     }
     pub async fn neighbors(
@@ -451,11 +558,61 @@ impl LegacyStore {
                     })
                 })
                 .transpose()?;
+            if p.invalidated_fact_ids.contains(&f.uuid) {
+                ensure!(before.is_some(), "invalidation cannot create a fact");
+            }
             baseline.facts.insert(f.uuid.clone(), before);
         }
         p.baseline = Some(baseline);
         p.validate()?;
         Ok(p)
+    }
+    /// Refuse to overwrite a node/fact that changed while model decisions ran.
+    pub async fn plan_observed(
+        &self,
+        payload: &Prepared,
+        nodes: &[LegacyEntity],
+        facts: &[LegacyFact],
+    ) -> Result<Prepared> {
+        let planned = self.plan(payload).await?;
+        let before = planned
+            .baseline
+            .as_ref()
+            .context("new ingestion requires durable before state")?;
+        let group = &planned.episode.group_id;
+        for old in nodes {
+            let snap = before
+                .entities
+                .get(&old.uuid)
+                .and_then(Option::as_ref)
+                .context("model entity context missing from plan")?;
+            ensure!(
+                entity(
+                    &[Value::Object(snap.props.clone()), json!(snap.labels)],
+                    group
+                )? == *old,
+                "entity changed during model resolution"
+            );
+        }
+        for old in facts {
+            let snap = before
+                .facts
+                .get(&old.uuid)
+                .and_then(Option::as_ref)
+                .context("model fact context missing from plan")?;
+            ensure!(
+                fact(
+                    &[
+                        Value::Object(snap.props.clone()),
+                        json!(snap.source),
+                        json!(snap.target)
+                    ],
+                    group
+                )? == *old,
+                "fact changed during model resolution"
+            );
+        }
+        Ok(planned)
     }
     /// A bounded, exact-text fast path only. Fuzzy/LLM entity resolution is a release gate.
     pub async fn resolve_exact(&self, payload: &Prepared) -> Result<Prepared> {
@@ -622,10 +779,10 @@ impl LegacyStore {
         let query = r#"OPTIONAL MATCH (e {uuid:$id}) WITH collect(e) AS episodes
  OPTIONAL MATCH (n) WHERE n.uuid IN $ids WITH episodes,collect(n) AS existing_nodes
  OPTIONAL MATCH (a)-[r]->(b) WHERE r.uuid IN $fact_ids
- WITH episodes,existing_nodes,[x IN collect({props:properties(r),source:a.uuid,target:b.uuid,kind:type(r)}) WHERE x.props IS NOT NULL] AS existing_facts
+ WITH episodes,existing_nodes,[x IN collect({props:properties(r),source:a.uuid,target:b.uuid,source_group:a.group_id,target_group:b.group_id,entity_endpoints:'Entity' IN labels(a) AND 'Entity' IN labels(b),kind:type(r)}) WHERE x.props IS NOT NULL] AS existing_facts
  WHERE size(episodes)=0 AND size(existing_nodes)=size($before_nodes) AND size(existing_facts)=size($before_facts)
  AND all(before IN $before_nodes WHERE single(n IN existing_nodes WHERE n.uuid=before.props.uuid AND size(keys(n))=size(keys(before.props)) AND all(k IN keys(before.props) WHERE k='name_embedding' OR n[k]=before.props[k]) AND n.name_embedding=CASE WHEN before.props.name_embedding IS NULL THEN n.name_embedding ELSE vecf32(before.props.name_embedding) END AND size(labels(n))=size(before.labels) AND all(l IN labels(n) WHERE l IN before.labels)))
- AND all(before IN $before_facts WHERE single(f IN existing_facts WHERE f.kind='RELATES_TO' AND f.props.uuid=before.props.uuid AND f.source=before.source AND f.target=before.target AND size(keys(f.props))=size(keys(before.props)) AND all(k IN keys(before.props) WHERE k='fact_embedding' OR f.props[k]=before.props[k]) AND f.props.fact_embedding=CASE WHEN before.props.fact_embedding IS NULL THEN f.props.fact_embedding ELSE vecf32(before.props.fact_embedding) END))
+ AND all(before IN $before_facts WHERE single(f IN existing_facts WHERE f.kind='RELATES_TO' AND f.entity_endpoints AND f.source_group=$group AND f.target_group=$group AND f.props.uuid=before.props.uuid AND f.source=before.source AND f.target=before.target AND size(keys(f.props))=size(keys(before.props)) AND all(k IN keys(before.props) WHERE k='fact_embedding' OR f.props[k]=before.props[k]) AND f.props.fact_embedding=CASE WHEN before.props.fact_embedding IS NULL THEN f.props.fact_embedding ELSE vecf32(before.props.fact_embedding) END))
  FOREACH (n IN $nodes | MERGE (v:Entity {uuid:n.uuid}) SET v+=n.props SET v.name_embedding=CASE WHEN n.props.name_embedding IS NULL THEN null ELSE vecf32(n.props.name_embedding) END)
  FOREACH (f IN $facts | MERGE (a:Entity {uuid:f.source}) MERGE (b:Entity {uuid:f.target}) MERGE (a)-[r:RELATES_TO {uuid:f.uuid}]->(b) SET r+=f.props SET r.fact_embedding=CASE WHEN f.props.fact_embedding IS NULL THEN null ELSE vecf32(f.props.fact_embedding) END)
  CREATE (e:Episodic) SET e+=$episode
@@ -658,7 +815,8 @@ impl LegacyStore {
                 actual.source_node_uuid == f.source_node_uuid
                     && actual.target_node_uuid == f.target_node_uuid
                     && actual.created_at == f.created_at
-                    && actual.episodes.contains(&e.uuid),
+                    && (p.invalidated_fact_ids.contains(&f.uuid)
+                        || actual.episodes.contains(&e.uuid)),
                 "committed receipt fact identity/provenance differs"
             );
         }

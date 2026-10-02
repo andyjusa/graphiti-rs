@@ -48,6 +48,29 @@ impl Providers {
             config,
         })
     }
+    pub async fn chat(&self, stage: &str, context: &Value) -> Result<Value> {
+        let mut messages = super::prompts::render(stage, context)?;
+        let schema = super::prompts::schema(stage)?;
+        messages[0].content.push_str("\n\nAny extracted information should be returned in the same language as it was written in. Only output non-English text when the user has written full sentences or phrases in that non-English language. Otherwise, output English.");
+        for message in &mut messages {
+            message.content = clean_input(&message.content);
+        }
+        messages.iter_mut().rev().find(|m| m.role == "user").context("missing prompt user message")?.content.push_str(&format!(
+            "\n\nReturn exactly one JSON object containing concrete extracted values that conforms to this schema. Return a value instance, not the schema definition, and do not copy keys such as type/properties/required unless they are actual output fields. Keep the complete response concise and under 400 generated tokens; deduplicate repeated entities and facts, and include only values directly supported by the input:\n{}", serde_json::to_string(&schema)?));
+        let mut request = self.client.post(format!("{}/chat/completions", self.config.llm_base.trim_end_matches('/')))
+            .json(&json!({"model":self.config.llm_model,"max_tokens":self.config.max_tokens,"temperature":1,
+                "extra_body":{"chat_template_kwargs":{"enable_thinking":false}},
+                "response_format":{"type":"json_object"},"messages":messages}));
+        if let Some(file) = &self.config.llm_key_file {
+            request = request.bearer_auth(read_secret(file)?);
+        }
+        let response = response(request).await?;
+        let content = response
+            .pointer("/choices/0/message/content")
+            .and_then(Value::as_str)
+            .context("missing structured response")?;
+        decode_structured(content, &schema)
+    }
     pub async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
         ensure!(texts.len() <= 256, "embedding batch exceeds bound");
         let mut output = vec![];
@@ -160,6 +183,7 @@ impl Providers {
             .collect();
         let prepared = Prepared {
             baseline: None,
+            invalidated_fact_ids: vec![],
             episode: LegacyEpisode {
                 uuid: job.id.clone(),
                 group_id: job.group.clone(),
@@ -178,8 +202,24 @@ impl Providers {
         Ok(prepared)
     }
 }
+
+/// Match the observed Python client cleanup before the gateway schema suffix.
+pub fn clean_input(input: &str) -> String {
+    input
+        .chars()
+        .filter(|c| {
+            !matches!(
+                *c,
+                '\u{200b}' | '\u{200c}' | '\u{200d}' | '\u{feff}' | '\u{2060}'
+            ) && (*c as u32 >= 32 || matches!(*c, '\n' | '\r' | '\t'))
+        })
+        .collect()
+}
 /// Observed adapter decoding: fenced/prefixed JSON, first complete value, exact value-envelope.
 pub fn decode_extraction(content: &str) -> Result<Value> {
+    decode_structured(content, &json!({"properties":{"entities":{},"facts":{}}}))
+}
+pub fn decode_structured(content: &str, schema: &Value) -> Result<Value> {
     ensure!(
         content.len() <= 2 * 1024 * 1024,
         "extraction response exceeds bound"
@@ -199,11 +239,18 @@ pub fn decode_extraction(content: &str) -> Result<Value> {
     if let Some(end) = cleaned.rfind(['}', ']']) {
         cleaned = &cleaned[..=end];
     }
-    let mut parsed: Value = serde_json::Deserializer::from_str(cleaned)
+    let parsed: Value = serde_json::Deserializer::from_str(cleaned)
         .into_iter::<Value>()
         .next()
         .context("empty extraction JSON")?
         .map_err(|_| anyhow::anyhow!("invalid extraction JSON"))?;
+    normalize_structured(parsed, schema)
+}
+pub fn normalize_structured(mut parsed: Value, schema: &Value) -> Result<Value> {
+    let expected = schema
+        .get("properties")
+        .and_then(Value::as_object)
+        .context("invalid structured schema")?;
     if let Some(map) = parsed.as_object() {
         let allowed = [
             "$defs",
@@ -217,20 +264,35 @@ pub fn decode_extraction(content: &str) -> Result<Value> {
         ];
         if map.get("type") == Some(&json!("object"))
             && map.keys().all(|k| allowed.contains(&k.as_str()))
+            && !expected.contains_key("properties")
             && let Some(props) = map.get("properties").and_then(Value::as_object)
-            && props.len() == 2
-            && props.contains_key("entities")
-            && props.contains_key("facts")
+            && !props.is_empty()
+            && props.keys().collect::<std::collections::BTreeSet<_>>() == expected.keys().collect()
             && props
                 .values()
                 .all(|v| v.as_object().is_some_and(|v| v.contains_key("value")))
         {
-            parsed = json!({"entities":props["entities"]["value"],"facts":props["facts"]["value"]});
+            parsed = Value::Object(
+                props
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v["value"].clone()))
+                    .collect(),
+            );
         }
     }
-    ensure!(parsed.is_object(), "extraction response must be an object");
+    if parsed.is_array() && expected.len() == 1 {
+        parsed = json!({expected.keys().next().unwrap():parsed});
+    }
+    ensure!(parsed.is_object(), "structured response must be an object");
+    if schema.get("title") == Some(&json!("SummarizedEntities"))
+        && parsed.get("summaries").is_none()
+        && parsed.as_object().unwrap().values().all(Value::is_string)
+    {
+        parsed = json!({"summaries":parsed.as_object().unwrap().iter().map(|(name,summary)| json!({"name":name,"summary":summary})).collect::<Vec<_>>()});
+    }
     Ok(parsed)
 }
+
 pub fn validate_vector(vector: &[f32]) -> Result<()> {
     ensure!(
         vector.len() == 3072
