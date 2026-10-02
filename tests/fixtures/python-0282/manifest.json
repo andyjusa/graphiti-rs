@@ -175,6 +175,28 @@
       "name": "safe_edge_read",
       "source_sha256": "7abd25af31520e3951625c7a3739033bf9469b0d466c592243d9eaa8b3153939",
       "excerpt_sha256": "5fe5f9a34b58da8a81d37f2af4face0701cea88fefdf641cbd3428e98888a800"
+    },
+    {
+      "file": "core_driver_falkordb_driver_sanitize.py",
+      "source": "core/driver/falkordb_driver.py",
+      "name": "sanitize",
+      "line": 344,
+      "source_sha256": "2a94685b79c7149ec4ea6749896cd59e9c9ef313c1efd05b1fac410daba5ddc8",
+      "excerpt_sha256": "76d3bfbc87828bebf67ee4599a6d112bc55bf2f05a6cdd5336b70e9cd0004257"
+    },
+    {
+      "file": "core_driver_falkordb_driver_build_fulltext_query.py",
+      "source": "core/driver/falkordb_driver.py",
+      "name": "build_fulltext_query",
+      "line": 389,
+      "source_sha256": "2a94685b79c7149ec4ea6749896cd59e9c9ef313c1efd05b1fac410daba5ddc8",
+      "excerpt_sha256": "eda3c62977f74df4c33c21b47f7e72a3cb8e5db950cb3ea4a185d56c84e07581"
     }
-  ]
+  ],
+  "stopwords": {
+    "file": "falkor_stopwords.json",
+    "source": "core/driver/falkordb/__init__.py",
+    "source_sha256": "98cace5e4b69b2406c5f8722c59dc5e842f54c3b91e1e3bb0ea048f5611e85ff",
+    "excerpt_sha256": "7da557079c5d62d578816155ef2b2032ec4a47b0e4979ebe716cbc9a434ecb44"
+  }
 }

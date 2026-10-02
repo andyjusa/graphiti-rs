@@ -1432,3 +1432,213 @@ async fn full_semantic_nodes_and_facts_precede_uuid_bound_and_keep_type_filter()
     assert!(nodes.iter().any(|n| n.uuid == id(999)));
     store.clear(&group).await.unwrap();
 }
+
+#[tokio::test]
+#[ignore = "requires dedicated disposable FalkorDB on loopback port 16379"]
+async fn indexed_keyword_search_uses_fulltext_order_filters_and_no_read_side_writes() {
+    let url = std::env::var("COMPAT_TEST_DB_URL").expect("explicit disposable DB required");
+    assert_eq!(url, "redis://127.0.0.1:16379");
+    let group = format!(
+        "project_fulltext_{}",
+        &uuid::Uuid::new_v4().simple().to_string()[..8]
+    );
+    let id = |i: usize| format!("00000000-0000-4000-8000-{i:012x}");
+    let mut c = redis::Client::open(url.clone())
+        .unwrap()
+        .get_multiplexed_async_connection()
+        .await
+        .unwrap();
+    let rows = format!(
+        "[{}]",
+        (1..=201)
+            .map(|i| format!(
+                "{{id:'{}',source:'{}',name:'{}'}}",
+                id(i),
+                id(i + 10000),
+                if i == 201 { "cat" } else { "catapult" }
+            ))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    let query = format!(
+        "CYPHER rows={rows} UNWIND $rows AS row MERGE(t:Entity:Company {{uuid:'{}'}}) SET t.name='Harbor',t.summary='Company',t.group_id='{group}',t.created_at='2026-10-01T00:00:00Z' CREATE(n:Entity:Person {{uuid:row.source,name:row.name,summary:'Fixture',group_id:'{group}',created_at:'2026-10-01T00:00:00Z'}}) CREATE(n)-[e:RELATES_TO {{uuid:row.id,name:'VISITS',fact:row.name,group_id:'{group}',created_at:'2026-10-01T00:00:00Z',episodes:[]}}]->(t)",
+        id(999999)
+    );
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(&group)
+        .arg(query)
+        .query_async(&mut c)
+        .await
+        .unwrap();
+    let store = LegacyStore::connect(&url, WriteMode::ReadOnly)
+        .await
+        .unwrap();
+    // No index means the documented fallback; the read must not create one.
+    assert_eq!(
+        store
+            .keyword_facts(&group, "cat", None, 20)
+            .await
+            .unwrap()
+            .len(),
+        20
+    );
+    let counts = || redis::cmd("GRAPH.RO_QUERY");
+    let before: redis::Value = counts()
+        .arg(&group)
+        .arg("CALL db.indexes() YIELD label RETURN count(*)")
+        .query_async(&mut c)
+        .await
+        .unwrap();
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(&group)
+        .arg("CALL db.idx.fulltext.createNodeIndex('Entity','name','summary','group_id')")
+        .query_async(&mut c)
+        .await
+        .unwrap();
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(&group)
+        .arg("CREATE FULLTEXT INDEX FOR ()-[e:RELATES_TO]-() ON (e.name,e.fact,e.group_id)")
+        .query_async(&mut c)
+        .await
+        .unwrap();
+    let indexed: redis::Value = counts()
+        .arg(&group)
+        .arg("CALL db.indexes() YIELD label RETURN count(*)")
+        .query_async(&mut c)
+        .await
+        .unwrap();
+    assert_ne!(before, indexed);
+    let hits = store
+        .keyword_facts(&group, "the cat", None, 20)
+        .await
+        .unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].uuid, id(201));
+    let nodes = store
+        .keyword_nodes(&group, "the cat", Some(&["Person".into()]), 20)
+        .await
+        .unwrap();
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes[0].uuid, id(10201));
+    assert!(
+        store
+            .keyword_nodes(&group, "cat", Some(&["Company".into()]), 20)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        store
+            .keyword_facts(&group, "VISITS", None, 20)
+            .await
+            .unwrap()
+            .len(),
+        20
+    ); // relation name is indexed too
+    assert!(
+        store
+            .keyword_facts(&group, "the a and", None, 20)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .keyword_facts(&group, "@group_id:other | absentword", None, 20)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    // Engine must preserve the store's fulltext ranking as the RRF input.
+    let mut config = config(dir(), "http://127.0.0.1:9");
+    config.mode = WriteMode::ReadOnly;
+    config.redis_url = url;
+    config.journal_dir = None;
+    let engine = Engine::new(config).await.unwrap();
+    let hits = engine
+        .execute(
+            "search_memory_facts",
+            json!({"query":"the cat","group_ids":[group],"max_facts":10}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(hits["facts"][0]["uuid"], id(201));
+    let after: redis::Value = counts()
+        .arg(&group)
+        .arg("CALL db.indexes() YIELD label RETURN count(*)")
+        .query_async(&mut c)
+        .await
+        .unwrap();
+    // Ignore per-query timing statistics when comparing metadata result rows.
+    if let (redis::Value::Array(a), redis::Value::Array(b)) = (indexed, after) {
+        assert_eq!(a[1], b[1]);
+    } else {
+        panic!("invalid index reply");
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires dedicated disposable FalkorDB on loopback port 16379"]
+async fn recent_episodes_scan_complete_corpus_and_sort_actual_instants_across_groups() {
+    let url = std::env::var("COMPAT_TEST_DB_URL").expect("explicit disposable DB required");
+    assert_eq!(url, "redis://127.0.0.1:16379");
+    let group = format!(
+        "project_episodes_{}",
+        &uuid::Uuid::new_v4().simple().to_string()[..8]
+    );
+    let other = format!(
+        "project_episodes_{}",
+        &uuid::Uuid::new_v4().simple().to_string()[..8]
+    );
+    let id = |i: usize| format!("00000000-0000-4000-8000-{i:012x}");
+    let mut c = redis::Client::open(url.clone())
+        .unwrap()
+        .get_multiplexed_async_connection()
+        .await
+        .unwrap();
+    for (g, count) in [(&group, 201), (&other, 1)] {
+        let rows = format!(
+            "[{}]",
+            (1..=count)
+                .map(|i| format!(
+                    "{{id:'{}',created:'{}'}}",
+                    id(i),
+                    if i == 201 {
+                        "2026-09-30T23:00:00.123456789Z"
+                    } else {
+                        "2026-10-01T01:00:00+14:00"
+                    }
+                ))
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+        let query = format!(
+            "CYPHER rows={rows} UNWIND $rows AS row CREATE(e:Episodic {{uuid:row.id,name:'Fixture',content:'Synthetic',source:'text',source_description:'Fixture',group_id:'{g}',created_at:row.created,valid_at:row.created,entity_edges:[]}})"
+        );
+        let _: redis::Value = redis::cmd("GRAPH.QUERY")
+            .arg(g)
+            .arg(query)
+            .query_async(&mut c)
+            .await
+            .unwrap();
+    }
+    let store = LegacyStore::connect(&url, WriteMode::ReadOnly)
+        .await
+        .unwrap();
+    let hits = store.episodes(&group, 1).await.unwrap();
+    assert_eq!(hits[0].uuid, id(201));
+    assert_eq!(hits[0].created_at, "2026-09-30T23:00:00.123456789Z");
+    let mut config = config(dir(), "http://127.0.0.1:9");
+    config.mode = WriteMode::ReadOnly;
+    config.redis_url = url;
+    config.journal_dir = None;
+    let engine = Engine::new(config).await.unwrap();
+    let hits = engine
+        .execute(
+            "get_episodes",
+            json!({"group_ids":[other,group],"max_episodes":1}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(hits["episodes"][0]["uuid"], id(201));
+}

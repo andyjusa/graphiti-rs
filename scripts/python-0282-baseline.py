@@ -65,6 +65,13 @@ async def run(case):
            'ensure_utc': lambda value: value.astimezone(timezone.utc) if value else None,
            'utc_now': lambda: dt(case.get('now', '2026-10-01T10:00:00.123456Z'))}
     load('core/utils/maintenance/dedup_helpers.py', '_normalize_string_exact', env)
+    if case['kind'] == 'fulltext':
+        item=MANIFEST['stopwords']; data=(ROOT/item['file']).read_bytes()
+        if hashlib.sha256(data).hexdigest()!=item['excerpt_sha256']: raise RuntimeError('stopword hash mismatch')
+        env.update({'STOPWORDS':json.loads(data),'validate_group_ids':lambda groups: None})
+        sanitize=load('core/driver/falkordb_driver.py','sanitize',env)
+        build=load('core/driver/falkordb_driver.py','build_fulltext_query',env)
+        return build(NS(sanitize=lambda text:sanitize(None,text)),case['query'],[case['group']])
     if case['kind'] == 'normalize':
         return [env['_normalize_string_exact'](x) for x in case['texts']]
     if case['kind'] == 'rrf':

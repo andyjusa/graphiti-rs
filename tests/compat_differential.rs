@@ -314,3 +314,77 @@ fn baseline_uuid_and_destructive_scope_are_observed_not_assumed() {
         );
     }
 }
+
+#[test]
+fn observed_falkor_fulltext_query_matches_rust_on_punctuation_stopwords_and_bounds() {
+    let queries = [
+        "Someone rides a bike",
+        "quantum:state | works_at",
+        "한글 검색어",
+        "A\tTHE and Quantum",
+        "path/to\\file + name@example.com",
+        "x\u{1c}y",
+        "won't",
+        "red-green_blue",
+        "C++ Graphiti?",
+        "\"quote\"[literal]",
+        "|@group_id:other",
+        "_reserved",
+        "nan",
+        "42",
+        "café",
+        "Straße",
+        "a near the river",
+        "foo bar baz",
+        "𝒙 unicode",
+        "aquantum anthe",
+        "ab*cd",
+        "url=https://example.com",
+        "punctuation?!$",
+        "~prefix~",
+        "X Y Z",
+    ];
+    let group = "project_fulltext_1234abcd";
+    let mut cases: Vec<_> = queries
+        .iter()
+        .map(|q| json!({"kind":"fulltext","query":q,"group":group}))
+        .collect();
+    cases.push(json!({"kind":"fulltext","query":vec!["term";63].join(" "),"group":group}));
+    cases.push(json!({"kind":"fulltext","query":vec!["term";64].join(" "),"group":group}));
+    let mut child = Command::new("python3")
+        .args(["-S", "scripts/python-0282-baseline.py"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(serde_json::to_string(&cases).unwrap().as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success());
+    let values: Vec<String> = serde_json::from_slice(&out.stdout).unwrap();
+    for (case, expected) in cases.iter().zip(values) {
+        assert_eq!(
+            graphiti_rs::compat::fulltext::query(case["query"].as_str().unwrap(), group)
+                .unwrap()
+                .unwrap_or_default(),
+            expected,
+            "{case}"
+        );
+    }
+    // Deliberate safety improvement over the baseline's invalid empty () query.
+    assert!(
+        graphiti_rs::compat::fulltext::query("the a and", group)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        graphiti_rs::compat::fulltext::query("***", group)
+            .unwrap()
+            .is_none()
+    );
+    assert!(graphiti_rs::compat::fulltext::query("term", "unknown").is_err());
+}

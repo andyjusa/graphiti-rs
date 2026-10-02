@@ -1,6 +1,7 @@
 pub mod config;
 pub mod dto;
 pub mod engine;
+pub mod fulltext;
 pub mod journal;
 pub mod mcp;
 pub mod policy;

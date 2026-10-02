@@ -151,27 +151,28 @@ impl LegacyStore {
     }
     pub async fn episodes(&self, group: &str, limit: usize) -> Result<Vec<LegacyEpisode>> {
         ensure!(limit <= 100, "episode limit exceeds bound");
-        let rows = self
-            .query(
-                group,
-                "MATCH (e:Episodic) RETURN properties(e) ORDER BY e.created_at DESC LIMIT $limit",
-                json!({"limit":limit}),
-                false,
-            )
-            .await?;
-        let mut out = vec![];
-        for row in rows {
-            let p = map(&row[0])?;
-            identity(
-                &p,
-                group,
-                p.get("uuid")
-                    .and_then(Value::as_str)
-                    .context("missing UUID")?,
-            )?;
-            out.push(serde_json::from_value(Value::Object(p))?);
-        }
-        Ok(out)
+        ensure!(limit > 0, "episode limit must be positive");
+        tokio::time::timeout(Duration::from_secs(30), async {
+            let mut best = vec![];
+            let mut after = String::new();
+            loop {
+                let rows = self.query(group,
+                    "MATCH (e:Episodic) WHERE e.group_id=$group AND e.uuid>$after RETURN properties(e),e.uuid ORDER BY e.uuid LIMIT 128",
+                    json!({"group":group,"after":after}),false).await?;
+                for row in &rows {
+                    after = row[1].as_str().context("missing episode UUID")?.to_owned();
+                    let p = map(&row[0])?;
+                    identity(&p, group, &after)?;
+                    let episode: LegacyEpisode = serde_json::from_value(Value::Object(p))?;
+                    let time = timestamp(&episode.created_at)?;
+                    best.push((episode,time));
+                }
+                best.sort_by(|a,b| b.1.cmp(&a.1).then_with(|| a.0.uuid.cmp(&b.0.uuid)));
+                best.truncate(limit);
+                if rows.len()<128 { break; }
+            }
+            Ok(best.into_iter().map(|(episode,_)| episode).collect())
+        }).await.context("episode scan timed out; no partial results returned")?
     }
     pub async fn edge(&self, group: &str, id: &str) -> Result<Option<LegacyFact>> {
         policy::uuid(id)?;
@@ -235,6 +236,91 @@ impl LegacyStore {
             )
             .await?;
         rows.iter().map(|r| fact(r, group)).collect()
+    }
+    async fn fulltext_index(
+        &self,
+        group: &str,
+        label: &str,
+        kind: &str,
+        fields: &[&str],
+    ) -> Result<bool> {
+        let rows = self.query(group,
+            "CALL db.indexes() YIELD label,properties,types,entitytype WHERE label=$label AND entitytype=$kind AND all(field IN $fields WHERE field IN properties AND 'FULLTEXT' IN types[field]) RETURN count(*)",
+            json!({"label":label,"kind":kind,"fields":fields}),false).await?;
+        let count = rows
+            .first()
+            .and_then(|r| r.first())
+            .and_then(Value::as_i64)
+            .unwrap_or(0);
+        ensure!(count <= 1, "ambiguous fulltext index");
+        Ok(count == 1)
+    }
+    pub async fn keyword_nodes(
+        &self,
+        group: &str,
+        query: &str,
+        types: Option<&[String]>,
+        limit: usize,
+    ) -> Result<Vec<LegacyEntity>> {
+        ensure!((1..=1000).contains(&limit), "candidate limit exceeds bound");
+        if self
+            .fulltext_index(group, "Entity", "NODE", &["name", "summary", "group_id"])
+            .await?
+        {
+            let Some(query) = super::fulltext::query(query, group)? else {
+                return Ok(vec![]);
+            };
+            let rows = self.query(group,
+                "CALL db.idx.fulltext.queryNodes('Entity',$query) YIELD node AS n,score WHERE n.group_id=$group AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) RETURN properties(n),labels(n) ORDER BY score DESC,n.uuid LIMIT $limit",
+                json!({"query":query,"group":group,"types":types.unwrap_or(&[]),"limit":limit}),false).await?;
+            return rows.iter().map(|r| entity(r, group)).collect();
+        }
+        let mut nodes = self.nodes(group, query, types, limit).await?;
+        nodes.sort_by(|a, b| {
+            super::fulltext::substring_rank(query, &format!("{} {}", b.name, b.summary))
+                .cmp(&super::fulltext::substring_rank(
+                    query,
+                    &format!("{} {}", a.name, a.summary),
+                ))
+                .then_with(|| a.uuid.cmp(&b.uuid))
+        });
+        Ok(nodes)
+    }
+    pub async fn keyword_facts(
+        &self,
+        group: &str,
+        query: &str,
+        center: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<LegacyFact>> {
+        ensure!((1..=1000).contains(&limit), "candidate limit exceeds bound");
+        if let Some(center) = center {
+            policy::uuid(center)?;
+        }
+        if self
+            .fulltext_index(
+                group,
+                "RELATES_TO",
+                "RELATIONSHIP",
+                &["name", "fact", "group_id"],
+            )
+            .await?
+        {
+            let Some(query) = super::fulltext::query(query, group)? else {
+                return Ok(vec![]);
+            };
+            let rows = self.query(group,
+                "CALL db.idx.fulltext.queryRelationships('RELATES_TO',$query) YIELD relationship AS e,score WITH e,score,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC,e.uuid LIMIT $limit",
+                json!({"query":query,"group":group,"limit":limit}),false).await?;
+            return rows.iter().map(|r| fact(r, group)).collect();
+        }
+        let mut facts = self.facts(group, query, center, limit).await?;
+        facts.sort_by(|a, b| {
+            super::fulltext::substring_rank(query, &b.fact)
+                .cmp(&super::fulltext::substring_rank(query, &a.fact))
+                .then_with(|| a.uuid.cmp(&b.uuid))
+        });
+        Ok(facts)
     }
     // Rank every supported vector in the group before bounding the returned
     // rows. Graphiti's Falkor score is (1 + cosine) / 2, not raw cosine.

@@ -241,9 +241,9 @@ impl Engine {
                 for group in groups {
                     let mut nodes = self
                         .store
-                        .nodes(&group, &r.query, r.entity_types.as_deref(), candidates)
+                        .keyword_nodes(&group, &r.query, r.entity_types.as_deref(), candidates)
                         .await?;
-                    let keyword_ids = nodes.iter().map(|n| n.uuid.clone()).collect();
+                    let keyword_ids = nodes.iter().map(|n| n.uuid.clone()).collect::<Vec<_>>();
                     let semantic = if let Some(vector) = &vector {
                         self.store
                             .semantic_nodes(&group, vector, r.entity_types.as_deref(), candidates)
@@ -255,14 +255,7 @@ impl Engine {
                     nodes.extend(semantic);
                     let mut seen = std::collections::HashSet::new();
                     nodes.retain(|n| seen.insert(n.uuid.clone()));
-                    let order = fused_order(
-                        &nodes,
-                        &keyword_ids,
-                        &r.query,
-                        &semantic_ids,
-                        |n| &n.uuid,
-                        |n| format!("{} {}", n.name, n.summary),
-                    );
+                    let order = fused_order(&keyword_ids, &semantic_ids);
                     nodes.retain(|n| order.contains_key(&n.uuid));
                     nodes.sort_by_key(|n| order[&n.uuid]);
                     nodes.truncate(limit);
@@ -295,9 +288,9 @@ impl Engine {
                 for group in groups {
                     let mut facts = self
                         .store
-                        .facts(&group, &r.query, r.center_node_uuid.as_deref(), candidates)
+                        .keyword_facts(&group, &r.query, r.center_node_uuid.as_deref(), candidates)
                         .await?;
-                    let keyword_ids = facts.iter().map(|f| f.uuid.clone()).collect();
+                    let keyword_ids = facts.iter().map(|f| f.uuid.clone()).collect::<Vec<_>>();
                     let semantic = if let Some(vector) = &vector {
                         self.store
                             .semantic_facts(&group, vector, candidates)
@@ -309,14 +302,7 @@ impl Engine {
                     facts.extend(semantic);
                     let mut seen = std::collections::HashSet::new();
                     facts.retain(|f| seen.insert(f.uuid.clone()));
-                    let order = fused_order(
-                        &facts,
-                        &keyword_ids,
-                        &r.query,
-                        &semantic_ids,
-                        |f| &f.uuid,
-                        |f| f.fact.clone(),
-                    );
+                    let order = fused_order(&keyword_ids, &semantic_ids);
                     facts.retain(|f| order.contains_key(&f.uuid));
                     facts.sort_by_key(|f| order[&f.uuid]);
                     if let Some(center) = &r.center_node_uuid {
@@ -454,32 +440,11 @@ pub fn round_robin(lists: Vec<Vec<Value>>, limit: usize) -> Vec<Value> {
     }
     out
 }
-fn fused_order<T>(
-    items: &[T],
-    keyword: &std::collections::HashSet<String>,
-    query: &str,
+fn fused_order(
+    keyword: &[String],
     semantic: &[String],
-    id: impl Fn(&T) -> &str,
-    text: impl Fn(&T) -> String,
 ) -> std::collections::HashMap<String, usize> {
-    let mut words: Vec<_> = items.iter().filter(|v| keyword.contains(id(v))).collect();
-    let keyword_score = |v: &T| {
-        let text = crate::domain::normalize(&text(v));
-        crate::domain::normalize(query)
-            .split_whitespace()
-            .filter(|t| text.contains(t))
-            .count()
-    };
-    words.sort_by(|a, b| {
-        keyword_score(b)
-            .cmp(&keyword_score(a))
-            .then_with(|| id(a).cmp(id(b)))
-    });
-    let lists = vec![
-        words.into_iter().map(|v| id(v).to_owned()).collect(),
-        semantic.to_vec(),
-    ];
-    super::resolution::rrf(&lists)
+    super::resolution::rrf(&[keyword.to_vec(), semantic.to_vec()])
         .into_iter()
         .enumerate()
         .map(|(rank, id)| (id, rank))
