@@ -120,10 +120,16 @@ impl Search {
             }
         }
         // One-hop relationship expansion within the bounded fetched graph.
-        let seeds: HashSet<_> = rrf(&lists)
-            .into_iter()
+        let direct = rrf(&lists);
+        let direct_order: HashMap<_, _> = direct
+            .iter()
+            .enumerate()
+            .map(|(rank, (id, _))| (id.as_str(), rank))
+            .collect();
+        let seeds: HashSet<_> = direct
+            .iter()
             .take(5)
-            .filter_map(|(id, _)| candidates.get(&id))
+            .filter_map(|(id, _)| candidates.get(id))
             .flat_map(|f| [f.source_id.clone(), f.target_id.clone()])
             .collect();
         let mut neighbors: Vec<_> = candidates
@@ -131,7 +137,15 @@ impl Search {
             .filter(|f| seeds.contains(&f.source_id) || seeds.contains(&f.target_id))
             .map(|f| f.id.clone())
             .collect();
-        neighbors.sort();
+        // Retain the relevance order before applying the expansion bound. A
+        // common hub must not promote an unrelated low-UUID neighbor over a seed.
+        neighbors.sort_by(|a, b| {
+            direct_order
+                .get(a.as_str())
+                .unwrap_or(&usize::MAX)
+                .cmp(direct_order.get(b.as_str()).unwrap_or(&usize::MAX))
+                .then(a.cmp(b))
+        });
         neighbors.truncate(self.candidates);
         lists.push(neighbors);
         Ok(rrf(&lists)
