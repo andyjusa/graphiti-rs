@@ -185,6 +185,10 @@ fn observed_python_functions_match_rust_on_synthetic_decisions() {
             cases.push(json!({"kind":"center","algorithm":algorithm,"ids":ids,"center":center,"neighbors":neighbors}));
             expected.push(json!(resolution::center_order(&ids, center, &neighbors)));
         }
+        cases.push(json!({"kind":"center","algorithm":"deployed-falkor","ids":ids,"center":center,"neighbors":neighbors}));
+        expected.push(json!(resolution::deployed_falkor_center_order(
+            &ids, center
+        )));
     }
     for groups in [
         None,

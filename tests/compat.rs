@@ -80,7 +80,12 @@ async fn restore_audit_reads_all_pages_and_refuses_malformed_identity_without_wr
     use graphiti_rs::compat::audit;
     let url = std::env::var("COMPAT_TEST_DB_URL").expect("explicit disposable DB required");
     assert_eq!(url, "redis://127.0.0.1:16379");
-    let group = "project_read_audit_20261002";
+    // Scope-exclusion fixtures intentionally survive clear(); isolate reruns.
+    let group_storage = format!(
+        "project_read_audit_{}",
+        &uuid::Uuid::new_v4().simple().to_string()[..8]
+    );
+    let group = group_storage.as_str();
     let writer = LegacyStore::connect(&url, WriteMode::Synthetic)
         .await
         .unwrap();
@@ -327,6 +332,10 @@ fn public_dtos_match_observed_python_datetime_and_attribute_serialization() {
         node.name_embedding = Some(vector());
         node.attributes
             .insert("name_embedding".into(), json!([1.0]));
+        node.attributes
+            .insert("embedding_note".into(), json!("hidden"));
+        node.attributes
+            .insert("EMBEDDING_metadata".into(), json!("hidden"));
         assert_eq!(node_public(&node), case["expected_node"]);
         let mut fact: LegacyFact = serde_json::from_value(case["expected_fact"].clone()).unwrap();
         fact.created_at = node.created_at.clone();
@@ -352,6 +361,122 @@ fn deterministic_group_fairness() {
         ),
         vec![json!("A1"), json!("B1"), json!("A2")]
     );
+}
+
+#[tokio::test]
+#[ignore = "requires dedicated disposable FalkorDB on loopback port 16379"]
+async fn replay_preserves_deployed_node_windows_and_refuses_unsafe_inputs() {
+    let url = std::env::var("COMPAT_TEST_DB_URL").expect("explicit disposable DB required");
+    assert_eq!(url, "redis://127.0.0.1:16379");
+    let groups: Vec<_> = (0..2)
+        .map(|_| {
+            format!(
+                "project_replay_{}",
+                &uuid::Uuid::new_v4().simple().to_string()[..8]
+            )
+        })
+        .collect();
+    let mut connection = redis::Client::open(url.clone())
+        .unwrap()
+        .get_multiplexed_async_connection()
+        .await
+        .unwrap();
+    let rows: Vec<_> = (1..=30)
+        .map(|i| format!("00000000-0000-4000-8000-{i:012x}"))
+        .collect();
+    for group in &groups {
+        let query = format!(
+            "CYPHER rows={} vector={} UNWIND $rows AS row CREATE(n:Entity:Person {{uuid:row,name:'Unrelated',summary:'Synthetic',group_id:'{group}',created_at:'2026-10-02T00:00:00Z',name_embedding:vecf32($vector),embedding_note:'hidden',visible:'keep'}})",
+            serde_json::to_string(&rows).unwrap(),
+            serde_json::to_string(&vector()).unwrap()
+        );
+        let _: redis::Value = redis::cmd("GRAPH.QUERY")
+            .arg(group)
+            .arg(query)
+            .query_async(&mut connection)
+            .await
+            .unwrap();
+    }
+    let mut cfg = config(dir(), "http://127.0.0.1:9");
+    cfg.mode = WriteMode::ReadOnly;
+    cfg.journal_dir = None;
+    cfg.redis_url = url.clone();
+    let engine = Engine::new(cfg.clone()).await.unwrap();
+    let args = json!({"query":"nomatchingterm", "group_ids":[groups[0]], "max_nodes":25});
+    assert!(
+        engine.execute("search_nodes", args.clone()).await.unwrap()["nodes"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let hits = engine
+        .replay_search("search_nodes", args.clone(), &vector())
+        .await
+        .unwrap();
+    assert_eq!(hits["nodes"].as_array().unwrap().len(), 10);
+    for node in hits["nodes"].as_array().unwrap() {
+        assert_eq!(node["created_at"], "2026-10-02T00:00:00+00:00");
+        assert_eq!(node["attributes"], json!({"visible":"keep"}));
+    }
+    let hits = engine
+        .replay_search(
+            "search_nodes",
+            json!({"query":"nomatchingterm","group_ids":groups,"max_nodes":25}),
+            &vector(),
+        )
+        .await
+        .unwrap();
+    let nodes = hits["nodes"].as_array().unwrap();
+    assert_eq!(nodes.len(), 20);
+    for (i, node) in nodes.iter().enumerate() {
+        assert_eq!(node["group_id"], groups[i % 2]);
+    }
+    assert!(
+        engine
+            .replay_search("clear_graph", json!({"group_ids":[groups[0]]}), &vector())
+            .await
+            .is_err()
+    );
+    for invalid in [vec![1.0], vec![0.0; 3072], vec![f32::NAN; 3072]] {
+        assert!(
+            engine
+                .replay_search("search_nodes", args.clone(), &invalid)
+                .await
+                .is_err()
+        );
+    }
+    assert!(
+        engine
+            .replay_search(
+                "search_memory_facts",
+                json!({"query":"test","group_ids":[groups[0]],"max_facts":100}),
+                &vector()
+            )
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("candidate bound")
+    );
+    let path = dir();
+    let synthetic = Engine::new(config(path.clone(), "http://127.0.0.1:9"))
+        .await
+        .unwrap();
+    assert!(
+        synthetic
+            .replay_search("search_nodes", args, &vector())
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("read-only")
+    );
+    drop(synthetic);
+    let writer = LegacyStore::connect(&url, WriteMode::Synthetic)
+        .await
+        .unwrap();
+    for group in &groups {
+        writer.clear(group).await.unwrap();
+    }
+    let _ = std::fs::remove_dir_all(path);
 }
 #[test]
 fn journal_idempotence_lock_recovery_and_private_permissions() {

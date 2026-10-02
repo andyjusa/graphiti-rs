@@ -152,6 +152,28 @@ impl Engine {
         Ok(engine)
     }
     pub async fn execute(&self, name: &str, args: Value) -> Result<Value> {
+        self.execute_inner(name, args, None).await
+    }
+    /// Offline maintenance only: reuse a captured vector without calling a provider.
+    /// This entry point is deliberately absent from the MCP tool registry.
+    pub async fn replay_search(&self, name: &str, args: Value, vector: &[f32]) -> Result<Value> {
+        ensure!(
+            self.config.mode == WriteMode::ReadOnly,
+            "replay requires read-only mode"
+        );
+        ensure!(
+            matches!(name, "search_nodes" | "search_memory_facts"),
+            "replay only permits search tools"
+        );
+        super::providers::validate_vector(vector)?;
+        self.execute_inner(name, args, Some(vector)).await
+    }
+    async fn execute_inner(
+        &self,
+        name: &str,
+        args: Value,
+        replay: Option<&[f32]>,
+    ) -> Result<Value> {
         match name {
             "add_memory" => {
                 let r: AddMemory = serde_json::from_value(args)?;
@@ -242,8 +264,17 @@ impl Engine {
                 if groups.is_empty() {
                     return Ok(json!({"message":"No relevant nodes found","nodes":[]}));
                 }
-                let vector = self.query_vector(&r.query).await?;
-                let candidates = (self.config.candidates / groups.len().max(1)).max(1);
+                let vector = match replay {
+                    Some(vector) => Some(vector.to_vec()),
+                    None => self.query_vector(&r.query).await?,
+                };
+                // The deployed wrapper uses NODE_HYBRID_SEARCH_RRF's fixed limit 10.
+                // Each method fetches twice that limit, independently for every group.
+                let candidates = 20;
+                ensure!(
+                    candidates <= self.config.candidates,
+                    "search candidate bound too small for SDK parity"
+                );
                 let mut lists = vec![];
                 for group in groups {
                     let mut nodes = self
@@ -265,7 +296,7 @@ impl Engine {
                     let order = fused_order(&keyword_ids, &semantic_ids);
                     nodes.retain(|n| order.contains_key(&n.uuid));
                     nodes.sort_by_key(|n| order[&n.uuid]);
-                    nodes.truncate(limit);
+                    nodes.truncate(limit.min(10));
                     lists.push(nodes.into_iter().map(|n| node_public(&n)).collect());
                 }
                 let nodes = round_robin(lists, limit);
@@ -289,8 +320,15 @@ impl Engine {
                 if groups.is_empty() {
                     return Ok(json!({"message":"No relevant facts found","facts":[]}));
                 }
-                let vector = self.query_vector(&r.query).await?;
-                let candidates = (self.config.candidates / groups.len().max(1)).max(1);
+                let vector = match replay {
+                    Some(vector) => Some(vector.to_vec()),
+                    None => self.query_vector(&r.query).await?,
+                };
+                let candidates = 2 * limit;
+                ensure!(
+                    candidates <= self.config.candidates,
+                    "search candidate bound too small for SDK parity"
+                );
                 let mut lists = vec![];
                 for group in groups {
                     let mut facts = self
@@ -313,14 +351,14 @@ impl Engine {
                     facts.retain(|f| order.contains_key(&f.uuid));
                     facts.sort_by_key(|f| order[&f.uuid]);
                     if let Some(center) = &r.center_node_uuid {
-                        let neighbors = self.store.neighbors(&group, center).await?;
                         let mut sources = vec![];
                         for fact in &facts {
                             if !sources.contains(&fact.source_node_uuid) {
                                 sources.push(fact.source_node_uuid.clone());
                             }
                         }
-                        let sources = super::resolution::center_order(&sources, center, &neighbors);
+                        let sources =
+                            super::resolution::deployed_falkor_center_order(&sources, center);
                         facts.sort_by_key(|f| {
                             sources
                                 .iter()
@@ -416,7 +454,21 @@ pub fn episode_public(e: &LegacyEpisode) -> Value {
     json!({"uuid":e.uuid,"name":e.name,"content":e.content,"source":e.source,"source_description":e.source_description,"created_at":e.created_at,"group_id":e.group_id})
 }
 pub fn node_public(n: &LegacyEntity) -> Value {
-    json!({"uuid":n.uuid,"name":n.name,"labels":n.labels,"created_at":public_timestamp(&n.created_at),"summary":n.summary,"group_id":n.group_id,"attributes":public_attributes(&n.attributes, "name_embedding")})
+    let attrs: serde_json::Map<String, Value> = n
+        .attributes
+        .iter()
+        .filter(|(key, _)| !key.to_lowercase().contains("embedding"))
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect();
+    json!({"uuid":n.uuid,"name":n.name,"labels":n.labels,"created_at":node_timestamp(&n.created_at),"summary":n.summary,"group_id":n.group_id,"attributes":attrs})
+}
+fn node_timestamp(value: &str) -> String {
+    // The deployed group-aware node wrapper calls Python datetime.isoformat().
+    let formatted = public_timestamp(value);
+    formatted
+        .strip_suffix('Z')
+        .map(|s| format!("{s}+00:00"))
+        .unwrap_or(formatted)
 }
 pub fn fact_public(f: &LegacyFact) -> Value {
     json!({"uuid":f.uuid,"name":f.name,"fact":f.fact,"group_id":f.group_id,"source_node_uuid":f.source_node_uuid,"target_node_uuid":f.target_node_uuid,"created_at":public_timestamp(&f.created_at),"valid_at":f.valid_at.as_deref().map(public_timestamp),"invalid_at":f.invalid_at.as_deref().map(public_timestamp),"expired_at":f.expired_at.as_deref().map(public_timestamp),"episodes":f.episodes,"attributes":public_attributes(&f.attributes, "fact_embedding")})

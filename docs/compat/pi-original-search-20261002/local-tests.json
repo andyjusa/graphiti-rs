@@ -1,0 +1,9 @@
+{
+  "all_features_nonignored_tests": 30,
+  "disposable_compatibility_tests": 9,
+  "fmt": "passed",
+  "all_targets_all_features_clippy_warnings_denied": "passed",
+  "local_falkordb_version": "4.20.4",
+  "owned_disposable_container_and_network": "removed",
+  "real_model_tests": "not included in these local counts"
+}

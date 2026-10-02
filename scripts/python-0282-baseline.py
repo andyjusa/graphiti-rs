@@ -90,12 +90,14 @@ async def run(case):
         return [public_edge(result[0]), [public_edge(x) for x in result[1]], [public_edge(x) for x in result[2]]]
     if case['kind'] == 'edge_read':
         return ' '.join(load('patches/falkor_edge_query_compat.py','safe_edge_read',env)(case['query']).split())
-    if case['kind'] == 'center' and case.get('algorithm') == 'fallback':
+    if case['kind'] == 'center' and case.get('algorithm') in ('fallback', 'deployed-falkor'):
         f=load('core/search/search_utils.py','node_distance_reranker',env)
         class Driver:
             search_interface=None
             provider='falkor'
             async def execute_query(self, query, **params):
+                if case.get('algorithm') == 'deployed-falkor':
+                    return [{'score':1,'uuid':u} for u in case['neighbors']], ['score','uuid'], None
                 return [[1,u] for u in case['neighbors']], ['score','uuid'], None
         env['GraphProvider']=NS(FALKORDB='falkor',KUZU='kuzu')
         return (await f(Driver(),case['ids'],case['center']))[0]

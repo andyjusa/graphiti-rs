@@ -1,0 +1,24 @@
+{
+  "scope": "private provider-free original-memory search replay",
+  "policy_groups": 63,
+  "outside_policy_groups": 9,
+  "cases": 105,
+  "categories": {
+    "canonical_node": 43,
+    "canonical_fact": 42,
+    "node_window": 6,
+    "type_filter": 4,
+    "fact_window": 6,
+    "center_distance": 2,
+    "multi_group": 2
+  },
+  "tools": {
+    "search_nodes": 54,
+    "search_memory_facts": 51
+  },
+  "reference_refusals": 0,
+  "sdk_readonly_queries": 342,
+  "provider_calls": 0,
+  "node_wrapper_sha256": "298ecb087f46a935533adc160795ca16464fbeef4fc8c3a5ba4f1df48715f847",
+  "fixture_sha256": "b300edd973a71c35ab65b21ade0cc024ba4d686c0c2a8477b28d094514b064bc"
+}

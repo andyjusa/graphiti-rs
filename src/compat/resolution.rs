@@ -163,3 +163,11 @@ pub fn center_order(ids: &[String], center: &str, neighbors: &HashSet<String>) -
     });
     out
 }
+/// The deployed 0.28.2 fallback double-decodes FalkorDriver's dictionary rows.
+/// Neighbor scores are therefore absent; it promotes the center and otherwise
+/// retains RRF source order. Preserve that observed behavior at this boundary.
+pub fn deployed_falkor_center_order(ids: &[String], center: &str) -> Vec<String> {
+    let mut out = ids.to_vec();
+    out.sort_by_key(|id| usize::from(id != center));
+    out
+}

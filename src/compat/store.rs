@@ -314,7 +314,7 @@ impl LegacyStore {
                 return Ok(vec![]);
             };
             let rows = self.query(group,
-                "CALL db.idx.fulltext.queryNodes('Entity',$query) YIELD node AS n,score WHERE n.group_id=$group AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) RETURN properties(n),labels(n) ORDER BY score DESC,n.uuid LIMIT $limit",
+                "CALL db.idx.fulltext.queryNodes('Entity',$query) YIELD node AS n,score WHERE n.group_id=$group AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) RETURN properties(n),labels(n) ORDER BY score DESC LIMIT $limit",
                 json!({"query":query,"group":group,"types":types.unwrap_or(&[]),"limit":limit}),false).await?;
             return rows.iter().map(|r| entity(r, group)).collect();
         }
@@ -373,7 +373,7 @@ impl LegacyStore {
                 return Ok(vec![]);
             };
             let rows = self.query(group,
-                "CALL db.idx.fulltext.queryRelationships('RELATES_TO',$query) YIELD relationship AS e,score WITH e,score,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND (size($ids)=0 OR e.uuid IN $ids) RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC,e.uuid LIMIT $limit",
+                "CALL db.idx.fulltext.queryRelationships('RELATES_TO',$query) YIELD relationship AS e,score WITH e,score,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND (size($ids)=0 OR e.uuid IN $ids) RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC LIMIT $limit",
                 json!({"query":query,"group":group,"limit":limit,"ids":allowed.unwrap_or(&[])}),false).await?;
             return rows.iter().map(|r| fact(r, group)).collect();
         }
@@ -417,7 +417,7 @@ impl LegacyStore {
         super::providers::validate_vector(vector)?;
         ensure!((1..=1000).contains(&limit), "candidate limit exceeds bound");
         let rows = self.query(group,
-            "MATCH (n:Entity) WHERE n.group_id=$group AND n.name_embedding IS NOT NULL AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) WITH n,(2-vec.cosineDistance(n.name_embedding,vecf32($vector)))/2 AS score WHERE score>$min RETURN properties(n),labels(n) ORDER BY score DESC,n.uuid LIMIT $limit",
+            "MATCH (n:Entity) WHERE n.group_id=$group AND n.name_embedding IS NOT NULL AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) WITH n,(2-vec.cosineDistance(n.name_embedding,vecf32($vector)))/2 AS score WHERE score>$min RETURN properties(n),labels(n) ORDER BY score DESC LIMIT $limit",
             json!({"group":group,"vector":vector,"types":types.unwrap_or(&[]),"min":super::resolution::SEMANTIC_MIN_SCORE,"limit":limit}), false).await?;
         rows.iter().map(|r| entity(r, group)).collect()
     }
@@ -449,7 +449,7 @@ impl LegacyStore {
         super::providers::validate_vector(vector)?;
         ensure!((1..=1000).contains(&limit), "candidate limit exceeds bound");
         let rows = self.query(group,
-            "MATCH ()-[e:RELATES_TO]->() WITH *,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND e.fact_embedding IS NOT NULL AND (size($ids)=0 OR e.uuid IN $ids) WITH e,n,m,(2-vec.cosineDistance(e.fact_embedding,vecf32($vector)))/2 AS score WHERE score>$min RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC,e.uuid LIMIT $limit",
+            "MATCH ()-[e:RELATES_TO]->() WITH *,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND e.fact_embedding IS NOT NULL AND (size($ids)=0 OR e.uuid IN $ids) WITH e,n,m,(2-vec.cosineDistance(e.fact_embedding,vecf32($vector)))/2 AS score WHERE score>$min RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC LIMIT $limit",
             json!({"group":group,"vector":vector,"min":super::resolution::SEMANTIC_MIN_SCORE,"ids":allowed.unwrap_or(&[]),"limit":limit}), false).await?;
         rows.iter().map(|r| fact(r, group)).collect()
     }
