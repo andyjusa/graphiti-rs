@@ -1,0 +1,9 @@
+{
+  "request": "one synthetic text through the observed native batch payload; no retries",
+  "http_status": 402,
+  "error_status": "RESOURCE_EXHAUSTED",
+  "mentions_batch_method": false,
+  "reports_unsupported_method": false,
+  "reports_unknown_model": false,
+  "error_fields": []
+}

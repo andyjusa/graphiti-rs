@@ -1,0 +1,23 @@
+{
+  "scope": "private initial original-memory snapshot, read-only native Rust maintenance audit; original contents and detailed reports remain private on Pi",
+  "group_status_counts": {
+    "readable": 52,
+    "readable_with_scope_exclusions": 11,
+    "outside_recorded_mcp_policy": 9
+  },
+  "totals": {
+    "entities": 7945,
+    "entity_vectors": 7945,
+    "episodes": 883,
+    "fact_vectors": 6882,
+    "facts": 6882,
+    "mis_scoped_entities": 106,
+    "mis_scoped_episodes": 14,
+    "mis_scoped_facts": 70
+  },
+  "source_container_id": "f52020c7c61da467f25e6bde73e69a8506475f0a244530054b0d8367e4f8c04c",
+  "source_started": "2026-09-23T16:24:02.497549467Z",
+  "source_health": "healthy",
+  "original_data_rewritten": false,
+  "unknown_or_outside_policy_groups": "preserved, not certified as MCP-readable"
+}

@@ -1,0 +1,13 @@
+{
+  "rust_source_base_commit": "f8199d12d52d364ffc9dddaaf9dd6e2e1e7d2907",
+  "files": {
+    "compat-provider-probe": "192793b4a6ec1d0db7646ddb41d1f4c33d6566fb935bec7c9319ef0db4d76efd",
+    "python-provider-probe.py": "af9c0b62b1123ea2912fa07b3c5e6ffd6643f7ea7e9e85ebf0d7a7f20db8a720",
+    "source/sitecustomize.py": "57d502998a1dd18374ca472d0fa16ffe420f898569a11e75e50dc9209acd5522",
+    "source/openrouter_json.py": "f0435b4405a9511958c6f660c322d21921efa50c43f590e6bbd0db2ae44d679f",
+    "source/gemini_embedding.py": "2d37beebe2eb7f7d5bb21b322a734ac5f5934372c4ac23b30b2c705b7f630161"
+  },
+  "rust_example_sha256": "c9e0c5e9dd193b02a1f199c6896da7602d5275f3ae2d96f4c859122dac64579c",
+  "scope": "Initial bounded provider rehearsal: generation reached native embedding in both implementations; native embeddings rejected HTTP 402. No successful-vector comparison claim.",
+  "subsequent_helper_change": "Added generation progress output before embedding. No further real generation calls performed."
+}

@@ -1,0 +1,13 @@
+{
+  "Pi_synthetic_DB_removed": true,
+  "Pi_synthetic_network_removed": true,
+  "provider_rehearsal_container_removed": true,
+  "current_provider_anonymous_volume_removed": true,
+  "prior_failed_provider_anonymous_volume": "identity not recovered; no unverified volume deleted",
+  "temporary_credential_copies_removed": true,
+  "private_original_backup_retained": true,
+  "private_original_restoration_retained": true,
+  "source_id_unchanged": true,
+  "source_start_unchanged": true,
+  "source_health": "healthy"
+}

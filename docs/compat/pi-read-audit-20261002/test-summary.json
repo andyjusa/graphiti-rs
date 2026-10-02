@@ -1,0 +1,5 @@
+{
+  "distinct_passed": 50,
+  "optional_local_model_tests": "not repeated; two previously validated Pi tests remain recorded separately",
+  "source_commit": "f8199d12d52d364ffc9dddaaf9dd6e2e1e7d2907"
+}
