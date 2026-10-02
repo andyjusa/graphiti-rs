@@ -261,7 +261,8 @@ pub async fn prepare(
         .await?;
     let mut facts_before = BTreeMap::new();
     let mut facts: BTreeMap<String, LegacyFact> = BTreeMap::new();
-    let mut resolved_ids = HashSet::new();
+    let mut resolved_references = vec![];
+    let mut invalidated_references = vec![];
     let mut summary_edges = vec![];
     for (mut edge, vector) in new_facts.into_iter().zip(vectors) {
         edge.fact_embedding = Some(vector.clone());
@@ -323,10 +324,10 @@ pub async fn prepare(
         if resolved.uuid == edge.uuid {
             summary_edges.push(resolved.clone());
         }
-        resolved_ids.insert(resolved.uuid.clone());
-        // A later invalidation of an earlier resolved fact must be retained.
+        resolved_references.push(resolved.uuid.clone());
         facts.insert(resolved.uuid.clone(), resolved);
         for updated in invalidated {
+            invalidated_references.push(updated.uuid.clone());
             facts.insert(updated.uuid.clone(), updated);
         }
         ensure!(
@@ -348,7 +349,15 @@ pub async fn prepare(
     for (node, vector) in nodes.iter_mut().zip(name_vectors) {
         node.name_embedding = Some(vector);
     }
-    let mut facts: Vec<_> = facts.into_values().collect();
+    // Preserve resolved references followed by invalidation references, including
+    // repeated UUIDs. Unique planned fact values retain extraction-step updates.
+    resolved_references.extend(invalidated_references);
+    let mut seen_facts = HashSet::new();
+    let mut facts: Vec<_> = resolved_references
+        .iter()
+        .filter(|id| seen_facts.insert((*id).clone()))
+        .map(|id| facts.remove(id).expect("resolved reference has a fact"))
+        .collect();
     let vectors = providers
         .embed(&facts.iter().map(|f| f.fact.clone()).collect::<Vec<_>>())
         .await?;
@@ -359,7 +368,7 @@ pub async fn prepare(
         baseline: None,
         invalidated_fact_ids: facts
             .iter()
-            .filter(|f| !resolved_ids.contains(&f.uuid))
+            .filter(|f| !f.episodes.contains(&job.id))
             .map(|f| f.uuid.clone())
             .collect(),
         episode: LegacyEpisode {
@@ -371,7 +380,7 @@ pub async fn prepare(
             group_id: job.group.clone(),
             created_at: job.created.clone(),
             valid_at: job.created.clone(),
-            entity_edges: facts.iter().map(|f| f.uuid.clone()).collect(),
+            entity_edges: resolved_references,
         },
         entities: nodes,
         facts,

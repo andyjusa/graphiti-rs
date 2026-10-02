@@ -1,0 +1,102 @@
+{
+  "scope": "Bounded synthetic interacting relation replay; no operational adoption",
+  "baseline_failure": {
+    "episode": 1,
+    "sdk_references": 3,
+    "old_rust_references": 2,
+    "verified_on_pi": true
+  },
+  "rust": {
+    "actual_provider_calls": 0,
+    "cumulative_facts": [
+      6,
+      6,
+      9,
+      11
+    ],
+    "entities": 6,
+    "episodes": 4,
+    "mock_llm_requests": 21,
+    "binary_sha256": "1e65e8dd692cc9d0371cb3dbd4b2453e7a2198dacb7e7c1b0623393ccae21983",
+    "passed": true
+  },
+  "python": {
+    "scope": "Actual deployed SDK interacting reuse/invalidation and temporal history; supplied semantic decisions with fact-index rebasing",
+    "package": "graphiti-core 0.28.2",
+    "python": "3.11.2",
+    "episodes": 4,
+    "entities": 6,
+    "cumulative_facts": [
+      6,
+      6,
+      9,
+      11
+    ],
+    "episode_reference_counts": [
+      6,
+      3,
+      7,
+      4
+    ],
+    "mock_llm_requests": 21,
+    "edge_candidate_sets_match": 8,
+    "rebased_decisions": 4,
+    "canonical_graphs_match": true,
+    "schemas_match_real_pydantic": true,
+    "expired_at_instants_match": true,
+    "basis_vector_records_match": 56,
+    "actual_provider_calls": 0,
+    "graphiti_source_sha256": "8487af6bda1b4efa914f4a827502d4f241a4e3c8ce7973df3c410e4b2ef8153f",
+    "edge_patch_sha256": "7abd25af31520e3951625c7a3739033bf9469b0d466c592243d9eaa8b3153939",
+    "limits": "Synthetic generic relations, mocked basis vectors and supplied decisions. Ranking ties may produce different candidate order in independently allocated fresh graphs; candidate sets must match. No real-provider quality, original-data writes or operational cutover."
+  },
+  "database": {
+    "pi_falkordb": "4.16.6",
+    "pi_module_version": 41606,
+    "sdk_image_sha256": "ed8f5d566429152635aaf6795ffd4e5bfd11f704ea03d6cc79fa25c41384d854",
+    "local_falkordb": "4.14.11"
+  },
+  "local_checks": {
+    "non_ignored_tests": 31,
+    "isolated_compatibility_tests": 13,
+    "format": true,
+    "all_target_all_feature_clippy": true
+  },
+  "preservation": {
+    "services": {
+      "original_ingestion": {
+        "id_unchanged": true,
+        "start_unchanged": true,
+        "running": true,
+        "healthy": true
+      },
+      "original_oauth": {
+        "id_unchanged": true,
+        "start_unchanged": true,
+        "running": true,
+        "healthy": null
+      },
+      "readonly_original_restore": {
+        "id_unchanged": true,
+        "start_unchanged": true,
+        "running": true,
+        "healthy": true
+      }
+    },
+    "backup_sha256_unchanged": true,
+    "audit_sha256_unchanged": true,
+    "owned_container_removed": true,
+    "owned_network_removed": true,
+    "owned_relay_stopped": true,
+    "anonymous_volumes_created": false,
+    "operational_writes": 0,
+    "real_provider_calls": 0
+  },
+  "source_sha256": {
+    "src/compat/dto.rs": "e88b0ec1d2a35244771b157b52ac854f47d8270322b57454700a3294ef11998c",
+    "src/compat/pipeline.rs": "2774ce22ad651aac3784d6e4ef15eb7060485a20f27f66fa8858e78fd31fece0",
+    "tests/compat.rs": "5e02cfae594a14fb29313800df0bcd853410dde72450a3c140ba28c4288eff3e",
+    "tests/support/interacting_relations.rs": "9bac646b0a2ebe4ddef8f8a16700f01ea363cebf20ffe8720d942c69dc103d29",
+    "scripts/python-pi-interacting-relations.py": "458c8f983ef76d31180a1edc9dd9cdfde02592f85a4f20a1173efc5b77cdd088"
+  }
+}

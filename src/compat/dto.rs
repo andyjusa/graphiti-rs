@@ -146,6 +146,8 @@ pub struct Prepared {
     #[serde(default)]
     pub invalidated_fact_ids: Vec<String>,
 }
+/// Existing ingestion bounds: 128 resolved edges, each with up to 256 invalidations.
+pub const MAX_EPISODE_FACT_REFERENCES: usize = 128 * (256 + 1);
 /// Exact pre-write properties, retained durably with the prepared graph.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NodeSnapshot {
@@ -252,7 +254,7 @@ impl Prepared {
             "invalidation UUID missing from facts"
         );
         ensure!(
-            e.entity_edges.len() == facts.len()
+            e.entity_edges.len() <= MAX_EPISODE_FACT_REFERENCES
                 && e.entity_edges
                     .iter()
                     .collect::<std::collections::HashSet<_>>()

@@ -3,6 +3,8 @@
 mod classification_boundary;
 #[path = "support/configured_profile.rs"]
 mod configured_profile;
+#[path = "support/interacting_relations.rs"]
+mod interacting_relations;
 #[path = "support/worker_failure.rs"]
 mod worker_failure;
 use graphiti_rs::compat::{
@@ -28,6 +30,23 @@ use std::{
 
 fn dir() -> PathBuf {
     std::env::temp_dir().join(format!("graphiti-rs-compat-{}", uuid::Uuid::new_v4()))
+}
+#[test]
+fn prepared_episode_references_preserve_multiplicity_with_bounded_valid_targets() {
+    let mut p = fixture("user_primary");
+    p.episode.entity_edges.push(p.facts[0].uuid.clone());
+    p.validate().unwrap();
+    let mut unknown = p.clone();
+    unknown
+        .episode
+        .entity_edges
+        .push(uuid::Uuid::new_v4().to_string());
+    assert!(unknown.validate().is_err());
+    let mut missing = p.clone();
+    missing.episode.entity_edges.clear();
+    assert!(missing.validate().is_err());
+    p.episode.entity_edges = vec![p.facts[0].uuid.clone(); MAX_EPISODE_FACT_REFERENCES + 1];
+    assert!(p.validate().is_err());
 }
 #[test]
 fn fulltext_index_readiness_rejects_incomplete_or_unknown_status() {
@@ -2119,7 +2138,7 @@ fn prepared_plan_rejects_changed_creation_times_and_mention_aliases() {
     altered
         .episode
         .entity_edges
-        .push(altered.facts[0].uuid.clone());
+        .push(uuid::Uuid::new_v4().to_string());
     assert!(altered.validate().is_err());
 }
 
