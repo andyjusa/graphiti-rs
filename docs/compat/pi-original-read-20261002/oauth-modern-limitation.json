@@ -1,0 +1,8 @@
+{
+  "scope": "observed OAuth gateway 2026 transport limitation; 2025-11-25 verified separately",
+  "http_status": 400,
+  "rpc_error_code": -32020,
+  "modern_standard_headers_forwarded": false,
+  "gateway_source_reason": "observed forwarding allowlist omits Mcp-Method and Mcp-Name; Rust requires matching standard headers for 2026-07-28",
+  "provider_calls": 0
+}

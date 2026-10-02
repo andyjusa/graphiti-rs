@@ -1,0 +1,86 @@
+{
+  "scope": "isolated original-memory read services; seeded test OAuth tokens only; fresh GitHub login not tested",
+  "cases": [
+    {
+      "case": "backend_missing",
+      "status": 401,
+      "oauth_metadata_challenge": false
+    },
+    {
+      "case": "backend_wrong",
+      "status": 401,
+      "oauth_metadata_challenge": false
+    },
+    {
+      "case": "backend_oauth_token",
+      "status": 401,
+      "oauth_metadata_challenge": false
+    },
+    {
+      "case": "backend_origin",
+      "status": 403,
+      "oauth_metadata_challenge": false
+    },
+    {
+      "case": "backend_host",
+      "status": 403,
+      "oauth_metadata_challenge": false
+    },
+    {
+      "case": "oauth_missing",
+      "status": 401,
+      "oauth_metadata_challenge": true
+    },
+    {
+      "case": "oauth_wrong",
+      "status": 401,
+      "oauth_metadata_challenge": true
+    },
+    {
+      "case": "oauth_backend_token",
+      "status": 401,
+      "oauth_metadata_challenge": true
+    },
+    {
+      "case": "oauth_origin",
+      "status": 401,
+      "oauth_metadata_challenge": true
+    },
+    {
+      "case": "backend_initialize",
+      "status": 200,
+      "protocol_version": "2025-11-25",
+      "session_header_present": false
+    },
+    {
+      "case": "backend_tools",
+      "tools": 10,
+      "schema_sha256": "623add94c2569f39915bbd12c36db2f6fbc250c6a751c625c229e34896fcd129"
+    },
+    {
+      "case": "backend_legacy_default_protocol_header",
+      "status": 200
+    },
+    {
+      "case": "oauth_initialize",
+      "status": 200,
+      "protocol_version": "2025-11-25",
+      "session_header_present": false
+    },
+    {
+      "case": "oauth_tools",
+      "tools": 10,
+      "schema_sha256": "623add94c2569f39915bbd12c36db2f6fbc250c6a751c625c229e34896fcd129"
+    },
+    {
+      "case": "oauth_legacy_default_protocol_header",
+      "status": 200
+    },
+    {
+      "case": "oauth_discovery",
+      "status": 200,
+      "resource_suffix_verified": true
+    }
+  ],
+  "provider_calls": 0
+}

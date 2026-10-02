@@ -1,0 +1,6 @@
+{
+  "case": "owned_expired_test_token",
+  "status": 401,
+  "oauth_metadata_challenge": true,
+  "existing_active_seed_token_changed": false
+}

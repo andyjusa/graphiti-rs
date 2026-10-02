@@ -1,0 +1,24 @@
+{
+  "process_exit_code": 0,
+  "harness_sha256": "dcbcf30fd84a4a1e083d80a89318da915e8017f05083da3f3bcf00d72c80d82e",
+  "stage": "complete",
+  "scope": "original-memory point/list read comparison only; search ranking and real embeddings not certified",
+  "policy_groups": 63,
+  "outside_policy_groups": 9,
+  "totals": {
+    "episode_missing_refusals": 63,
+    "fact_missing_refusals": 63,
+    "episode_lists_compared": 63,
+    "episode_lists_matched": 63,
+    "fact_compared": 6812,
+    "fact_matched": 6812,
+    "oauth_original_reads": 78,
+    "fact_scope_refusals": 70,
+    "episode_compared": 869,
+    "episode_matched": 869,
+    "episode_scope_refusals": 14
+  },
+  "mismatch_paths": {},
+  "sdk_readonly_queries": 8080,
+  "provider_calls": 0
+}

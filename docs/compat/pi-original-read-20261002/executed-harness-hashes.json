@@ -1,0 +1,14 @@
+{
+  "python-original-read-compare.py": "dcbcf30fd84a4a1e083d80a89318da915e8017f05083da3f3bcf00d72c80d82e",
+  "run-private-rust-load.py": "abad9113d1faf8f37e54b50c581601e0ae18017783d6f335573f401c693ad4f2",
+  "run-private-reconnect.py": "8acb37949a332da9eeb5daa20baaf63704c8b190ad58cc1d43b4ff27c22cdd61",
+  "run-finish-private-read.py": "1c8fe9bd7d13a6e0fd5931bfd763eadf052d5c481dca81960418698525bb2cd7",
+  "published_helpers": {
+    "scripts/python-original-read-probe.py": "dcbcf30fd84a4a1e083d80a89318da915e8017f05083da3f3bcf00d72c80d82e",
+    "scripts/python-read-auth-probe.py": "562c6c8e00e0855301724cc53109e7db5274f22ac7e6d0a10cbc90fab6e61614",
+    "scripts/python-stateless-read-probe.py": "865da8787e6fc5512ca44119200e5c9eab70334891a6f00eee52d5a70f8c9978",
+    "scripts/python-public-dto-probe.py": "3d4f53a1d743e19544e3170b09bd993d0993843f2e3c24a5abfa37836903ffdd",
+    "scripts/run-private-rust-load.py": "abad9113d1faf8f37e54b50c581601e0ae18017783d6f335573f401c693ad4f2",
+    "scripts/run-private-reconnect.py": "8acb37949a332da9eeb5daa20baaf63704c8b190ad58cc1d43b4ff27c22cdd61"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "scope": "isolated read backend/gateway failure and recovery; seeded OAuth state only; operational switch/rollback and fresh GitHub login not exercised",
+  "events": [
+    {
+      "case": "bridge_backend_unavailable",
+      "http_status": 200,
+      "rpc_error_code": -32603,
+      "write_or_retry_attempted_by_probe": false
+    },
+    {
+      "case": "oauth_backend_unavailable",
+      "http_status": 502
+    },
+    {
+      "case": "rust_after_backend_restart",
+      "http_status": 200,
+      "original_episode_response_unchanged": true
+    },
+    {
+      "case": "oauth_after_backend_restart",
+      "http_status": 200,
+      "original_episode_response_unchanged": true
+    },
+    {
+      "case": "bridge_after_backend_restart",
+      "http_status": 200,
+      "original_episode_response_unchanged": true
+    },
+    {
+      "case": "oauth_gateway_restart",
+      "http_status": 200,
+      "seeded_test_token_still_accepted": true
+    },
+    {
+      "case": "bridge_gateway_restart",
+      "http_status": 200,
+      "seeded_test_token_still_accepted": true
+    }
+  ],
+  "provider_calls": 0,
+  "original_service_unchanged_and_healthy": true
+}

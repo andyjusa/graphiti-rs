@@ -1,0 +1,41 @@
+{
+  "scope": "native 2026 transport and observed stateless bridge with original read-only memory",
+  "results": [
+    {
+      "endpoint": "direct",
+      "protocol_version": "2026-07-28",
+      "tools": 10,
+      "schema_sha256": "623add94c2569f39915bbd12c36db2f6fbc250c6a751c625c229e34896fcd129",
+      "original_episode_list_count": 1,
+      "source_mismatch": false
+    },
+    {
+      "endpoint": "bridge",
+      "protocol_version": "2026-07-28",
+      "tools": 10,
+      "schema_sha256": "623add94c2569f39915bbd12c36db2f6fbc250c6a751c625c229e34896fcd129",
+      "original_episode_list_count": 1,
+      "source_mismatch": false
+    }
+  ],
+  "provider_calls": 0,
+  "protocol_shape": {
+    "stage": "protocol_shape_diagnostic",
+    "mismatch_paths": [
+      "/_meta"
+    ],
+    "direct_fields": [
+      "resultType",
+      "content",
+      "structuredContent",
+      "isError"
+    ],
+    "bridge_fields": [
+      "content",
+      "structuredContent",
+      "isError",
+      "resultType",
+      "_meta"
+    ]
+  }
+}

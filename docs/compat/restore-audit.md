@@ -12,7 +12,7 @@ The synthetic regression reproduces foreign copies in a graph without indexes, v
 
 The actual OpenAI SDK 2.26.0 serializer was also exercised with the observed patched generation method and a mock HTTP transport. The checked-in synthetic [wire capture](../../tests/fixtures/observed-sdk-wire.json) shows that the SDK merges `extra_body` into the top-level request. Both Rust generation paths now send top-level `chat_template_kwargs`; tests compare the captured SDK fields and reject a literal `extra_body` wire field. This verifies serialization, without making paid provider calls.
 
-Real provider behavior, original-memory MCP result comparisons, resource measurements, authenticated gateway rehearsal and operational cutover remain separate gates in [the replacement plan](replacement-plan.md).
+Original-memory point/list result comparison, bounded read measurements and isolated gateway recovery are now recorded in [original-read-results.md](original-read-results.md). Search ranking, real provider behavior, fresh OAuth login and operational cutover remain separate gates in [the replacement plan](replacement-plan.md).
 
 ## Recorded Pi result
 
@@ -28,4 +28,4 @@ The observed Gemini key successfully reads model metadata (HTTP 200). A single s
 
 `compat-provider-probe` uses fixed synthetic text, explicit owner-private credential files, at most two generation requests and one four-text native embedding batch, with no database access. The Python helper runs the observed prompt/Pydantic/generation/Gemini methods with retries and telemetry disabled, in a separate read-only container with only its own probe directory. A synthetic passwd entry gives the test UID a home without changing HOME. Original memories and operational runtime mounts are never attached. Actual provider credentials stay on the Pi and the temporary copies are removed with the rehearsal resources. The recorded binary/helper hashes describe the initial failed-vector rehearsal, before the subsequent checkpoint-output-only helper edit.
 
-Real embedding comparisons and operational cutover require the account's credits to be restored or another explicitly supplied working key for the same model. The original service, private backup and restoration database remain available; no operational upstream has switched.
+New Gemini/ER2 calls are now prohibited by the user's latest instruction, and no new paid alternative is selected. Existing vectors remain intact. Real embedding/provider decisions and operational cutover remain pending; restored credit alone does not authorize another call. The original service, private backup and restoration database remain available; no operational upstream has switched.
