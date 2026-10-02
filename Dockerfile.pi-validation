@@ -4,6 +4,6 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY tests ./tests
 COPY scripts ./scripts
-RUN --mount=type=cache,id=graphiti-rs-pi-cargo,target=/usr/local/cargo/registry --mount=type=cache,id=graphiti-rs-pi-target,target=/build/target cargo build --release --locked --all-features && cargo test --release --locked --all-features --no-run && mkdir -p /out && cp target/release/graphiti-rs /out/ && for name in compat compat_differential store mcp models domain search; do find target/release/deps -maxdepth 1 -type f -name "$name-*" -executable -exec cp '{}' /out/ ';'; done && strip /out/*
+RUN --mount=type=cache,id=graphiti-rs-pi-cargo,target=/usr/local/cargo/registry --mount=type=cache,id=graphiti-rs-pi-target,target=/build/target cargo build --release --locked --all-features && (cargo test --release --locked --all-features --no-run 2> /tmp/test-artifacts.txt || { cat /tmp/test-artifacts.txt; exit 1; }) && cat /tmp/test-artifacts.txt && mkdir -p /out && cp target/release/graphiti-rs /out/ && sed -n 's/.*Executable tests\/[^ ]* (\([^)]*\)).*/\1/p' /tmp/test-artifacts.txt | while IFS= read -r artifact; do cp "$artifact" /out/; done && strip /out/*
 FROM scratch AS export
 COPY --from=builder /out/ /
