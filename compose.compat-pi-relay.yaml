@@ -1,0 +1,4 @@
+# Use only with the isolated-db-relay.py harness when internal ports are unreachable.
+services:
+  falkordb:
+    ports: !reset []

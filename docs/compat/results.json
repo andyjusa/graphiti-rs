@@ -1,6 +1,6 @@
 {
-  "date": "2026-10-01",
-  "scope": "Mac ARM64 unit/source-function mocks plus GitHub CI synthetic FalkorDB 4.14.11; observed Pi metadata only; no production replacement certification",
+  "date": "2026-10-02",
+  "scope": "Mac checks, CI FalkorDB4.14.11, actual Pi4 synthetic FalkorDB4.16.6 with loopback relay and local MiniLM; no production replacement certification",
   "cases": [
     {
       "id": "C01",
@@ -60,7 +60,7 @@
     {
       "id": "C12",
       "status": "partial",
-      "evidence": "Observed MCP recipes exclude BFS. Active legacy fallback and operation body match RRF/source-node center ordering; single-group center and type filters tested. Full BM25/vector retrieval quality differs."
+      "evidence": "Observed MCP recipes exclude BFS. Source-function ranking and actual Pi indexed reads pass. Real Python hybrid SDK search retrieves a synthetic vector outlier that bounded Rust compatibility search misses; replacement remains no-go."
     },
     {
       "id": "C13",
@@ -85,7 +85,7 @@
     {
       "id": "C17",
       "status": "partial",
-      "evidence": "Full prepared after-state/vector/stable-MENTIONS and lost graph-completion recovery passed synthetic DB/worker tests. Durable destructive pending retry/tombstones passed; disk-full/OOM/runtime-error rollback and other writers remain untested."
+      "evidence": "Actual Pi committed/dispatch-ambiguous SIGKILL, DB outage/reconnection and AOF restart tests pass; source fixtures cover prepared/destructive recovery. Disk-full/OOM/runtime-error rollback and external writers remain untested."
     },
     {
       "id": "C18",
@@ -100,7 +100,7 @@
     {
       "id": "C20",
       "status": "partial",
-      "evidence": "Legacy attributes/labels/vecf32 and existing UUID updates preserve creation time/topology in synthetic DB. Relationship-first read shapes match the observed runtime index workaround; actual current-module/restored schema breadth remains untested."
+      "evidence": "Legacy attributes/labels/vecf32, existing UUID updates and relationship-first range-index reads pass on observed module41606 as well as CI4.14.11. Restored production schema breadth remains untested."
     },
     {
       "id": "C21",
@@ -139,8 +139,8 @@
     },
     {
       "id": "C28",
-      "status": "not_executed",
-      "evidence": "Actual Pi image/Redis8.2.3/module41606/source/binary hashes read-only verified. Isolated same-Pi compose/runbook prepared; no backup/restore or current-module test executed."
+      "status": "partial",
+      "evidence": "Same observed Pi image, Redis8.2.3/module41606/hash used for isolated synthetic tests; 42 pass. Original-data backup/restore, complete Python extraction pipeline and gateway are not tested."
     },
     {
       "id": "C29",
@@ -149,8 +149,8 @@
     },
     {
       "id": "C30",
-      "status": "not_executed",
-      "evidence": "Actual Pi4/aarch64/3795MiB metadata observed; resource/workload/latency/restart budget plan prepared but no benchmark executed."
+      "status": "partial",
+      "evidence": "Pi4/aarch64/3795MiB synthetic timings, RSS, CPU, overload and restart recorded with 1CPU/512MiB DB. 1200 keyword facts and four English local-model facts do not certify production budgets or multilingual/large-corpus quality."
     }
   ],
   "replacement_decision": "no_go",
@@ -174,25 +174,31 @@
     "isolated_db": {
       "status": "passed",
       "environment": "GitHub Ubuntu service, FalkorDB 4.14.11, loopback provider mocks",
-      "source_commit": "dd7b023cbf3522a0f5ebb8736041a60838763a45",
-      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36824771015",
+      "source_commit": "9d642e06b25560ba32aaa01ea03766f680903db8",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36973858192",
       "compatibility_integrations": 3,
-      "standalone_integrations": 9,
-      "distinct_passing_tests_in_ci": 40,
+      "standalone_integrations": 11,
+      "distinct_passing_tests_in_ci": 42,
       "real_local_minilm_tests": 2,
       "python_full_pipeline": false,
       "gemini_llm_numerical_generation_parity": false,
       "relationship_first_indexed_reads": "passed against source-derived relationship-first query fixtures and isolated indexed FalkorDB4.14.11; production module not exercised"
     },
     "same_pi": {
-      "status": "prepared_not_executed",
+      "status": "synthetic_passed_replacement_no_go",
       "record": "docs/compat/observed-production.json",
       "plan": "docs/compat/pi-validation.md",
       "compose": "compose.compat-pi.yaml",
       "compose_render": "passed; no resources created",
       "backup_restore": false,
-      "benchmarks": false,
-      "provider_calls": false
+      "benchmarks": true,
+      "provider_calls": false,
+      "source_commit": "9d642e06b25560ba32aaa01ea03766f680903db8",
+      "distinct_passing_tests": 42,
+      "real_local_minilm": true,
+      "evidence": "docs/compat/pi-20261002",
+      "transport": "labelled isolated docker-exec loopback relay; measured HTTP latency includes overhead",
+      "python_retrieval": "real driver/search path with supplied vectors; no extraction/MCP/provider parity"
     },
     "actual_cutover": {
       "status": "not_executed",
@@ -200,19 +206,27 @@
       "gateway_auth_routes_changed": false
     },
     "cleanup": {
-      "status": "pending_docker_unavailable",
-      "owned_resources": [
+      "status": "completed_owned_resources_only",
+      "mac_resources_removed": [
         "graphiti-rs-compat-db",
         "graphiti-rs-compat-data",
         "graphiti-rs-compat-net"
       ],
-      "label": "task=graphiti-rs-compat-20261001",
-      "global_restart": false
+      "pi_resources_removed": [
+        "graphiti-rs-compat-pi-falkordb-1",
+        "graphiti-rs-compat-pi_isolated",
+        "owned relay",
+        "private synthetic root",
+        "failed model-fixture temporary directory"
+      ],
+      "label": "task=graphiti-rs-compat-pi-synthetic",
+      "global_restart": false,
+      "production_container_health_after": "healthy; started2026-09-23T16:24:02.497549467Z"
     },
     "arm64": {
       "status": "passed",
-      "source_commit": "dd7b023cbf3522a0f5ebb8736041a60838763a45",
-      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36824771015",
+      "source_commit": "9d642e06b25560ba32aaa01ea03766f680903db8",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36973858192",
       "features": [
         "default",
         "local-embeddings",

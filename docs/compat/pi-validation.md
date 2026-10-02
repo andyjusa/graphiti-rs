@@ -1,10 +1,10 @@
-# Same-Pi validation plan — prepared, not executed
+# Same-Pi validation plan
 
-Current decision: **no production replacement**. The optional compatibility preview still prohibits production mutations and real model calls. CI on a different module establishes synthetic correctness only. [observed-production.json](observed-production.json) records read-only metadata of the running Pi/container; [source excerpt manifest](../../tests/fixtures/python-0282/manifest.json) identifies the observed Python method bodies. Source collection did not export graph data or read credentials.
+Current decision: **no production replacement**. The isolated synthetic phase ran on 2026-10-02; see [measured evidence and remaining gates](pi-results.md). The optional compatibility preview still prohibits production mutations and real model calls. CI on a different module establishes synthetic correctness only. [observed-production.json](observed-production.json) records read-only metadata of the running Pi/container; [source excerpt manifest](../../tests/fixtures/python-0282/manifest.json) identifies the observed Python method bodies. Source collection did not export graph data or read credentials.
 
 ## 1. Isolated synthetic validation
 
-Execute this phase only in a separately agreed Pi test window. The running Python/FalkorDB container, its volumes, production network, gateway, credentials and routes stay in place. The compose file uses a **new empty directory**, an internal network, a loopback port, and an explicit Redis entrypoint. Never start the image's application entrypoint: it can initialize the operational Python adapters. Do not attach operational mounts or inherit production environment variables.
+The 2026-10-02 user-requested test window executed this phase on the actual Pi with synthetic data. For subsequent runs, use an isolated test window. The running Python/FalkorDB container, its volumes, production network, gateway, credentials and routes stay in place. The compose file uses a **new empty directory**, an internal network, a loopback port, and an explicit Redis entrypoint. Never start the image's application entrypoint: it can initialize the operational Python adapters. Do not attach operational mounts or inherit production environment variables.
 
 On the Pi, review the checked-out PR commit and current image/module metadata. Recheck that port 16379 is unused. Abort if the image ID, module hash, module version or Redis version differs from the observed record; update the record and test plan instead of substituting a newer image. Review available memory and concurrent work before allocating the proposed one CPU/512 MiB DB limit; these limits are provisional, not a proven Pi budget.
 
@@ -28,7 +28,7 @@ COMPAT_TEST_DB_URL=redis://127.0.0.1:16379 \
   cargo test --locked --features graphiti-compat --test compat -- --ignored --test-threads=1
 ```
 
-These commands are prepared instructions. They have not been run on this Pi. A build or isolated container startup alone is not a passed module/persistence/resource gate.
+On 2026-10-02 release test executables built in the ARM64 validation builder ran on this Pi because no Pi Rust compiler was installed. All 42 tests passed. The internal-network published port was unreachable, so the tested `compose.compat-pi-relay.yaml` overlay removes it and `scripts/isolated-db-relay.py` supplies a labelled loopback transport. Measured latency includes relay cost. `scripts/pi-synthetic-validation.py` additionally exercised HTTP search/local inference/SIGKILL/DB outage/AOF restart. These results are synthetic evidence; restore/provider/full-pipeline/gateway/production-budget gates remain open.
 
 ## 2. Resource, retrieval and restart gates
 
@@ -52,4 +52,4 @@ For a future test-only gateway, use a separate listener/client/session and a syn
 
 For this new Pi compose project, first preserve needed synthetic evidence/journal files and verify `task=graphiti-rs-compat-pi-synthetic` labels and `com.docker.compose.project=graphiti-rs-compat-pi`. Then remove only that project's containers/network. Remove only the newly created `$COMPAT_TEST_ROOT` after confirming its contents and provenance. Never run `docker system prune`, stop production containers, or delete unrelated volumes.
 
-Earlier Mac resources remain pending because Docker is unavailable: `graphiti-rs-compat-db`, `graphiti-rs-compat-data`, `graphiti-rs-compat-net`, all originally labelled `task=graphiti-rs-compat-20261001`. When Docker returns, inspect **each** exact resource and label before removing it. Do not restart Docker globally to perform cleanup.
+Earlier Mac resources were removed on 2026-10-02 after Docker became available and each exact task label was verified: `graphiti-rs-compat-db`, `graphiti-rs-compat-data`, `graphiti-rs-compat-net`, all originally labelled `task=graphiti-rs-compat-20261001`. No global restart/prune or unrelated-resource cleanup was performed.

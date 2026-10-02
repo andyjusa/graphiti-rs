@@ -17,7 +17,7 @@ An optional `graphiti-compat` feature adds a **Graphiti 0.28.2 compatibility pre
 
 ## Quick start
 
-Rust 1.95 is the tested toolchain. The manifest declares 1.88; that minimum has not been separately verified. FalkorDB 4.14.11 is tested.
+Rust 1.95 is the tested toolchain. The manifest declares 1.88; that minimum has not been separately verified. FalkorDB 4.14.11 is tested in CI; the observed 4.16.6 module passed isolated Pi tests.
 
 ```sh
 cp .env.example .env
@@ -101,7 +101,7 @@ Episode deletion removes its support; facts survive while another episode suppor
 | Episode content | 64 KiB | Explicit input validation |
 | Local sequence length | 256 tokens | Truncated before inference |
 
-Database commands have a six-second client deadline and five-second query execution timeout. External embeddings use batches of at most eight. Search fetches a recent candidate window plus up to four independently bounded keyword windows. Graph expansion is limited to those fetched facts. Semantic search reranks this bounded pool, so it is **not exhaustive vector retrieval**. Keyword matching is normalized substring matching, not BM25. Storage volume, FalkorDB index/query memory, and local-model memory still grow with data/model size. No Raspberry Pi latency or RAM claims are made without measurements.
+Database commands have a six-second client deadline and five-second query execution timeout. External embeddings use batches of at most eight. Search fetches a recent candidate window plus up to four independently bounded keyword windows. Graph expansion is limited to those fetched facts. Semantic search reranks this bounded pool, so it is **not exhaustive vector retrieval**. Keyword matching is normalized substring matching, not BM25. Storage volume, FalkorDB index/query memory, and local-model memory still grow with data/model size. Bounded [Pi4 synthetic measurements](docs/compat/pi-results.md) are recorded separately; they do not establish a production budget.
 
 HTTP bearer authentication applies when a token is configured, including loopback. `HTTP_ALLOWED_HOSTS` is a comma-separated host allowlist; configure your reverse-proxy hostname for remote use. Browser origins are rejected by default. Put TLS in your reverse proxy; the service itself speaks HTTP. The CLI uses two async workers and up to four blocking threads. Shutdown handles Ctrl-C/SIGTERM with a ten-second transport drain and a ten-second runtime shutdown deadline; a running local CPU forward pass cannot be interrupted cleanly.
 
@@ -118,7 +118,7 @@ cargo test --test store --test mcp -- --ignored
 LOCAL_TEST_MODEL_DIR=models/minilm cargo test --features local-embeddings --test models real_local_model -- --ignored
 ```
 
-Live paid API tests are not required; API contract tests use a local HTTP server. CI tests optional local inference and builds on Linux ARM64. See [verification record](docs/verification.md) for actual observed results. ARMv7 and existing production Pi deployment are not verified. Community generation, ontology learning, full Graphiti API parity, and production-data migration are outside this release.
+Live paid API tests are not required; API contract tests use a local HTTP server. CI tests optional local inference and builds on Linux ARM64. See [verification record](docs/verification.md) for actual observed results. Isolated Pi4 ARM64 release tests and local CPU inference passed; see [Pi evidence](docs/compat/pi-results.md). ARMv7 and existing production Pi deployment are not verified. Community generation, ontology learning, full Graphiti API parity, and production-data migration are outside this release.
 
 ## License
 
