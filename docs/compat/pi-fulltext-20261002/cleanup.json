@@ -1,0 +1,14 @@
+{
+  "status": "completed_owned_resources_only",
+  "timestamp_utc": "2026-10-02T08:28:47.448802+00:00",
+  "removed": [
+    "graphiti-rs-compat-pi-falkordb-1",
+    "graphiti-rs-compat-pi_isolated",
+    "verified relay",
+    "private synthetic root including RDB"
+  ],
+  "production_id": "f52020c7c61da467f25e6bde73e69a8506475f0a244530054b0d8367e4f8c04c",
+  "production_started_at": "2026-09-23T16:24:02.497549467Z",
+  "production_health": "healthy",
+  "global_restart": false
+}

@@ -2,6 +2,8 @@
 
 **The previously observed vector outlier miss is fixed. Python-server replacement remains no-go for the separate pipeline/restore/provider/gateway gates.**
 
+This is historical vector-fix evidence. [The fulltext follow-up](fulltext-results.md) records the later search/readiness/episode-ordering changes and synthetic snapshot test.
+
 Source `48cdbd84a04a6f5f23eb3e955f8a46be7f9523d6` (server Rust source introduced in `8f68eaa5b62d16b7424463d8757214d77fc8c66f`). Linux ARM64 release, both optional features, actual Raspberry Pi4/aarch64/3795MiB RAM. [Artifact hashes](pi-vector-fix-20261002/artifact-hashes.json) tie the tested executables to this source.
 
 ## Change

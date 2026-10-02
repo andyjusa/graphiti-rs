@@ -1,0 +1,207 @@
+{
+  "scope": "synthetic fulltext SDK/MCP and owned RDB restore, not operational restore/ingestion/cutover certification",
+  "actual_provider_calls": 0,
+  "status": "passed",
+  "index_readiness_before_search": [
+    [
+      [
+        "RELATES_TO",
+        "[Indexing] 41/1200: UNDER CONSTRUCTION"
+      ],
+      [
+        "Entity",
+        "OPERATIONAL"
+      ]
+    ],
+    [
+      [
+        "RELATES_TO",
+        "OPERATIONAL"
+      ],
+      [
+        "Entity",
+        "OPERATIONAL"
+      ]
+    ]
+  ],
+  "rust_cases": [
+    {
+      "query": "cat",
+      "fact_ids": [
+        "00000000-0000-4000-8000-000000018b4f"
+      ],
+      "node_ids": [
+        "00000000-0000-4000-8000-0000000311ef"
+      ]
+    },
+    {
+      "query": "the cat",
+      "fact_ids": [
+        "00000000-0000-4000-8000-000000018b4f"
+      ],
+      "node_ids": [
+        "00000000-0000-4000-8000-0000000311ef"
+      ]
+    },
+    {
+      "query": "cats",
+      "fact_ids": [
+        "00000000-0000-4000-8000-000000018b4f"
+      ],
+      "node_ids": [
+        "00000000-0000-4000-8000-0000000311ef"
+      ]
+    },
+    {
+      "query": "CAT?",
+      "fact_ids": [
+        "00000000-0000-4000-8000-000000018b4f"
+      ],
+      "node_ids": [
+        "00000000-0000-4000-8000-0000000311ef"
+      ]
+    },
+    {
+      "query": "cat:missingterm",
+      "fact_ids": [
+        "00000000-0000-4000-8000-000000018b4f"
+      ],
+      "node_ids": [
+        "00000000-0000-4000-8000-0000000311ef"
+      ]
+    },
+    {
+      "query": "\"cat\"",
+      "fact_ids": [
+        "00000000-0000-4000-8000-000000018b4f"
+      ],
+      "node_ids": [
+        "00000000-0000-4000-8000-0000000311ef"
+      ]
+    }
+  ],
+  "substring_fallback_before_index": {
+    "expected_absent": true,
+    "returned_ids": [
+      "00000000-0000-4000-8000-0000000186a0",
+      "00000000-0000-4000-8000-0000000186a1",
+      "00000000-0000-4000-8000-0000000186a2",
+      "00000000-0000-4000-8000-0000000186a3",
+      "00000000-0000-4000-8000-0000000186a4",
+      "00000000-0000-4000-8000-0000000186a5",
+      "00000000-0000-4000-8000-0000000186a6",
+      "00000000-0000-4000-8000-0000000186a7",
+      "00000000-0000-4000-8000-0000000186a8",
+      "00000000-0000-4000-8000-0000000186a9"
+    ]
+  },
+  "python": {
+    "package": "graphiti-core 0.28.2",
+    "scope": "real fulltext query/search bodies with observed edge patch; no LLM/embeddings/ingestion parity",
+    "cases": [
+      {
+        "query": "cat",
+        "fact_ids": [
+          "00000000-0000-4000-8000-000000018b4f"
+        ],
+        "node_ids": [
+          "00000000-0000-4000-8000-0000000311ef"
+        ]
+      },
+      {
+        "query": "the cat",
+        "fact_ids": [
+          "00000000-0000-4000-8000-000000018b4f"
+        ],
+        "node_ids": [
+          "00000000-0000-4000-8000-0000000311ef"
+        ]
+      },
+      {
+        "query": "cats",
+        "fact_ids": [
+          "00000000-0000-4000-8000-000000018b4f"
+        ],
+        "node_ids": [
+          "00000000-0000-4000-8000-0000000311ef"
+        ]
+      },
+      {
+        "query": "CAT?",
+        "fact_ids": [
+          "00000000-0000-4000-8000-000000018b4f"
+        ],
+        "node_ids": [
+          "00000000-0000-4000-8000-0000000311ef"
+        ]
+      },
+      {
+        "query": "cat:missingterm",
+        "fact_ids": [
+          "00000000-0000-4000-8000-000000018b4f"
+        ],
+        "node_ids": [
+          "00000000-0000-4000-8000-0000000311ef"
+        ]
+      },
+      {
+        "query": "\"cat\"",
+        "fact_ids": [
+          "00000000-0000-4000-8000-000000018b4f"
+        ],
+        "node_ids": [
+          "00000000-0000-4000-8000-0000000311ef"
+        ]
+      }
+    ],
+    "actual_provider_calls": 0,
+    "driver_constructor_schedules_fixture_indexes": true
+  },
+  "sdk_mcp_exact_id_lists_match": true,
+  "index_readiness_after_python": [
+    [
+      [
+        "RELATES_TO",
+        "OPERATIONAL"
+      ],
+      [
+        "Entity",
+        "OPERATIONAL"
+      ]
+    ]
+  ],
+  "fixture_before_restore": {
+    "count": 1200,
+    "sha256": "c4e64f2d0673d5a057a41fb8a6a67ac1eaa34a14c29d7e67ff6e4a19b36f683d"
+  },
+  "rdb_snapshot": {
+    "sha256": "f35d98193ce047af6231c23e27eea115d1287cb7e388d68873ee962290c22751",
+    "bytes": 492069,
+    "data_scope": "all graphs in this exclusively owned synthetic test DB; no operational data",
+    "published": false
+  },
+  "index_readiness_after_restore": [
+    [
+      [
+        "RELATES_TO",
+        "OPERATIONAL"
+      ],
+      [
+        "Entity",
+        "OPERATIONAL"
+      ]
+    ]
+  ],
+  "synthetic_cold_restore": {
+    "passed": true,
+    "empty_active_db_confirmed_before_restore": true,
+    "appendonly_disabled_for_restore": true,
+    "fingerprint_after": {
+      "count": 1200,
+      "sha256": "c4e64f2d0673d5a057a41fb8a6a67ac1eaa34a14c29d7e67ff6e4a19b36f683d"
+    },
+    "indexed_search_after_restore_ids": [
+      "00000000-0000-4000-8000-000000018b4f"
+    ]
+  }
+}

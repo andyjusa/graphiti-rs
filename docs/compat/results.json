@@ -55,12 +55,12 @@
     {
       "id": "C11",
       "status": "partial",
-      "evidence": "Global bound and sorting covered on small fixture; bounded lexical DB window is not full timestamp ordering parity."
+      "evidence": "Complete 128-row UUID-keyset episode scan, parsed RFC3339 ordering and global bound pass with 201 mixed-offset records across groups. 30-second deadline returns errors, not partial lists. Intentional improvement over lexical-window behavior; restored schemas/duplicate UUIDs/concurrent writers/full Python ordering parity untested."
     },
     {
       "id": "C12",
       "status": "partial",
-      "evidence": "Observed MCP recipes exclude BFS. Global semantic node/fact ranking precedes the candidate bound; the actual Python hybrid SDK and Rust now return the same synthetic outlier UUID beyond the old window. Keyword substring/BM25 and full retrieval quality remain separate gaps."
+      "evidence": "Observed MCP recipes exclude BFS. Global semantic ranking fixes the historical outlier. Existing operational fulltext indexes now supply keyword order to RRF; 67 selected-source inputs pass and six queries yield identical Python SDK/Rust MCP fact/node UUID lists on 1200 records. Missing/incomplete-index substring fallback and broad retrieval quality/tie parity remain gaps."
     },
     {
       "id": "C13",
@@ -135,12 +135,12 @@
     {
       "id": "C27",
       "status": "verified",
-      "evidence": "Legacy connect/status/read create no native graph/index; isolated graph indexes remain empty."
+      "evidence": "Legacy connect/status/read create no native graph/index; indexed keyword reads preserve fixture index metadata. Index construction is explicit test ownership only; Python SDK constructor separately schedules fixture indexes."
     },
     {
       "id": "C28",
       "status": "partial",
-      "evidence": "Same observed Pi image, Redis8.2.3/module41606/hash used for isolated synthetic tests; 45 pass including three global-semantic regressions. Original-data backup/restore, complete Python extraction pipeline and gateway remain untested."
+      "evidence": "Same observed Pi image/Redis8.2.3/module41606/hash: 49 release tests pass. Exclusively synthetic RDB cold restore retains the selected 1200 fact identity/endpoints and indexed MCP target. Original-memory restore, complete Python extraction pipeline and gateway remain untested."
     },
     {
       "id": "C29",
@@ -162,23 +162,23 @@
         "cargo clippy --all-targets --all-features -- -D warnings",
         "cargo test --all-features"
       ],
-      "nonignored_tests": 26
+      "nonignored_tests": 28
     },
     "python_differential": {
       "status": "passed",
-      "executable_tests": 2,
-      "synthetic_inputs": 40,
+      "executable_tests": 3,
+      "synthetic_inputs": 67,
       "level": "selected observed source bodies with fake DTO/driver/model decisions; not full Python Graphiti pipeline",
       "manifest": "tests/fixtures/python-0282/manifest.json"
     },
     "isolated_db": {
       "status": "passed",
       "environment": "GitHub Ubuntu service, FalkorDB 4.14.11, loopback provider mocks",
-      "source_commit": "48cdbd84a04a6f5f23eb3e955f8a46be7f9523d6",
-      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36979109286",
-      "compatibility_integrations": 4,
+      "source_commit": "85075491837668d184f039e1644d0e16f92cd870",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36983475090",
+      "compatibility_integrations": 6,
       "standalone_integrations": 13,
-      "distinct_passing_tests_in_ci": 45,
+      "distinct_passing_tests_in_ci": 49,
       "real_local_minilm_tests": 2,
       "python_full_pipeline": false,
       "gemini_llm_numerical_generation_parity": false,
@@ -193,13 +193,18 @@
       "backup_restore": false,
       "benchmarks": true,
       "provider_calls": false,
-      "source_commit": "48cdbd84a04a6f5f23eb3e955f8a46be7f9523d6",
-      "distinct_passing_tests": 45,
+      "source_commit": "85075491837668d184f039e1644d0e16f92cd870",
+      "distinct_passing_tests": 49,
       "real_local_minilm": true,
-      "evidence": "docs/compat/pi-vector-fix-20261002",
+      "evidence": "docs/compat/pi-fulltext-20261002",
       "transport": "labelled isolated docker-exec loopback relay; measured HTTP latency includes overhead",
-      "python_retrieval": "real driver/search with supplied vectors; specific outlier UUID list matches Rust; no extraction/MCP/provider parity",
-      "previous_evidence": "docs/compat/pi-20261002"
+      "python_retrieval": "Actual SDK six-query fulltext fact/node result lists match Rust MCP; historical supplied-vector outlier also matched. No complete ingestion/MCP/provider equivalence.",
+      "previous_evidence": [
+        "docs/compat/pi-vector-fix-20261002",
+        "docs/compat/pi-20261002"
+      ],
+      "synthetic_backup_restore": true,
+      "original_memory_backup_restore": false
     },
     "actual_cutover": {
       "status": "not_executed",
@@ -223,13 +228,13 @@
       "label": "task=graphiti-rs-compat-pi-synthetic",
       "global_restart": false,
       "production_container_health_after": "healthy; started2026-09-23T16:24:02.497549467Z",
-      "followup_record": "docs/compat/pi-vector-fix-20261002/cleanup.json",
-      "timestamp_utc": "2026-10-02T07:41:35.532844+00:00"
+      "followup_record": "docs/compat/pi-fulltext-20261002/cleanup.json",
+      "timestamp_utc": "2026-10-02T08:28:47.448802+00:00"
     },
     "arm64": {
       "status": "passed",
-      "source_commit": "48cdbd84a04a6f5f23eb3e955f8a46be7f9523d6",
-      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36979109286",
+      "source_commit": "85075491837668d184f039e1644d0e16f92cd870",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36983475090",
       "features": [
         "default",
         "local-embeddings",
@@ -246,6 +251,27 @@
       "python_rust_identical_outlier_ids": true,
       "retrieval_evidence": "docs/compat/vector-retrieval.md",
       "full_corpus_quality_certified": false
+    },
+    "indexed_keyword_followup": {
+      "status": "passed_on_ci_and_actual_pi",
+      "source_commit": "85075491837668d184f039e1644d0e16f92cd870",
+      "harness_source_commit": "b092905",
+      "selected_python_fulltext_inputs": 27,
+      "actual_sdk_query_cases": 6,
+      "matching_fact_and_node_id_lists": 12,
+      "fixture_count": 1200,
+      "present_nonoperational_index": "explicit retry error",
+      "read_side_index_creation": false,
+      "full_corpus_quality_certified": false,
+      "evidence": "docs/compat/fulltext-results.md"
+    },
+    "synthetic_rdb_restore": {
+      "status": "passed_selected_fixture_only",
+      "original_memory_data": false,
+      "aof_disabled": true,
+      "empty_active_db_confirmed": true,
+      "verified_tuple_count": 1200,
+      "evidence": "docs/compat/pi-fulltext-20261002/fulltext-restore.json"
     }
   }
 }

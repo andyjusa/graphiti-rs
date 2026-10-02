@@ -1,6 +1,6 @@
 # Raspberry Pi synthetic validation — 2026-10-02
 
-**Latest:** [the global vector retrieval follow-up](vector-retrieval.md) fixes the outlier disagreement and passes 45 Pi/CI tests. The measurements below are historical, from source `9d642e06`; its miss is superseded by the follow-up evidence.
+**Latest:** [the fulltext follow-up](fulltext-results.md) extends the [global vector retrieval fix](vector-retrieval.md) with indexed keyword retrieval and episode ordering. The measurements below are historical, from source `9d642e06`; its miss is superseded by the follow-up evidence.
 
 **Decision: standalone synthetic checks pass; Python-server replacement remains no-go.**
 
