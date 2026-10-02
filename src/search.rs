@@ -1,8 +1,4 @@
-use crate::{
-    domain::*,
-    embeddings::{Embedder, cosine},
-    store::Store,
-};
+use crate::{domain::*, embeddings::Embedder, store::Store};
 use anyhow::{Result, ensure};
 use chrono::Utc;
 use serde::Serialize;
@@ -105,18 +101,15 @@ impl Search {
                 .await?
             {
                 let vector = &vectors[0];
-                let mut semantic = vec![];
-                for fact in candidates.values() {
-                    if let Some(v) = &fact.embedding {
-                        let score = cosine(vector, v)?;
-                        if score > 0.0 {
-                            semantic.push((fact.id.clone(), score));
-                        }
-                    }
+                let semantic = self
+                    .store
+                    .semantic_facts(&request.group_id, at, vector, self.candidates)
+                    .await?;
+                let ids = semantic.iter().map(|fact| fact.id.clone()).collect();
+                for fact in semantic {
+                    candidates.entry(fact.id.clone()).or_insert(fact);
                 }
-                semantic.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-                semantic.truncate(self.candidates);
-                lists.push(semantic.into_iter().map(|(id, _)| id).collect());
+                lists.push(ids);
             }
         }
         // One-hop relationship expansion within the bounded fetched graph.

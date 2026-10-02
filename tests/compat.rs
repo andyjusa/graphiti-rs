@@ -1331,3 +1331,104 @@ fn prepared_plan_rejects_changed_creation_times_and_mention_aliases() {
         .push(altered.facts[0].uuid.clone());
     assert!(altered.validate().is_err());
 }
+
+#[tokio::test]
+#[ignore = "requires dedicated disposable FalkorDB on loopback port 16379"]
+async fn full_semantic_nodes_and_facts_precede_uuid_bound_and_keep_type_filter() {
+    let url = std::env::var("COMPAT_TEST_DB_URL")
+        .expect("explicit disposable COMPAT_TEST_DB_URL required");
+    assert_eq!(url, "redis://127.0.0.1:16379");
+    let group = format!(
+        "project_semantic_{}",
+        &uuid::Uuid::new_v4().simple().to_string()[..8]
+    );
+    let store = LegacyStore::connect(&url, WriteMode::Synthetic)
+        .await
+        .unwrap();
+    let mut c = redis::Client::open(url)
+        .unwrap()
+        .get_multiplexed_async_connection()
+        .await
+        .unwrap();
+    let basis = vector();
+    let mut outlier = vec![0.; 3072];
+    outlier[1] = 1.;
+    let id = |i: usize| format!("00000000-0000-4000-8000-{i:012x}");
+    let rows = format!(
+        "[{}]",
+        (1..=201)
+            .map(|i| format!("{{id:'{}'}}", id(i)))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    let query = format!(
+        "CYPHER v={} rows={} UNWIND $rows AS row CREATE(n:Entity:Person {{uuid:row.id,name:'Unrelated',summary:'Fixture',group_id:'{group}',created_at:'2026-10-01T00:00:00Z',name_embedding:vecf32($v)}})",
+        serde_json::to_string(&basis).unwrap(),
+        rows
+    );
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(&group)
+        .arg(query)
+        .query_async(&mut c)
+        .await
+        .unwrap();
+    let query = format!(
+        "CYPHER v={} CREATE(n:Entity:Person {{uuid:'{}',name:'Cyclist',summary:'Fixture',group_id:'{group}',created_at:'2026-10-01T00:00:00Z',name_embedding:vecf32($v)}}), (t:Entity:Company {{uuid:'{}',name:'Hub',summary:'Fixture',group_id:'{group}',created_at:'2026-10-01T00:00:00Z'}}) CREATE(n)-[e:RELATES_TO {{uuid:'{}',name:'LINK',fact:'A cyclist on a road',group_id:'{group}',created_at:'2026-10-01T00:00:00Z',episodes:[],fact_embedding:vecf32($v)}}]->(t)",
+        serde_json::to_string(&outlier).unwrap(),
+        id(999),
+        id(1000),
+        id(99999)
+    );
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(&group)
+        .arg(query)
+        .query_async(&mut c)
+        .await
+        .unwrap();
+    // More than the semantic candidate budget of orthogonal facts precede it.
+    let rows = format!(
+        "[{}]",
+        (1..=201)
+            .map(|i| format!("{{id:'{}',source:'{}'}}", id(i + 10000), id(i + 200000)))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    let query = format!(
+        "CYPHER v={} rows={} MATCH(t:Entity {{uuid:'{}'}}) UNWIND $rows AS row CREATE(n:Entity {{uuid:row.source,name:'Unrelated',summary:'Fixture',group_id:'{group}',created_at:'2026-10-01T00:00:00Z'}}) CREATE(n)-[e:RELATES_TO {{uuid:row.id,name:'LINK',fact:'Unrelated',group_id:'{group}',created_at:'2026-10-01T00:00:00Z',episodes:[],fact_embedding:vecf32($v)}}]->(t)",
+        serde_json::to_string(&basis).unwrap(),
+        rows,
+        id(1000)
+    );
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(&group)
+        .arg(query)
+        .query_async(&mut c)
+        .await
+        .unwrap();
+    let nodes = store
+        .semantic_nodes(&group, &outlier, Some(&["Person".into()]), 20)
+        .await
+        .unwrap();
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes[0].uuid, id(999));
+    assert!(
+        store
+            .semantic_nodes(&group, &outlier, Some(&["Company".into()]), 20)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let facts = store.semantic_facts(&group, &outlier, 20).await.unwrap();
+    assert_eq!(facts.len(), 1);
+    assert_eq!(facts[0].uuid, id(99999));
+    // Python's normalized threshold .6 accepts raw cosine .3, unlike the old .6 raw cutoff.
+    let mut query_vector = vec![0.; 3072];
+    query_vector[0] = (1.0f32 - 0.09).sqrt();
+    query_vector[1] = 0.3;
+    let nodes = store
+        .semantic_nodes(&group, &query_vector, Some(&["Person".into()]), 300)
+        .await
+        .unwrap();
+    assert!(nodes.iter().any(|n| n.uuid == id(999)));
+    store.clear(&group).await.unwrap();
+}

@@ -192,6 +192,12 @@ class Mock(http.server.BaseHTTPRequestHandler):
                      "facts": [{"source": 0, "target": 1, "name": "WORKS_AT",
                                 "fact": "Pi synthetic worker works at Pi synthetic target"}]}
             result = {"choices": [{"message": {"content": json.dumps(value)}}]}
+        elif self.path == "/embeddings":
+            with self.lock:
+                self.counts["embeddings"] += 1
+            result = {"data": [{"index": i, "embedding": [0., 1.]
+                               if text in ("semantic outlier", "A cyclist on a road") else [1., 0.]}
+                               for i, text in enumerate(body["input"])]}
         elif self.path == "/models/gemini-embedding-2:batchEmbedContents":
             with self.lock:
                 self.counts["embeddings"] += 1
@@ -334,6 +340,7 @@ def main():
         for i in [*range(64), COUNT-1]:
             vector = [0., 1.] + [0.]*3070 if i == COUNT-1 else [1.] + [0.]*3071
             redis.query(GROUP, f'MATCH ()-[e:RELATES_TO {{uuid:"{uid(i+100000)}"}}]->() SET e.fact_embedding=vecf32({json.dumps(vector)})')
+            redis.query(GROUP, f'MATCH(n:Entity {{uuid:"{uid(i+200000)}"}}) SET n.name_embedding=vecf32({json.dumps(vector)})')
         redis.query(GROUP, "CREATE INDEX FOR ()-[e:RELATES_TO]-() ON (e.uuid,e.group_id,e.name,e.created_at,e.expired_at,e.valid_at,e.invalid_at)")
         readonly = Server(root, "compat-read", {"COMPAT_DB_URL": "redis://127.0.0.1:16379"}, compat=True)
         servers.append(readonly)
@@ -349,6 +356,33 @@ def main():
         mock = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Mock)
         threading.Thread(target=mock.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{mock.server_port}"
+        semantic = Server(root, "native-semantic", {"EMBEDDING_PROVIDER": "external",
+            "EMBEDDING_MODEL": "synthetic", "EMBEDDING_DIM": "2", "MODEL_API_BASE": base,
+            "SEARCH_CANDIDATES": "50"})
+        servers.append(semantic)
+        def semantic_episode(eid, stamp, facts):
+            return semantic.tool("add_episode", {"group_id": "pi_semantic", "episode_id": eid,
+                "content": "Synthetic semantic fixture " + eid, "source": "synthetic",
+                "reference_time": stamp, "extraction": {"entities": [{"name": "Semantic source"}, {"name": "Semantic hub"}],
+                    "facts": [{"source": "Semantic source", "target": "Semantic hub", "relation": "LINK", "fact": fact} for fact in facts]}})
+        target = semantic_episode("old", "2026-10-01T00:00:00Z", ["A cyclist on a road"])["fact_ids"][0]
+        semantic_episode("recent", "2026-10-02T00:00:00Z", [f"Unrelated decoy {i}" for i in range(201)])
+        args = {"group_id": "pi_semantic", "query": "semantic outlier", "limit": 10,
+                "as_of": "2026-10-02T01:00:00Z"}
+        began = time.perf_counter()
+        hits = semantic.tool("search_facts", args)
+        assert hits[0]["id"] == target
+        report["standalone_semantic_outside_recent_window"] = {"facts": 202, "expected_id": target,
+            "returned_ids": [f["id"] for f in hits], "first_rank": 1,
+            "latency_ms": (time.perf_counter()-began)*1000, **metrics(semantic.process.pid)}
+        redis.query(NATIVE_GRAPH, "MATCH ()-[r:FACT]->() WHERE r.group_id='pi_semantic' SET r.embedding=null,r.embedding_version=null")
+        began = time.perf_counter()
+        hits = semantic.tool("search_facts", args)
+        assert hits[0]["id"] == target
+        report["standalone_json_only_semantic_fallback"] = {"facts": 202, "expected_id": target,
+            "returned_ids": [f["id"] for f in hits], "first_rank": 1,
+            "latency_ms": (time.perf_counter()-began)*1000, **metrics(semantic.process.pid)}
+        semantic.stop()
         synthetic = Server(root, "compat-worker", {"COMPAT_DB_URL": "redis://127.0.0.1:16379",
             "COMPAT_WRITE_MODE": "synthetic", "COMPAT_JOURNAL_DIR": str(root / "journal"),
             "COMPAT_LLM_BASE": base, "COMPAT_GEMINI_BASE": base, "COMPAT_MAX_TOKENS": "4096"}, compat=True)
@@ -356,7 +390,13 @@ def main():
         result = synthetic.tool("search_memory_facts", {"group_ids": [GROUP], "query": "semantic outlier", "max_facts": 10})
         report["semantic_outside_candidate_window"] = {"expected_uuid": uid(COUNT-1+100000),
             "returned_uuids": [f["uuid"] for f in result["facts"]], "recall_at_10": int(any(f["uuid"] == uid(COUNT-1+100000) for f in result["facts"])),
-            "gate": "not exhaustive vector retrieval; report disagreement"}
+            "gate": "passed: DB ranks the entire supported vector set before the result bound"}
+        assert report["semantic_outside_candidate_window"]["recall_at_10"] == 1
+        result = synthetic.tool("search_nodes", {"group_ids": [GROUP], "query": "semantic outlier", "max_nodes": 10, "entity_types": ["Person"]})
+        assert result["nodes"][0]["uuid"] == uid(COUNT-1+200000)
+        report["semantic_node_outside_candidate_window"] = {"expected_uuid": uid(COUNT-1+200000),
+            "returned_uuids": [n["uuid"] for n in result["nodes"]], "first_rank": 1}
+        assert synthetic.tool("search_nodes", {"group_ids": [GROUP], "query": "semantic outlier", "entity_types": ["Company"]})["nodes"] == []
         job_group = "project_pi_worker_20261002"
         job = {"group_id": job_group, "uuid": uid(900001), "name": "restart fixture", "episode_body": "worker fixture"}
         synthetic.tool("add_memory", job)
@@ -435,7 +475,7 @@ def main():
                             "rust_async_workers": 2, "rust_blocking_threads_max": 4,
                             "server_process_cpu_or_memory_cgroup_limit": None}
         report["host_after"] = host_memory()
-        report["status"] = "completed; semantic candidate-window limitation remains"
+        report["status"] = "completed; semantic outlier gates passed for compatibility facts/nodes and standalone native/JSON vectors"
     finally:
         if report["status"] == "running":
             report["status"] = "failed before completion; inspect console and server logs"

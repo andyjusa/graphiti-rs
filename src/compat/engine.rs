@@ -244,23 +244,24 @@ impl Engine {
                         .nodes(&group, &r.query, r.entity_types.as_deref(), candidates)
                         .await?;
                     let keyword_ids = nodes.iter().map(|n| n.uuid.clone()).collect();
-                    if vector.is_some() {
-                        nodes.extend(
-                            self.store
-                                .nodes(&group, "", r.entity_types.as_deref(), candidates)
-                                .await?,
-                        );
-                    }
+                    let semantic = if let Some(vector) = &vector {
+                        self.store
+                            .semantic_nodes(&group, vector, r.entity_types.as_deref(), candidates)
+                            .await?
+                    } else {
+                        vec![]
+                    };
+                    let semantic_ids = semantic.iter().map(|n| n.uuid.clone()).collect::<Vec<_>>();
+                    nodes.extend(semantic);
                     let mut seen = std::collections::HashSet::new();
                     nodes.retain(|n| seen.insert(n.uuid.clone()));
                     let order = fused_order(
                         &nodes,
                         &keyword_ids,
                         &r.query,
-                        vector.as_deref(),
+                        &semantic_ids,
                         |n| &n.uuid,
                         |n| format!("{} {}", n.name, n.summary),
-                        |n| n.name_embedding.as_deref(),
                     );
                     nodes.retain(|n| order.contains_key(&n.uuid));
                     nodes.sort_by_key(|n| order[&n.uuid]);
@@ -297,23 +298,24 @@ impl Engine {
                         .facts(&group, &r.query, r.center_node_uuid.as_deref(), candidates)
                         .await?;
                     let keyword_ids = facts.iter().map(|f| f.uuid.clone()).collect();
-                    if vector.is_some() {
-                        facts.extend(
-                            self.store
-                                .facts(&group, "", r.center_node_uuid.as_deref(), candidates)
-                                .await?,
-                        );
-                    }
+                    let semantic = if let Some(vector) = &vector {
+                        self.store
+                            .semantic_facts(&group, vector, candidates)
+                            .await?
+                    } else {
+                        vec![]
+                    };
+                    let semantic_ids = semantic.iter().map(|f| f.uuid.clone()).collect::<Vec<_>>();
+                    facts.extend(semantic);
                     let mut seen = std::collections::HashSet::new();
                     facts.retain(|f| seen.insert(f.uuid.clone()));
                     let order = fused_order(
                         &facts,
                         &keyword_ids,
                         &r.query,
-                        vector.as_deref(),
+                        &semantic_ids,
                         |f| &f.uuid,
                         |f| f.fact.clone(),
-                        |f| f.fact_embedding.as_deref(),
                     );
                     facts.retain(|f| order.contains_key(&f.uuid));
                     facts.sort_by_key(|f| order[&f.uuid]);
@@ -456,65 +458,30 @@ fn fused_order<T>(
     items: &[T],
     keyword: &std::collections::HashSet<String>,
     query: &str,
-    vector: Option<&[f32]>,
+    semantic: &[String],
     id: impl Fn(&T) -> &str,
     text: impl Fn(&T) -> String,
-    embedding: impl Fn(&T) -> Option<&[f32]>,
 ) -> std::collections::HashMap<String, usize> {
     let mut words: Vec<_> = items.iter().filter(|v| keyword.contains(id(v))).collect();
+    let keyword_score = |v: &T| {
+        let text = crate::domain::normalize(&text(v));
+        crate::domain::normalize(query)
+            .split_whitespace()
+            .filter(|t| text.contains(t))
+            .count()
+    };
     words.sort_by(|a, b| {
-        score(query, &text(b), None, None).total_cmp(&score(query, &text(a), None, None))
+        keyword_score(b)
+            .cmp(&keyword_score(a))
+            .then_with(|| id(a).cmp(id(b)))
     });
-    let mut lists = vec![words.into_iter().map(|v| id(v).to_owned()).collect()];
-    if let Some(vector) = vector {
-        let mut semantic: Vec<_> = items
-            .iter()
-            .filter(|v| {
-                embedding(v).is_some_and(|e| {
-                    e.len() == vector.len()
-                        && e.iter().all(|x| x.is_finite())
-                        && score("", "", Some(e), Some(vector))
-                            > super::resolution::SEMANTIC_MIN_SCORE
-                })
-            })
-            .collect();
-        semantic.sort_by(|a, b| {
-            score("", "", embedding(b), Some(vector)).total_cmp(&score(
-                "",
-                "",
-                embedding(a),
-                Some(vector),
-            ))
-        });
-        lists.push(semantic.into_iter().map(|v| id(v).to_owned()).collect());
-    }
+    let lists = vec![
+        words.into_iter().map(|v| id(v).to_owned()).collect(),
+        semantic.to_vec(),
+    ];
     super::resolution::rrf(&lists)
         .into_iter()
         .enumerate()
         .map(|(rank, id)| (id, rank))
         .collect()
-}
-fn score(query: &str, text: &str, vector: Option<&[f32]>, q: Option<&[f32]>) -> f64 {
-    let query = crate::domain::normalize(query);
-    let text = crate::domain::normalize(text);
-    let keyword = query
-        .split_whitespace()
-        .filter(|t| text.contains(t))
-        .count() as f64;
-    let semantic = match (vector, q) {
-        (Some(v), Some(q))
-            if v.len() == 3072 && q.len() == 3072 && v.iter().all(|x| x.is_finite()) =>
-        {
-            let dot = v
-                .iter()
-                .zip(q)
-                .map(|(a, b)| *a as f64 * *b as f64)
-                .sum::<f64>();
-            let norm = v.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt()
-                * q.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
-            if norm > 0.0 { dot / norm } else { 0.0 }
-        }
-        _ => 0.0,
-    };
-    keyword + semantic
 }

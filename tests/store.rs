@@ -161,3 +161,110 @@ async fn failed_episode_conflict_does_not_pin_embedding_space() {
     );
     assert_eq!(s.embedding_space("g").await.unwrap().as_deref(), Some(""));
 }
+
+#[tokio::test]
+#[ignore = "requires disposable FalkorDB"]
+async fn full_semantic_retrieval_preserves_old_json_vectors_time_and_groups() {
+    let url =
+        std::env::var("TEST_FALKORDB_URL").unwrap_or_else(|_| "redis://127.0.0.1:16379".into());
+    let graph = format!("semantic_{}", uuid::Uuid::new_v4().simple());
+    let s = Store::connect(&url, &graph).await.unwrap();
+    let x = extraction();
+    let target = s
+        .ingest(
+            &episode("old", "g", 10),
+            &x,
+            Some(&[vec![0., 1.]]),
+            Some("fixture:2"),
+        )
+        .await
+        .unwrap()
+        .fact_ids[0]
+        .clone();
+    let mut decoys = x.clone();
+    decoys.facts = (0..150)
+        .map(|i| {
+            let mut f = x.facts[0].clone();
+            f.fact = format!("irrelevant {i}");
+            f
+        })
+        .collect();
+    s.ingest(
+        &episode("recent", "g", 20),
+        &decoys,
+        Some(&vec![vec![1., 0.]; 150]),
+        Some("fixture:2"),
+    )
+    .await
+    .unwrap();
+    s.ingest(
+        &episode("other", "other", 10),
+        &x,
+        Some(&[vec![0., 1.]]),
+        Some("fixture:2"),
+    )
+    .await
+    .unwrap();
+    s.ingest(
+        &episode("future", "g", 40),
+        &x,
+        Some(&[vec![0., 1.]]),
+        Some("fixture:2"),
+    )
+    .await
+    .unwrap();
+    let mut replacement = x.clone();
+    replacement.facts[0].fact = "An unrelated replacement".into();
+    replacement.facts[0].supersedes = vec![target.clone()];
+    s.ingest(
+        &episode("replacement", "g", 30),
+        &replacement,
+        Some(&[vec![0., 0.]]),
+        Some("fixture:2"),
+    )
+    .await
+    .unwrap();
+    assert!(
+        !s.facts("g", 25000, 50)
+            .await
+            .unwrap()
+            .iter()
+            .any(|f| f.id == target)
+    );
+    let hits = s.semantic_facts("g", 25000, &[0., 1.], 50).await.unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].id, target);
+    assert_eq!(hits[0].episodes, vec!["old"]);
+    assert_eq!(hits[0].valid_to.unwrap().timestamp(), 30);
+    assert!(
+        s.semantic_facts("g", 30000, &[0., 1.], 50)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        s.semantic_facts("absent", 25000, &[0., 1.], 50)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(s.semantic_facts("g", 25000, &[1.], 50).await.is_err());
+    // Simulate the original JSON-only persisted schema, including >128 rows.
+    // This explicit fixture mutation touches only this disposable test graph.
+    let mut c = redis::Client::open(url)
+        .unwrap()
+        .get_multiplexed_async_connection()
+        .await
+        .unwrap();
+    let _: redis::Value = redis::cmd("GRAPH.QUERY").arg(&graph).arg("MATCH ()-[r:FACT]->() WHERE r.group_id='g' SET r.embedding=null,r.embedding_version=null").query_async(&mut c).await.unwrap();
+    let hits = s.semantic_facts("g", 25000, &[0., 1.], 50).await.unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].id, target);
+    assert_eq!(hits[0].episodes, vec!["old"]);
+    assert!(
+        s.semantic_facts("g", 30000, &[0., 1.], 50)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}

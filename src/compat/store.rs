@@ -4,7 +4,7 @@ use redis::{Value as R, aio::ConnectionManager};
 use serde_json::{Map, Value, json};
 use std::time::Duration;
 // Relationship-first reads preserve the deployed bound-node edge-index workaround.
-// Only these three closed query shapes are used; no arbitrary Cypher rewriting.
+// Closed query shapes are used; no arbitrary Cypher rewriting.
 pub const EDGE_LOOKUP_QUERY: &str = "MATCH ()-[e:RELATES_TO {uuid:$id}]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) RETURN properties(e),n.uuid,m.uuid";
 pub const EDGE_FACTS_QUERY: &str = "MATCH ()-[e:RELATES_TO]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND (size($terms)=0 OR any(t IN $terms WHERE toLower(e.fact) CONTAINS t)) RETURN properties(e),n.uuid,m.uuid ORDER BY e.uuid LIMIT $limit";
 pub const EDGE_RELATED_QUERY: &str = "MATCH ()-[e:RELATES_TO]->() WITH *, startNode(e) AS n, endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND n.uuid=$source AND m.uuid=$target RETURN properties(e),n.uuid,m.uuid LIMIT 1001";
@@ -234,6 +234,35 @@ impl LegacyStore {
                 false,
             )
             .await?;
+        rows.iter().map(|r| fact(r, group)).collect()
+    }
+    // Rank every supported vector in the group before bounding the returned
+    // rows. Graphiti's Falkor score is (1 + cosine) / 2, not raw cosine.
+    pub async fn semantic_nodes(
+        &self,
+        group: &str,
+        vector: &[f32],
+        types: Option<&[String]>,
+        limit: usize,
+    ) -> Result<Vec<LegacyEntity>> {
+        super::providers::validate_vector(vector)?;
+        ensure!((1..=1000).contains(&limit), "candidate limit exceeds bound");
+        let rows = self.query(group,
+            "MATCH (n:Entity) WHERE n.group_id=$group AND n.name_embedding IS NOT NULL AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) WITH n,(2-vec.cosineDistance(n.name_embedding,vecf32($vector)))/2 AS score WHERE score>$min RETURN properties(n),labels(n) ORDER BY score DESC,n.uuid LIMIT $limit",
+            json!({"group":group,"vector":vector,"types":types.unwrap_or(&[]),"min":super::resolution::SEMANTIC_MIN_SCORE,"limit":limit}), false).await?;
+        rows.iter().map(|r| entity(r, group)).collect()
+    }
+    pub async fn semantic_facts(
+        &self,
+        group: &str,
+        vector: &[f32],
+        limit: usize,
+    ) -> Result<Vec<LegacyFact>> {
+        super::providers::validate_vector(vector)?;
+        ensure!((1..=1000).contains(&limit), "candidate limit exceeds bound");
+        let rows = self.query(group,
+            "MATCH ()-[e:RELATES_TO]->() WITH *,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND e.fact_embedding IS NOT NULL WITH e,n,m,(2-vec.cosineDistance(e.fact_embedding,vecf32($vector)))/2 AS score WHERE score>$min RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC,e.uuid LIMIT $limit",
+            json!({"group":group,"vector":vector,"min":super::resolution::SEMANTIC_MIN_SCORE,"limit":limit}), false).await?;
         rows.iter().map(|r| fact(r, group)).collect()
     }
     pub async fn neighbors(

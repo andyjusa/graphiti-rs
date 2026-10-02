@@ -230,3 +230,99 @@ async fn concurrent_searches_are_rejected_before_queueing() {
     }
     server.abort();
 }
+
+#[tokio::test]
+#[ignore = "requires disposable FalkorDB"]
+async fn semantic_search_finds_old_fact_outside_recent_window() {
+    use graphiti_rs::domain::*;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let app = axum::Router::new().route(
+        "/embeddings",
+        axum::routing::post(|| async {
+            axum::Json(serde_json::json!({"data":[{"index":0,"embedding":[0.,1.]}]}))
+        }),
+    );
+    let mock = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let mut c = Config::from_env().unwrap();
+    c.redis_url =
+        std::env::var("TEST_FALKORDB_URL").unwrap_or_else(|_| "redis://127.0.0.1:16379".into());
+    c.graph = format!("semantic_mcp_{}", uuid::Uuid::new_v4().simple());
+    c.api_base = base;
+    c.api_key = None;
+    c.embedding_provider = "external".into();
+    c.embedding_model = "synthetic".into();
+    c.embedding_dim = 2;
+    c.candidates = 50;
+    let memory = Memory::new(&c).await.unwrap();
+    let ep = |id: &str, time: &str| Episode {
+        id: id.into(),
+        group_id: "synthetic".into(),
+        content: id.into(),
+        source: "fixture".into(),
+        reference_time: time.parse().unwrap(),
+        created_at: chrono::Utc::now(),
+    };
+    let mut x = Extraction {
+        entities: vec![
+            ExtractedEntity {
+                name: "Source".into(),
+                summary: String::new(),
+            },
+            ExtractedEntity {
+                name: "Hub".into(),
+                summary: String::new(),
+            },
+        ],
+        facts: vec![ExtractedFact {
+            source: "Source".into(),
+            target: "Hub".into(),
+            relation: "LINK".into(),
+            fact: "A cyclist on a road".into(),
+            supersedes: vec![],
+        }],
+    };
+    let target = memory
+        .store
+        .ingest(
+            &ep("old", "2026-10-01T00:00:00Z"),
+            &x,
+            Some(&[vec![0., 1.]]),
+            memory.embedder.space().as_deref(),
+        )
+        .await
+        .unwrap()
+        .fact_ids[0]
+        .clone();
+    x.facts = (0..51)
+        .map(|i| ExtractedFact {
+            source: "Source".into(),
+            target: "Hub".into(),
+            relation: "LINK".into(),
+            fact: format!("unrelated {i}"),
+            supersedes: vec![],
+        })
+        .collect();
+    memory
+        .store
+        .ingest(
+            &ep("recent", "2026-10-02T00:00:00Z"),
+            &x,
+            Some(&vec![vec![1., 0.]; 51]),
+            memory.embedder.space().as_deref(),
+        )
+        .await
+        .unwrap();
+    let hits = memory
+        .search
+        .facts(SearchRequest {
+            group_id: "synthetic".into(),
+            query: "Someone rides a bike".into(),
+            limit: 10,
+            as_of: Some("2026-10-02T01:00:00Z".parse().unwrap()),
+        })
+        .await
+        .unwrap();
+    assert_eq!(hits[0].fact.id, target);
+    mock.abort();
+}
