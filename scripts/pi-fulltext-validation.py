@@ -38,7 +38,7 @@ def wait_for_indexes(redis):
     deadline=time.monotonic()+30
     states=[]
     while time.monotonic()<deadline:
-        rows=redis.query(GROUP,'CALL db.indexes() YIELD label,status RETURN label,status')[1]
+        rows=redis.query(GROUP,"CALL db.indexes() YIELD label,status,types WHERE label IN ['Entity','RELATES_TO'] AND 'FULLTEXT' IN types['group_id'] RETURN label,status")[1]
         states.append(rows)
         if len(rows)==2 and all(row[1]=='OPERATIONAL' for row in rows):
             return states
@@ -83,6 +83,7 @@ def main():
         result=subprocess.check_output(['docker','exec','--user','0','-w','/tmp',CONTAINER,'env','-i','PATH=/usr/local/bin:/usr/bin:/bin','GRAPHITI_PI_SYNTHETIC=graphiti-rs-compat-pi','SEMAPHORE_LIMIT=2','GRAPHITI_TELEMETRY_ENABLED=false','python3','-S','/tmp/python-pi-fulltext.py'])
         python=json.loads(result);assert python['cases']==rust
         report['python']=python;report['sdk_mcp_exact_id_lists_match']=True
+        report['index_readiness_after_python']=wait_for_indexes(redis)
         original=fingerprint(redis);assert original['count']==COUNT
         report['fixture_before_restore']=original
         server.stop()

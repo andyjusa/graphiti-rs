@@ -34,7 +34,7 @@ async def main():
             facts = await edge_fulltext_search(driver, query, SearchFilters(), [GROUP], 10)
             nodes = await node_fulltext_search(driver, query, SearchFilters(node_labels=['Person']), [GROUP], 10)
             results.append({'query':query,'fact_ids':[f.uuid for f in facts],'node_ids':[n.uuid for n in nodes]})
-        print(json.dumps({'package':'graphiti-core 0.28.2','scope':'real fulltext query/search bodies with observed edge patch; no LLM/embeddings/ingestion parity','cases':results,'actual_provider_calls':0},indent=2))
+        print(json.dumps({'package':'graphiti-core 0.28.2','scope':'real fulltext query/search bodies with observed edge patch; no LLM/embeddings/ingestion parity','cases':results,'actual_provider_calls':0,'driver_constructor_schedules_fixture_indexes':True},indent=2))
     finally:
         await driver.close()
 
