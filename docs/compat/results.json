@@ -60,7 +60,7 @@
     {
       "id": "C12",
       "status": "partial",
-      "evidence": "Observed MCP recipes exclude BFS. Global semantic ranking fixes the historical outlier. Existing operational fulltext indexes now supply keyword order to RRF; 67 selected-source inputs pass and six queries yield identical Python SDK/Rust MCP fact/node UUID lists on 1200 records. Missing/incomplete-index substring fallback and broad retrieval quality/tie parity remain gaps."
+      "evidence": "Observed MCP recipes exclude BFS. Global semantic ranking fixes the historical outlier. Existing operational fulltext indexes now supply keyword order to RRF; 116 selected-source inputs pass and six queries yield identical Python SDK/Rust MCP fact/node UUID lists on 1200 records. Missing/incomplete-index substring fallback and broad retrieval quality/tie parity remain gaps."
     },
     {
       "id": "C13",
@@ -100,7 +100,7 @@
     {
       "id": "C20",
       "status": "partial",
-      "evidence": "Legacy attributes/labels/vecf32, existing UUID updates and relationship-first range-index reads pass on observed module41606 as well as CI4.14.11. Restored production schema breadth remains untested."
+      "evidence": "Legacy attributes/labels/vecf32, existing UUID updates and relationship-first range-index reads pass on observed module41606 as well as CI 4.14.11. Restored production schema breadth remains untested."
     },
     {
       "id": "C21",
@@ -110,12 +110,12 @@
     {
       "id": "C22",
       "status": "partial",
-      "evidence": "Observed exact fact reuse/shared provenance and supplied duplicate/contradiction decisions match selected Python bodies. Fuzzy/model entity resolution, summary updates, complete extraction and contradiction discovery remain unported."
+      "evidence": "Observed exact fact reuse/shared provenance and supplied duplicate/contradiction decisions match selected Python bodies. The default staged worker now wires entropy/MinHash/model entities, summary updates, source-specific extraction and contradiction discovery; seven actual Python SDK/Pi Rust synthetic episodes match. Wider/custom-model and provider quality cases remain open."
     },
     {
       "id": "C23",
       "status": "partial",
-      "evidence": "Mock gpt-6-luna temperature=1/max_tokens<=4096/enable_thinking=false and observed decoder match. Preview extraction prompt and bounded retry/timeout differ; no real generation comparison."
+      "evidence": "Mock gpt-6-luna temperature=1/max_tokens<=4096/enable_thinking=false and observed decoder match. Observed staged prompts/language/input cleanup/schema suffix and actual Pydantic schemas match; bounded retry/timeout differ. The explicit combined preview remains a separate regression profile; no real generation comparison."
     },
     {
       "id": "C24",
@@ -129,8 +129,8 @@
     },
     {
       "id": "C26",
-      "status": "blocked",
-      "evidence": "No actual bridge/session/routing operation authorized or performed."
+      "status": "not_executed",
+      "evidence": "Separate authenticated bridge/session/routing validation remains unperformed; the active replacement objective requires a verified gateway and rollback before cutover."
     },
     {
       "id": "C27",
@@ -140,7 +140,7 @@
     {
       "id": "C28",
       "status": "partial",
-      "evidence": "Same observed Pi image/Redis8.2.3/module41606/hash: 49 release tests pass. Exclusively synthetic RDB cold restore retains the selected 1200 fact identity/endpoints and indexed MCP target. Original-memory restore, complete Python extraction pipeline and gateway remain untested."
+      "evidence": "Same observed Pi image/Redis8.2.3/module41606/hash: 51 release tests pass. Exclusively synthetic RDB cold restore retains the selected 1200 fact identity/endpoints and indexed MCP target. Selected seven-episode full Python pipeline agrees with Rust; original-memory restore, wider ingestion and gateway remain open."
     },
     {
       "id": "C29",

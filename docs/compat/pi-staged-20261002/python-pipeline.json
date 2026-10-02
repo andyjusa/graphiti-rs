@@ -1,0 +1,721 @@
+{
+  "scope": "actual observed patched Python Graphiti.add_episode vs Rust; seven synthetic message/JSON/text episodes and supplied model responses",
+  "package": "graphiti-core 0.28.2",
+  "actual_provider_calls": 0,
+  "graphiti_source_sha256": "8487af6bda1b4efa914f4a827502d4f241a4e3c8ce7973df3c410e4b2ef8153f",
+  "edge_patch_sha256": "7abd25af31520e3951625c7a3739033bf9469b0d466c592243d9eaa8b3153939",
+  "episodes": 7,
+  "model_calls": 27,
+  "canonical_graphs_match": true,
+  "schemas_match_real_pydantic": true,
+  "snapshots": [
+    {
+      "episode": {
+        "uuid": "a8a277f0-1e7d-48b8-a159-4a6589bca3b0",
+        "name": "staged-0",
+        "content": "Gaon works at Saebit.",
+        "source": "message",
+        "source_description": "",
+        "created_at": "2026-10-02T09:26:22.925930+00:00",
+        "valid_at": "2026-10-02T09:26:22.925930+00:00",
+        "entity_edges": [
+          "Gaon works at Saebit."
+        ]
+      },
+      "nodes": [
+        {
+          "name": "Gaon",
+          "summary": "Gaon works at Saebit.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        },
+        {
+          "name": "Saebit",
+          "summary": "Gaon works at Saebit.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        }
+      ],
+      "facts": [
+        {
+          "source": "Gaon",
+          "target": "Saebit",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Saebit.",
+          "episodes": [
+            "a8a277f0-1e7d-48b8-a159-4a6589bca3b0"
+          ],
+          "created_at": "2026-10-02T09:26:22.925930+00:00",
+          "valid_at": "2026-10-01T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        }
+      ]
+    },
+    {
+      "episode": {
+        "uuid": "2def7d12-f241-4bbb-bde8-79498aa09bbd",
+        "name": "staged-1",
+        "content": "G. works at Saebit.",
+        "source": "message",
+        "source_description": "",
+        "created_at": "2026-10-02T09:26:23.168389+00:00",
+        "valid_at": "2026-10-02T09:26:23.168389+00:00",
+        "entity_edges": [
+          "Gaon works at Saebit."
+        ]
+      },
+      "nodes": [
+        {
+          "name": "Gaon",
+          "summary": "Gaon works at Saebit.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        },
+        {
+          "name": "Saebit",
+          "summary": "Gaon works at Saebit.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        }
+      ],
+      "facts": [
+        {
+          "source": "Gaon",
+          "target": "Saebit",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Saebit.",
+          "episodes": [
+            "2def7d12-f241-4bbb-bde8-79498aa09bbd",
+            "a8a277f0-1e7d-48b8-a159-4a6589bca3b0"
+          ],
+          "created_at": "2026-10-02T09:26:22.925930+00:00",
+          "valid_at": "2026-10-01T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        }
+      ]
+    },
+    {
+      "episode": {
+        "uuid": "fd11dd9e-9aed-431b-9e23-5dbc663f1fac",
+        "name": "staged-2",
+        "content": "Gaon now works at Hanul.",
+        "source": "message",
+        "source_description": "",
+        "created_at": "2026-10-02T09:26:23.586453+00:00",
+        "valid_at": "2026-10-02T09:26:23.586453+00:00",
+        "entity_edges": [
+          "Gaon works at Hanul.",
+          "Gaon works at Saebit."
+        ]
+      },
+      "nodes": [
+        {
+          "name": "Gaon",
+          "summary": "Gaon works at Saebit.\nGaon works at Hanul.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        },
+        {
+          "name": "Hanul",
+          "summary": "Gaon works at Hanul.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:23.586453+00:00"
+        },
+        {
+          "name": "Saebit",
+          "summary": "Gaon works at Saebit.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        }
+      ],
+      "facts": [
+        {
+          "source": "Gaon",
+          "target": "Hanul",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Hanul.",
+          "episodes": [
+            "fd11dd9e-9aed-431b-9e23-5dbc663f1fac"
+          ],
+          "created_at": "2026-10-02T09:26:23.586453+00:00",
+          "valid_at": "2026-10-02T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        },
+        {
+          "source": "Gaon",
+          "target": "Saebit",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Saebit.",
+          "episodes": [
+            "2def7d12-f241-4bbb-bde8-79498aa09bbd",
+            "a8a277f0-1e7d-48b8-a159-4a6589bca3b0"
+          ],
+          "created_at": "2026-10-02T09:26:22.925930+00:00",
+          "valid_at": "2026-10-01T00:00:00+00:00",
+          "invalid_at": "2026-10-02T00:00:00+00:00",
+          "expired": true,
+          "attributes": {}
+        }
+      ]
+    },
+    {
+      "episode": {
+        "uuid": "d89acc1e-4037-4c81-b84d-bc1579812647",
+        "name": "staged-3",
+        "content": "Nari enjoys quiet mornings.",
+        "source": "message",
+        "source_description": "",
+        "created_at": "2026-10-02T09:26:24.019417+00:00",
+        "valid_at": "2026-10-02T09:26:24.019417+00:00",
+        "entity_edges": []
+      },
+      "nodes": [
+        {
+          "name": "Gaon",
+          "summary": "Gaon works at Saebit.\nGaon works at Hanul.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        },
+        {
+          "name": "Hanul",
+          "summary": "Gaon works at Hanul.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:23.586453+00:00"
+        },
+        {
+          "name": "Nari",
+          "summary": "Nari enjoys quiet mornings.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.019417+00:00"
+        },
+        {
+          "name": "Saebit",
+          "summary": "Gaon works at Saebit.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        }
+      ],
+      "facts": [
+        {
+          "source": "Gaon",
+          "target": "Hanul",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Hanul.",
+          "episodes": [
+            "fd11dd9e-9aed-431b-9e23-5dbc663f1fac"
+          ],
+          "created_at": "2026-10-02T09:26:23.586453+00:00",
+          "valid_at": "2026-10-02T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        },
+        {
+          "source": "Gaon",
+          "target": "Saebit",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Saebit.",
+          "episodes": [
+            "2def7d12-f241-4bbb-bde8-79498aa09bbd",
+            "a8a277f0-1e7d-48b8-a159-4a6589bca3b0"
+          ],
+          "created_at": "2026-10-02T09:26:22.925930+00:00",
+          "valid_at": "2026-10-01T00:00:00+00:00",
+          "invalid_at": "2026-10-02T00:00:00+00:00",
+          "expired": true,
+          "attributes": {}
+        }
+      ]
+    },
+    {
+      "episode": {
+        "uuid": "d49970a4-d191-4115-a6c7-11a81e2430eb",
+        "name": "staged-4",
+        "content": "다온은 누리에서 일한다.",
+        "source": "message",
+        "source_description": "",
+        "created_at": "2026-10-02T09:26:24.298472+00:00",
+        "valid_at": "2026-10-02T09:26:24.298472+00:00",
+        "entity_edges": [
+          "다온은 누리에서 일한다."
+        ]
+      },
+      "nodes": [
+        {
+          "name": "Gaon",
+          "summary": "Gaon works at Saebit.\nGaon works at Hanul.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        },
+        {
+          "name": "Hanul",
+          "summary": "Gaon works at Hanul.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:23.586453+00:00"
+        },
+        {
+          "name": "Nari",
+          "summary": "Nari enjoys quiet mornings.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.019417+00:00"
+        },
+        {
+          "name": "Saebit",
+          "summary": "Gaon works at Saebit.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        },
+        {
+          "name": "누리",
+          "summary": "다온은 누리에서 일한다.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.298472+00:00"
+        },
+        {
+          "name": "다온",
+          "summary": "다온은 누리에서 일한다.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.298472+00:00"
+        }
+      ],
+      "facts": [
+        {
+          "source": "Gaon",
+          "target": "Hanul",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Hanul.",
+          "episodes": [
+            "fd11dd9e-9aed-431b-9e23-5dbc663f1fac"
+          ],
+          "created_at": "2026-10-02T09:26:23.586453+00:00",
+          "valid_at": "2026-10-02T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        },
+        {
+          "source": "Gaon",
+          "target": "Saebit",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Saebit.",
+          "episodes": [
+            "2def7d12-f241-4bbb-bde8-79498aa09bbd",
+            "a8a277f0-1e7d-48b8-a159-4a6589bca3b0"
+          ],
+          "created_at": "2026-10-02T09:26:22.925930+00:00",
+          "valid_at": "2026-10-01T00:00:00+00:00",
+          "invalid_at": "2026-10-02T00:00:00+00:00",
+          "expired": true,
+          "attributes": {}
+        },
+        {
+          "source": "다온",
+          "target": "누리",
+          "name": "WORKS_AT",
+          "fact": "다온은 누리에서 일한다.",
+          "episodes": [
+            "d49970a4-d191-4115-a6c7-11a81e2430eb"
+          ],
+          "created_at": "2026-10-02T09:26:24.298472+00:00",
+          "valid_at": "2026-10-02T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        }
+      ]
+    },
+    {
+      "episode": {
+        "uuid": "e70f02d1-a41c-440c-b12d-6aa3d7560f5c",
+        "name": "staged-5",
+        "content": "{\"person\":\"Ravi\",\"organization\":\"Delta\",\"job\":\"works\"}",
+        "source": "json",
+        "source_description": "",
+        "created_at": "2026-10-02T09:26:24.730187+00:00",
+        "valid_at": "2026-10-02T09:26:24.730187+00:00",
+        "entity_edges": [
+          "Ravi works at Delta."
+        ]
+      },
+      "nodes": [
+        {
+          "name": "Delta",
+          "summary": "Ravi works at Delta.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.730187+00:00"
+        },
+        {
+          "name": "Gaon",
+          "summary": "Gaon works at Saebit.\nGaon works at Hanul.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        },
+        {
+          "name": "Hanul",
+          "summary": "Gaon works at Hanul.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:23.586453+00:00"
+        },
+        {
+          "name": "Nari",
+          "summary": "Nari enjoys quiet mornings.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.019417+00:00"
+        },
+        {
+          "name": "Ravi",
+          "summary": "Ravi works at Delta.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.730187+00:00"
+        },
+        {
+          "name": "Saebit",
+          "summary": "Gaon works at Saebit.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        },
+        {
+          "name": "누리",
+          "summary": "다온은 누리에서 일한다.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.298472+00:00"
+        },
+        {
+          "name": "다온",
+          "summary": "다온은 누리에서 일한다.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.298472+00:00"
+        }
+      ],
+      "facts": [
+        {
+          "source": "Gaon",
+          "target": "Hanul",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Hanul.",
+          "episodes": [
+            "fd11dd9e-9aed-431b-9e23-5dbc663f1fac"
+          ],
+          "created_at": "2026-10-02T09:26:23.586453+00:00",
+          "valid_at": "2026-10-02T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        },
+        {
+          "source": "Gaon",
+          "target": "Saebit",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Saebit.",
+          "episodes": [
+            "2def7d12-f241-4bbb-bde8-79498aa09bbd",
+            "a8a277f0-1e7d-48b8-a159-4a6589bca3b0"
+          ],
+          "created_at": "2026-10-02T09:26:22.925930+00:00",
+          "valid_at": "2026-10-01T00:00:00+00:00",
+          "invalid_at": "2026-10-02T00:00:00+00:00",
+          "expired": true,
+          "attributes": {}
+        },
+        {
+          "source": "Ravi",
+          "target": "Delta",
+          "name": "WORKS_AT",
+          "fact": "Ravi works at Delta.",
+          "episodes": [
+            "e70f02d1-a41c-440c-b12d-6aa3d7560f5c"
+          ],
+          "created_at": "2026-10-02T09:26:24.730187+00:00",
+          "valid_at": "2026-10-02T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        },
+        {
+          "source": "다온",
+          "target": "누리",
+          "name": "WORKS_AT",
+          "fact": "다온은 누리에서 일한다.",
+          "episodes": [
+            "d49970a4-d191-4115-a6c7-11a81e2430eb"
+          ],
+          "created_at": "2026-10-02T09:26:24.298472+00:00",
+          "valid_at": "2026-10-02T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        }
+      ]
+    },
+    {
+      "episode": {
+        "uuid": "7319ae48-214a-435b-86de-870fc2706509",
+        "name": "staged-6",
+        "content": "Mira likes quiet evenings.",
+        "source": "text",
+        "source_description": "",
+        "created_at": "2026-10-02T09:26:25.068837+00:00",
+        "valid_at": "2026-10-02T09:26:25.068837+00:00",
+        "entity_edges": []
+      },
+      "nodes": [
+        {
+          "name": "Delta",
+          "summary": "Ravi works at Delta.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.730187+00:00"
+        },
+        {
+          "name": "Gaon",
+          "summary": "Gaon works at Saebit.\nGaon works at Hanul.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        },
+        {
+          "name": "Hanul",
+          "summary": "Gaon works at Hanul.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:23.586453+00:00"
+        },
+        {
+          "name": "Mira",
+          "summary": "Mira likes quiet evenings.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:25.068837+00:00"
+        },
+        {
+          "name": "Nari",
+          "summary": "Nari enjoys quiet mornings.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.019417+00:00"
+        },
+        {
+          "name": "Ravi",
+          "summary": "Ravi works at Delta.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.730187+00:00"
+        },
+        {
+          "name": "Saebit",
+          "summary": "Gaon works at Saebit.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:22.925930+00:00"
+        },
+        {
+          "name": "누리",
+          "summary": "다온은 누리에서 일한다.",
+          "labels": [
+            "Entity",
+            "Organization"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.298472+00:00"
+        },
+        {
+          "name": "다온",
+          "summary": "다온은 누리에서 일한다.",
+          "labels": [
+            "Entity",
+            "Person"
+          ],
+          "attributes": {},
+          "created_at": "2026-10-02T09:26:24.298472+00:00"
+        }
+      ],
+      "facts": [
+        {
+          "source": "Gaon",
+          "target": "Hanul",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Hanul.",
+          "episodes": [
+            "fd11dd9e-9aed-431b-9e23-5dbc663f1fac"
+          ],
+          "created_at": "2026-10-02T09:26:23.586453+00:00",
+          "valid_at": "2026-10-02T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        },
+        {
+          "source": "Gaon",
+          "target": "Saebit",
+          "name": "WORKS_AT",
+          "fact": "Gaon works at Saebit.",
+          "episodes": [
+            "2def7d12-f241-4bbb-bde8-79498aa09bbd",
+            "a8a277f0-1e7d-48b8-a159-4a6589bca3b0"
+          ],
+          "created_at": "2026-10-02T09:26:22.925930+00:00",
+          "valid_at": "2026-10-01T00:00:00+00:00",
+          "invalid_at": "2026-10-02T00:00:00+00:00",
+          "expired": true,
+          "attributes": {}
+        },
+        {
+          "source": "Ravi",
+          "target": "Delta",
+          "name": "WORKS_AT",
+          "fact": "Ravi works at Delta.",
+          "episodes": [
+            "e70f02d1-a41c-440c-b12d-6aa3d7560f5c"
+          ],
+          "created_at": "2026-10-02T09:26:24.730187+00:00",
+          "valid_at": "2026-10-02T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        },
+        {
+          "source": "다온",
+          "target": "누리",
+          "name": "WORKS_AT",
+          "fact": "다온은 누리에서 일한다.",
+          "episodes": [
+            "d49970a4-d191-4115-a6c7-11a81e2430eb"
+          ],
+          "created_at": "2026-10-02T09:26:24.298472+00:00",
+          "valid_at": "2026-10-02T00:00:00+00:00",
+          "invalid_at": null,
+          "expired": false,
+          "attributes": {}
+        }
+      ]
+    }
+  ],
+  "limits": "Generic deployed MCP relations/classification-only entity types; fake model/embedding values. Transport, gateway, actual providers, multilingual quality and original-memory restoration are separate gates."
+}
