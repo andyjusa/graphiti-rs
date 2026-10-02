@@ -1,12 +1,20 @@
 //! Query construction follows the observed Apache-2.0 Graphiti0.28.2
 //! FalkorDriver sanitize/build_fulltext_query and its STOPWORDS list.
 use super::policy;
-use anyhow::Result;
+use anyhow::{Result, ensure};
 const STOPWORDS: &[&str] = &[
     "a", "is", "the", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into",
     "it", "no", "not", "of", "on", "or", "such", "that", "their", "then", "there", "these", "they",
     "this", "to", "was", "will", "with",
 ];
+
+pub fn require_operational(status: &str) -> Result<()> {
+    ensure!(
+        status == "OPERATIONAL",
+        "fulltext index not ready; retry after indexing completes"
+    );
+    Ok(())
+}
 
 pub fn query(text: &str, group: &str) -> Result<Option<String>> {
     policy::read(group)?;

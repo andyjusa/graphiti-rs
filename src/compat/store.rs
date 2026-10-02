@@ -245,15 +245,18 @@ impl LegacyStore {
         fields: &[&str],
     ) -> Result<bool> {
         let rows = self.query(group,
-            "CALL db.indexes() YIELD label,properties,types,entitytype WHERE label=$label AND entitytype=$kind AND all(field IN $fields WHERE field IN properties AND 'FULLTEXT' IN types[field]) RETURN count(*)",
+            "CALL db.indexes() YIELD label,properties,types,entitytype,status WHERE label=$label AND entitytype=$kind AND all(field IN $fields WHERE field IN properties AND 'FULLTEXT' IN types[field]) RETURN status",
             json!({"label":label,"kind":kind,"fields":fields}),false).await?;
-        let count = rows
+        ensure!(rows.len() <= 1, "ambiguous fulltext index");
+        let Some(row) = rows.first() else {
+            return Ok(false);
+        };
+        let status = row
             .first()
-            .and_then(|r| r.first())
-            .and_then(Value::as_i64)
-            .unwrap_or(0);
-        ensure!(count <= 1, "ambiguous fulltext index");
-        Ok(count == 1)
+            .and_then(Value::as_str)
+            .context("invalid fulltext index status")?;
+        super::fulltext::require_operational(status)?;
+        Ok(true)
     }
     pub async fn keyword_nodes(
         &self,

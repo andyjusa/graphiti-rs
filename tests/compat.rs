@@ -23,6 +23,14 @@ use std::{
 fn dir() -> PathBuf {
     std::env::temp_dir().join(format!("graphiti-rs-compat-{}", uuid::Uuid::new_v4()))
 }
+#[test]
+fn fulltext_index_readiness_rejects_incomplete_or_unknown_status() {
+    let ready = graphiti_rs::compat::fulltext::require_operational;
+    ready("OPERATIONAL").unwrap();
+    for status in ["[Indexing] 5/1200: UNDER CONSTRUCTION", "", "UNKNOWN"] {
+        assert!(ready(status).unwrap_err().to_string().contains("not ready"));
+    }
+}
 fn request(id: &str) -> AddMemory {
     serde_json::from_value(json!({"uuid":id,"name":"synthetic","episode_body":"Gaon works at Saebit","group_id":"user_primary"})).unwrap()
 }
@@ -1508,6 +1516,28 @@ async fn indexed_keyword_search_uses_fulltext_order_filters_and_no_read_side_wri
         .await
         .unwrap();
     assert_ne!(before, indexed);
+    // Fulltext population is asynchronous; readiness must precede retrieval.
+    let ready = async {
+        loop {
+            let reply: redis::Value = redis::cmd("GRAPH.RO_QUERY")
+                .arg(&group)
+                .arg("CALL db.indexes() YIELD status RETURN status")
+                .query_async(&mut c)
+                .await
+                .unwrap();
+            if let redis::Value::Array(parts) = reply
+                && let Some(redis::Value::Array(rows)) = parts.get(1)
+                && rows.len() == 2
+                && rows.iter().all(|row| matches!(row, redis::Value::Array(cells) if cells.first() == Some(&redis::Value::BulkString(b"OPERATIONAL".to_vec()))))
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(30), ready)
+        .await
+        .unwrap();
     let hits = store
         .keyword_facts(&group, "the cat", None, 20)
         .await
@@ -1559,6 +1589,16 @@ async fn indexed_keyword_search_uses_fulltext_order_filters_and_no_read_side_wri
         .execute(
             "search_memory_facts",
             json!({"query":"the cat","group_ids":[group],"max_facts":10}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(hits["facts"][0]["uuid"], id(201));
+    // Rare whole-token cat ranks above frequent catapult in the fulltext
+    // score. Substring re-sorting would put the two-term catapult hit first.
+    let hits = engine
+        .execute(
+            "search_memory_facts",
+            json!({"query":"cat catapult","group_ids":[group],"max_facts":10}),
         )
         .await
         .unwrap();
