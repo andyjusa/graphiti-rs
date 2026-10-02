@@ -33,8 +33,10 @@ pub fn query(text: &str, group: &str) -> Result<Option<String>> {
         .filter(|w| !STOPWORDS.contains(&w.to_lowercase().as_str()))
         .collect();
     // Python measures the space-separated OR expression plus group count.
-    // Empty/all-stopword input returns no hits instead of emitting invalid ().
-    if words.is_empty() || words.len() * 2 >= 128 {
+    // The SDK's empty fulltext expression fails; preserve that refusal without
+    // sending malformed Cypher. Blank public search exits earlier in Engine.
+    ensure!(!words.is_empty(), "query has no searchable fulltext terms");
+    if words.len() * 2 >= 128 {
         return Ok(None);
     }
     Ok(Some(format!(

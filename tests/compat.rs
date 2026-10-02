@@ -1155,6 +1155,61 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
     cfg.llm_key_file = Some(path.join("llm.key"));
     cfg.gemini_key_file = Some(path.join("gemini.key"));
     let engine = Engine::new(cfg.clone()).await.unwrap();
+    // Blank searches and rejected filters must not spend embedding requests.
+    for query in ["", " \t\n"] {
+        let nodes = engine
+            .execute("search_nodes", json!({"query":query,"entity_types":[]}))
+            .await
+            .unwrap();
+        assert_eq!(
+            nodes,
+            json!({"message":"No relevant nodes found","nodes":[]})
+        );
+        let facts = engine
+            .execute("search_memory_facts", json!({"query":query}))
+            .await
+            .unwrap();
+        assert_eq!(
+            facts,
+            json!({"message":"No relevant facts found","facts":[]})
+        );
+    }
+    let nodes = engine
+        .execute(
+            "search_nodes",
+            json!({"query":"","group_ids":[],"entity_types":["two words"]}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(nodes["nodes"], json!([]));
+    for labels in [vec![], vec![""], vec!["Person|Company"], vec!["two words"]] {
+        assert!(
+            engine
+                .execute(
+                    "search_nodes",
+                    json!({"query":"Gaon","entity_types":labels})
+                )
+                .await
+                .is_err()
+        );
+    }
+    for tool in ["search_nodes", "search_memory_facts"] {
+        assert!(
+            engine
+                .execute(tool, json!({"query":"the a and"}))
+                .await
+                .is_err()
+        );
+        assert!(engine.execute(tool, json!({"query":"?!"})).await.is_err());
+        assert!(
+            engine
+                .execute(tool, json!({"query":"","group_ids":["unknown"]}))
+                .await
+                .is_err()
+        );
+    }
+    assert_eq!(state.embeds.load(Ordering::SeqCst), 0);
+    assert_eq!(state.calls.load(Ordering::SeqCst), 0);
     let across = engine
         .execute(
             "get_episodes",
@@ -1174,6 +1229,21 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
     let fair=engine.execute("search_nodes",json!({"query":"가온","group_ids":["general_chat","user_primary","general_chat"],"max_nodes":2})).await.unwrap();
     assert_eq!(fair["nodes"][0]["group_id"], "general_chat");
     assert_eq!(fair["nodes"][1]["group_id"], "user_primary");
+    let ordinary = engine
+        .execute(
+            "search_nodes",
+            json!({"query":"Gaon","entity_types":["Person"]}),
+        )
+        .await
+        .unwrap();
+    let final_lf = engine
+        .execute(
+            "search_nodes",
+            json!({"query":"Gaon","entity_types":["Person\n"]}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ordinary, final_lf);
     let absent = uuid::Uuid::new_v4().to_string();
     assert_eq!(
         engine
@@ -2276,8 +2346,7 @@ async fn indexed_keyword_search_uses_fulltext_order_filters_and_no_read_side_wri
         store
             .keyword_facts(&group, "the a and", None, 20)
             .await
-            .unwrap()
-            .is_empty()
+            .is_err()
     );
     assert!(
         store

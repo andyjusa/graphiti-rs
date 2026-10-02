@@ -251,19 +251,26 @@ impl Engine {
             }
             "search_nodes" => {
                 let r: NodeSearch = serde_json::from_value(args)?;
-                crate::domain::text(&r.query, 4096, "query")?;
+                search_text(&r.query)?;
                 let groups = policy::groups(r.group_ids.as_deref())?;
                 let limit = policy::limit(r.max_nodes)?;
-                if let Some(types) = &r.entity_types {
-                    ensure!(
-                        types.len() <= 32 && types.iter().all(|x| x.len() <= 128),
-                        "entity type filter exceeds limits"
-                    );
-                }
                 let _permit = self.reads.try_acquire()?;
                 if groups.is_empty() {
                     return Ok(json!({"message":"No relevant nodes found","nodes":[]}));
                 }
+                let types = r
+                    .entity_types
+                    .as_deref()
+                    .map(policy::node_labels)
+                    .transpose()?;
+                if r.query.trim().is_empty() {
+                    return Ok(json!({"message":"No relevant nodes found","nodes":[]}));
+                }
+                ensure!(
+                    types.as_ref().is_none_or(|t| !t.is_empty()),
+                    "empty entity type filter is not a valid SDK label expression"
+                );
+                super::fulltext::query(&r.query, &groups[0])?;
                 let vector = match replay {
                     Some(vector) => Some(vector.to_vec()),
                     None => self.query_vector(&r.query).await?,
@@ -279,12 +286,12 @@ impl Engine {
                 for group in groups {
                     let mut nodes = self
                         .store
-                        .keyword_nodes(&group, &r.query, r.entity_types.as_deref(), candidates)
+                        .keyword_nodes(&group, &r.query, types.as_deref(), candidates)
                         .await?;
                     let keyword_ids = nodes.iter().map(|n| n.uuid.clone()).collect::<Vec<_>>();
                     let semantic = if let Some(vector) = &vector {
                         self.store
-                            .semantic_nodes(&group, vector, r.entity_types.as_deref(), candidates)
+                            .semantic_nodes(&group, vector, types.as_deref(), candidates)
                             .await?
                     } else {
                         vec![]
@@ -306,7 +313,7 @@ impl Engine {
             }
             "search_memory_facts" => {
                 let r: FactSearch = serde_json::from_value(args)?;
-                crate::domain::text(&r.query, 4096, "query")?;
+                search_text(&r.query)?;
                 let groups = policy::groups(r.group_ids.as_deref())?;
                 let limit = policy::limit(r.max_facts)?;
                 if let Some(id) = &r.center_node_uuid {
@@ -317,9 +324,10 @@ impl Engine {
                     );
                 }
                 let _permit = self.reads.try_acquire()?;
-                if groups.is_empty() {
+                if groups.is_empty() || r.query.trim().is_empty() {
                     return Ok(json!({"message":"No relevant facts found","facts":[]}));
                 }
+                super::fulltext::query(&r.query, &groups[0])?;
                 let vector = match replay {
                     Some(vector) => Some(vector.to_vec()),
                     None => self.query_vector(&r.query).await?,
@@ -449,6 +457,14 @@ impl Engine {
             .await?;
         Ok(v.pop())
     }
+}
+fn search_text(query: &str) -> Result<()> {
+    // The SDK returns an empty search for blank text before invoking providers.
+    ensure!(
+        query.len() <= 4096 && !query.contains('\0'),
+        "query exceeds limits or contains a null byte"
+    );
+    Ok(())
 }
 pub fn episode_public(e: &LegacyEpisode) -> Value {
     json!({"uuid":e.uuid,"name":e.name,"content":e.content,"source":e.source,"source_description":e.source_description,"created_at":e.created_at,"group_id":e.group_id})

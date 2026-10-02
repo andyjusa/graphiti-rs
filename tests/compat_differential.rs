@@ -491,16 +491,8 @@ fn observed_falkor_fulltext_query_matches_rust_on_punctuation_stopwords_and_boun
             "{case}"
         );
     }
-    // Deliberate safety improvement over the baseline's invalid empty () query.
-    assert!(
-        graphiti_rs::compat::fulltext::query("the a and", group)
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        graphiti_rs::compat::fulltext::query("***", group)
-            .unwrap()
-            .is_none()
-    );
+    // Preserve the SDK's invalid empty-expression refusal without executing it.
+    assert!(graphiti_rs::compat::fulltext::query("the a and", group).is_err());
+    assert!(graphiti_rs::compat::fulltext::query("***", group).is_err());
     assert!(graphiti_rs::compat::fulltext::query("term", "unknown").is_err());
 }

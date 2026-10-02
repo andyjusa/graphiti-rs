@@ -1,0 +1,27 @@
+{
+  "scope": "private original-memory search negative/empty cases",
+  "cases": 82,
+  "categories": {
+    "empty_entities": 20,
+    "empty_facts": 21,
+    "blank_query": 4,
+    "stopword_query": 4,
+    "semantic_without_keyword": 2,
+    "group_guard": 12,
+    "invalid_limit": 4,
+    "type_guard": 10,
+    "empty_group_filter": 2,
+    "empty_type_filter": 2,
+    "center_group_guard": 1
+  },
+  "tools": {
+    "search_nodes": 47,
+    "search_memory_facts": 35
+  },
+  "reference_refusals": 26,
+  "sdk_readonly_queries": 232,
+  "provider_calls": 0,
+  "reference_setup_sha256": "387deb6871d31d8a2bb2a1063ce42079d2d5ce7f5d7e3e99219d8fc9c97feaa9",
+  "node_wrapper_sha256": "298ecb087f46a935533adc160795ca16464fbeef4fc8c3a5ba4f1df48715f847",
+  "fixture_sha256": "563d26263ff29910751408db5a54579725c25d0140d1181a47d16c7b9659de13"
+}

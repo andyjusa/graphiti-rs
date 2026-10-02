@@ -65,6 +65,29 @@ pub fn uuid(value: &str) -> Result<()> {
     ensure!(uuid::Uuid::parse_str(value).is_ok(), "invalid UUID");
     Ok(())
 }
+pub fn node_labels(labels: &[String]) -> Result<Vec<String>> {
+    ensure!(
+        labels.len() <= 32 && labels.iter().all(|s| s.len() <= 128),
+        "entity type filter exceeds limits"
+    );
+    labels
+        .iter()
+        .map(|label| {
+            // Python's pinned identifier regex permits one final LF via `$`;
+            // Cypher treats it as whitespace following the identifier.
+            let name = label.strip_suffix('\n').unwrap_or(label);
+            let mut bytes = name.bytes();
+            ensure!(
+                bytes
+                    .next()
+                    .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_')
+                    && bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_'),
+                "invalid entity type label"
+            );
+            Ok(name.to_owned())
+        })
+        .collect()
+}
 pub fn limit(value: i64) -> Result<usize> {
     ensure!((1..=100).contains(&value), "result limit must be 1..=100");
     Ok(value as usize)

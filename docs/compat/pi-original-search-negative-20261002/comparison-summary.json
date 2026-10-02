@@ -1,0 +1,15 @@
+{
+  "cases": 82,
+  "mismatch_paths": {},
+  "provider_calls": 0,
+  "scope": "provider-free original-memory search replay; not query embedding quality",
+  "totals": {
+    "reference_refusals": 26,
+    "search_memory_facts_compared": 35,
+    "search_memory_facts_matched": 35,
+    "search_nodes_compared": 47,
+    "search_nodes_matched": 47
+  },
+  "elapsed_seconds": 3.259,
+  "binary_sha256": "12433d5b966a4559e3b2b73289071dc58560c6cc1c72a391cd84ce2ea90bd927"
+}

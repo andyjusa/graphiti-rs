@@ -1,0 +1,18 @@
+{
+  "cases": 82,
+  "mismatch_paths": {
+    "/error": 19,
+    "/facts": 4,
+    "/message": 19,
+    "/nodes": 15
+  },
+  "provider_calls": 0,
+  "scope": "provider-free original-memory search replay; not query embedding quality",
+  "totals": {
+    "reference_refusals": 26,
+    "search_memory_facts_compared": 35,
+    "search_memory_facts_matched": 31,
+    "search_nodes_compared": 47,
+    "search_nodes_matched": 32
+  }
+}
