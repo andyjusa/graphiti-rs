@@ -313,11 +313,29 @@ async fn semantic_search_finds_old_fact_outside_recent_window() {
         )
         .await
         .unwrap();
+    assert!(
+        !memory
+            .store
+            .facts(
+                "synthetic",
+                "2026-10-02T01:00:00Z"
+                    .parse::<chrono::DateTime<chrono::Utc>>()
+                    .unwrap()
+                    .timestamp_millis(),
+                50
+            )
+            .await
+            .unwrap()
+            .iter()
+            .any(|f| f.id == target)
+    );
+    // Avoid incidental substring matches (e.g. a single "a"); this case isolates
+    // semantic candidate recall, independently of the keyword ranking recipe.
     let hits = memory
         .search
         .facts(SearchRequest {
             group_id: "synthetic".into(),
-            query: "Someone rides a bike".into(),
+            query: "semantic outlier".into(),
             limit: 10,
             as_of: Some("2026-10-02T01:00:00Z".parse().unwrap()),
         })
