@@ -1,0 +1,15 @@
+{
+  "owned_pi_containers_removed": 4,
+  "owned_internal_network_removed": true,
+  "synthetic_test_credentials_and_oauth_state_removed": true,
+  "private_evidence_retained": true,
+  "original_graphiti_gateway_restore_ids_and_start_times_unchanged": true,
+  "original_graphiti_and_restore_healthy": true,
+  "original_gateway_running": true,
+  "operational_gateway_source_unchanged": true,
+  "initial_backup_and_restore_audit_hashes_unchanged": true,
+  "operational_routes_changed": false,
+  "actual_provider_calls": 0,
+  "operational_writes": 0,
+  "owned_local_container_and_network_removed": true
+}

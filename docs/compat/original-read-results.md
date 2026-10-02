@@ -28,6 +28,8 @@ The observed Node bridge and direct Rust endpoint both pass native 2026-07-28 di
 
 A [known OAuth limitation](pi-original-read-20261002/oauth-modern-limitation.json) remains: its deployed forwarding allowlist omits Mcp-Method and Mcp-Name. Modern discovery through that gateway receives HTTP 400 / -32020. OAuth verification therefore covers 2025-11-25; modern direct/Node transport success does not certify modern OAuth. A future gateway integration must forward those standard headers without weakening bearer or Origin validation.
 
+A subsequent [isolated header patch comparison](oauth-header-results.md) now verifies modern and legacy requests on the Pi, including preserved duplicate-header refusals. It uses fresh empty test data and seeded synthetic OAuth state; the operational gateway and this original-read evidence remain unchanged.
+
 [Recovery checks](pi-original-read-20261002/reconnect-summary.json) stop only the owned Rust test backend, observe the Node bridge's -32603 and OAuth's 502, then recover unchanged original reads through all three paths. Restarting each test gateway also retains token acceptance. This is a read-service failure/recovery rehearsal; no operational upstream switch or operational rollback was exercised.
 
 ## Bounded Pi measurements
