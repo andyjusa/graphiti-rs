@@ -1,0 +1,23 @@
+{
+  "scope": "Actual deployed ten classification-only models; synthetic message/JSON/text episodes and mock providers",
+  "package": "graphiti-core 0.28.2",
+  "profile_sha256": "3eeb8a596599548cf0a61163c8f20fb10a0a73494664919d982f912b65c98ec8",
+  "entity_type_count": 10,
+  "episodes": 3,
+  "cumulative_entities": [
+    10,
+    10,
+    20
+  ],
+  "model_calls": 11,
+  "actual_provider_calls": 0,
+  "canonical_graphs_match": true,
+  "schemas_match_real_pydantic": true,
+  "classification_prompts_match": 3,
+  "dedup_classifications_match": 3,
+  "existing_identity_preserved": true,
+  "existing_labels_preserved_on_reclassification": true,
+  "graphiti_source_sha256": "8487af6bda1b4efa914f4a827502d4f241a4e3c8ce7973df3c410e4b2ef8153f",
+  "edge_patch_sha256": "7abd25af31520e3951625c7a3739033bf9469b0d466c592243d9eaa8b3153939",
+  "limits": "Supplied model responses/basis embeddings. No relation extraction, real-provider quality, operational write, transport or cutover evidence."
+}

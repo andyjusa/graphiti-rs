@@ -1,0 +1,7 @@
+{
+  "tests/compat.rs": "2981d43e5a92bb6acb36a109fcf5a5dd2458729dfabc30d2b9d4bafc899dfc40",
+  "tests/support/configured_profile.rs": "c38eb5eb3b309875eeb2d74cf64830e44da91325faeecb5936157e518c00ff63",
+  "scripts/python-pi-configured-profile.py": "a3e22862aed4649d3fb7461dce3de6f7aa4aae8c26c0595b07f9648bec0abdc6",
+  "scripts/python-pi-pipeline.py": "0f63fc6dedc5d7a1684177075cee06f3171bb0cbefa69bda0aa4ee94da82aae4",
+  "observed MCP classification factory source": "ee7517e7c5f9b2e6b37ef61c0cb17013199b420da8d91fdd57829191d4298bbf"
+}

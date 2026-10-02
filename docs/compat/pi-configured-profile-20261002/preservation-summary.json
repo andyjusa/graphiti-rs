@@ -1,0 +1,17 @@
+{
+  "original_service_id_unchanged": true,
+  "original_service_start_unchanged": true,
+  "original_service_healthy": true,
+  "restore_service_id_unchanged": true,
+  "restore_service_start_unchanged": true,
+  "restore_service_healthy": true,
+  "initial_backup_sha256_unchanged": true,
+  "restore_audit_sha256_unchanged": true,
+  "disposable_container_removed": true,
+  "disposable_internal_network_removed": true,
+  "owned_loopback_relay_stopped": true,
+  "private_evidence_retained": true,
+  "operational_routes_changed": false,
+  "operational_writes": 0,
+  "actual_provider_calls": 0
+}

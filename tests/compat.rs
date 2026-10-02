@@ -1,4 +1,6 @@
 #![cfg(feature = "graphiti-compat")]
+#[path = "support/configured_profile.rs"]
+mod configured_profile;
 use graphiti_rs::compat::{
     config::{CompatConfig, WriteMode},
     dto::*,

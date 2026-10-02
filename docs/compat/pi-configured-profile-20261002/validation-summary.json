@@ -1,0 +1,14 @@
+{
+  "local_all_features_nonignored_tests": 30,
+  "local_disposable_compat_tests": 10,
+  "fmt_check": "passed",
+  "clippy_all_targets_all_features_warnings_denied": "passed",
+  "python_harness_syntax_check": "passed",
+  "pi_release_configured_profile_test": "passed",
+  "pi_rust_binary_sha256": "55ed390598318fe3b747c773967af37d528f51a3a01ad5fd66f87ef2be4e51a9",
+  "pi_architecture": "aarch64",
+  "pi_database_image": "sha256:ed8f5d566429152635aaf6795ffd4e5bfd11f704ea03d6cc79fa25c41384d854",
+  "pi_database_module": 41606,
+  "pi_redis": "8.2.3",
+  "scope": "Local default ten synthetic classifications; private actual ten classifications on the Pi. Existing prior test counts are historical and not added to this run."
+}
