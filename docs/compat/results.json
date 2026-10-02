@@ -60,7 +60,7 @@
     {
       "id": "C12",
       "status": "partial",
-      "evidence": "Observed MCP recipes exclude BFS. Source-function ranking and actual Pi indexed reads pass. Real Python hybrid SDK search retrieves a synthetic vector outlier that bounded Rust compatibility search misses; replacement remains no-go."
+      "evidence": "Observed MCP recipes exclude BFS. Global semantic node/fact ranking precedes the candidate bound; the actual Python hybrid SDK and Rust now return the same synthetic outlier UUID beyond the old window. Keyword substring/BM25 and full retrieval quality remain separate gaps."
     },
     {
       "id": "C13",
@@ -140,7 +140,7 @@
     {
       "id": "C28",
       "status": "partial",
-      "evidence": "Same observed Pi image, Redis8.2.3/module41606/hash used for isolated synthetic tests; 42 pass. Original-data backup/restore, complete Python extraction pipeline and gateway are not tested."
+      "evidence": "Same observed Pi image, Redis8.2.3/module41606/hash used for isolated synthetic tests; 45 pass including three global-semantic regressions. Original-data backup/restore, complete Python extraction pipeline and gateway remain untested."
     },
     {
       "id": "C29",
@@ -174,31 +174,32 @@
     "isolated_db": {
       "status": "passed",
       "environment": "GitHub Ubuntu service, FalkorDB 4.14.11, loopback provider mocks",
-      "source_commit": "9d642e06b25560ba32aaa01ea03766f680903db8",
-      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36973858192",
-      "compatibility_integrations": 3,
-      "standalone_integrations": 11,
-      "distinct_passing_tests_in_ci": 42,
+      "source_commit": "48cdbd84a04a6f5f23eb3e955f8a46be7f9523d6",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36979109286",
+      "compatibility_integrations": 4,
+      "standalone_integrations": 13,
+      "distinct_passing_tests_in_ci": 45,
       "real_local_minilm_tests": 2,
       "python_full_pipeline": false,
       "gemini_llm_numerical_generation_parity": false,
-      "relationship_first_indexed_reads": "passed against source-derived relationship-first query fixtures and isolated indexed FalkorDB4.14.11; production module not exercised"
+      "relationship_first_indexed_reads": "passed in isolated CI4.14.11 and actual Pi4.16.6, including global semantic ranking"
     },
     "same_pi": {
       "status": "synthetic_passed_replacement_no_go",
       "record": "docs/compat/observed-production.json",
       "plan": "docs/compat/pi-validation.md",
       "compose": "compose.compat-pi.yaml",
-      "compose_render": "passed; no resources created",
+      "compose_render": "passed and used for labelled isolated synthetic container/network",
       "backup_restore": false,
       "benchmarks": true,
       "provider_calls": false,
-      "source_commit": "9d642e06b25560ba32aaa01ea03766f680903db8",
-      "distinct_passing_tests": 42,
+      "source_commit": "48cdbd84a04a6f5f23eb3e955f8a46be7f9523d6",
+      "distinct_passing_tests": 45,
       "real_local_minilm": true,
-      "evidence": "docs/compat/pi-20261002",
+      "evidence": "docs/compat/pi-vector-fix-20261002",
       "transport": "labelled isolated docker-exec loopback relay; measured HTTP latency includes overhead",
-      "python_retrieval": "real driver/search path with supplied vectors; no extraction/MCP/provider parity"
+      "python_retrieval": "real driver/search with supplied vectors; specific outlier UUID list matches Rust; no extraction/MCP/provider parity",
+      "previous_evidence": "docs/compat/pi-20261002"
     },
     "actual_cutover": {
       "status": "not_executed",
@@ -221,18 +222,30 @@
       ],
       "label": "task=graphiti-rs-compat-pi-synthetic",
       "global_restart": false,
-      "production_container_health_after": "healthy; started2026-09-23T16:24:02.497549467Z"
+      "production_container_health_after": "healthy; started2026-09-23T16:24:02.497549467Z",
+      "followup_record": "docs/compat/pi-vector-fix-20261002/cleanup.json",
+      "timestamp_utc": "2026-10-02T07:41:35.532844+00:00"
     },
     "arm64": {
       "status": "passed",
-      "source_commit": "9d642e06b25560ba32aaa01ea03766f680903db8",
-      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36973858192",
+      "source_commit": "48cdbd84a04a6f5f23eb3e955f8a46be7f9523d6",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36979109286",
       "features": [
         "default",
         "local-embeddings",
         "graphiti-compat"
       ],
-      "actual_pi_execution": false
+      "actual_pi_execution": true
+    },
+    "semantic_outlier_fix": {
+      "status": "passed_on_ci_and_actual_pi",
+      "source_commit": "48cdbd84a04a6f5f23eb3e955f8a46be7f9523d6",
+      "compatibility_facts_and_nodes": "DB-wide supported vector ranking before candidate bound",
+      "standalone": "native DB ranking plus read-only 128-row original-JSON fallback; complete scan or error",
+      "original_json_deadline_seconds": 30,
+      "python_rust_identical_outlier_ids": true,
+      "retrieval_evidence": "docs/compat/vector-retrieval.md",
+      "full_corpus_quality_certified": false
     }
   }
 }

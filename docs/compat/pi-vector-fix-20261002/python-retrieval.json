@@ -1,0 +1,21 @@
+{
+  "scope": "real Python driver + complete hybrid edge-search path on synthetic DB; no extraction/MCP/provider parity",
+  "package": "graphiti-core 0.28.2",
+  "runtime_patch_sha256": "7abd25af31520e3951625c7a3739033bf9469b0d466c592243d9eaa8b3153939",
+  "corpus_facts": 1200,
+  "samples": 100,
+  "warmup": 5,
+  "legacy_text_identity_corpus_sha256": "a59b4fca5bf92e5d989b4187bb2df51fb8adf368636959fb5b90eea0be1053bf",
+  "p50_ms": 1102.8528187889606,
+  "p95_ms": 1170.8179691340774,
+  "p99_ms": 1304.3402589391917,
+  "recall_at_10": 1.0,
+  "mrr_at_10": 1.0,
+  "semantic_outlier_recall_at_10": 1,
+  "semantic_outlier_returned_uuids": [
+    "00000000-0000-4000-8000-000000018b4f"
+  ],
+  "max_rss_KiB": 107900,
+  "execution_limit": "shares isolated DB one-CPU/512MiB cgroup; SDK loopback path, not Rust HTTP/relay timing",
+  "actual_provider_calls": 0
+}

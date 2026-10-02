@@ -1,5 +1,7 @@
 # Raspberry Pi synthetic validation — 2026-10-02
 
+**Latest:** [the global vector retrieval follow-up](vector-retrieval.md) fixes the outlier disagreement and passes 45 Pi/CI tests. The measurements below are historical, from source `9d642e06`; its miss is superseded by the follow-up evidence.
+
 **Decision: standalone synthetic checks pass; Python-server replacement remains no-go.**
 
 Source commit `9d642e06b25560ba32aaa01ea03766f680903db8`; release build with both optional features. Raspberry Pi4 ModelB Rev1.2, aarch64, 3795MiB RAM. A fresh, private DB directory and labelled internal network used the observed image/Redis8.2.3/FalkorDB module41606 and matching module hash. The operational DB, mounts, gateway, credentials and routes were not changed.

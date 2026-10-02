@@ -1,0 +1,8 @@
+{
+  "scripts/pi-synthetic-validation.py": "1c79a3f513ccc67f3da72c58cf84d74dcd3077f4a3ad37b3f5bbe300a6d7836e",
+  "scripts/python-pi-retrieval.py": "3935ee2ac55747f9399270d8dc701ec72efc853012dcf48f4791c71cea849d56",
+  "scripts/isolated-db-relay.py": "cc6b26da5e3544d9495b54bd77243fd2c5b7bc6f97ae3edf383442ece39c376d",
+  "Dockerfile.pi-validation": "7a08c6067c87260ac5ff5b347f570620efdbffe7f6a8c976982c5192ce6802c6",
+  "compose.compat-pi.yaml": "cf8897bc9649dc130e30b1d298d89a1c95a7a53bb49175ca5bc3c5a40e5ebb88",
+  "compose.compat-pi-relay.yaml": "a2b552c463ba827533f19006dd9245f7b2020cbef26219cccd4cebf1633b6bac"
+}

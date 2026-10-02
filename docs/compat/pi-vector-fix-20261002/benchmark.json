@@ -1,0 +1,175 @@
+{
+  "scope": "same-Pi synthetic release binary, not replacement certification",
+  "status": "completed; semantic outlier gates passed for compatibility facts/nodes and standalone native/JSON vectors",
+  "corpus_facts": 1200,
+  "seed": 20261002,
+  "host_before": {
+    "MemAvailable_KiB": 2596112,
+    "SwapTotal_KiB": 2097148,
+    "SwapFree_KiB": 2089636
+  },
+  "legacy_text_identity_corpus_sha256": "a59b4fca5bf92e5d989b4187bb2df51fb8adf368636959fb5b90eea0be1053bf",
+  "legacy_embedding_space": "mock 3072-dim unit basis; first 64=basis0, final=basis1, others absent",
+  "binary_sha256": "a40f875464208e31144d3c70bc457e24a7abb79a7611c8c11422b3947b4e680f",
+  "production_mutations": false,
+  "real_provider_calls": false,
+  "standalone_keyword": {
+    "samples": 100,
+    "warmup": 5,
+    "p50_ms": 72.24322203546762,
+    "p95_ms": 116.18244415149093,
+    "p99_ms": 263.5222589597106,
+    "exact_uuid_recall_at_10": 1.0,
+    "errors": [],
+    "mrr_at_10": 1.0,
+    "first_rank_disagreement_examples": [],
+    "idle_cpu_seconds_per_2s": 0.0,
+    "search_cpu_seconds": 0.75,
+    "VmHWM_KiB": 12100,
+    "VmRSS_KiB": 11904,
+    "cpu_seconds": 0.94
+  },
+  "standalone_search_saturation": {
+    "concurrency": 32,
+    "requests": 100,
+    "admitted": 30,
+    "rejected": 70,
+    "rejection_examples": [
+      "{'content': [{'type': 'text', 'text': 'search busy; retry later'}], 'isError': True}"
+    ]
+  },
+  "standalone_sigkill_restart": "passed; exact episode unchanged",
+  "local_minilm_english_smoke": {
+    "samples": 10,
+    "warmup": 5,
+    "p50_ms": 110.5485709849745,
+    "p95_ms": 129.23631304875016,
+    "p99_ms": 129.23631304875016,
+    "exact_uuid_recall_at_10": 1.0,
+    "errors": [],
+    "mrr_at_10": 1.0,
+    "first_rank_disagreement_examples": [],
+    "idle_cpu_seconds_per_2s": 0.0,
+    "search_cpu_seconds": 1.9299999999999997,
+    "VmHWM_KiB": 193440,
+    "VmRSS_KiB": 109276,
+    "cpu_seconds": 4.77,
+    "scope": "four facts, one paraphrase repeated; not multilingual or corpus quality certification"
+  },
+  "compat_keyword": {
+    "samples": 100,
+    "warmup": 5,
+    "p50_ms": 60.4355342220515,
+    "p95_ms": 72.61250005103648,
+    "p99_ms": 227.88014402613044,
+    "exact_uuid_recall_at_10": 1.0,
+    "errors": [],
+    "mrr_at_10": 1.0,
+    "first_rank_disagreement_examples": [],
+    "idle_cpu_seconds_per_2s": 0.0,
+    "search_cpu_seconds": 0.19,
+    "VmHWM_KiB": 10288,
+    "VmRSS_KiB": 10288,
+    "cpu_seconds": 0.2
+  },
+  "type_empty_group_filters": "passed",
+  "standalone_semantic_outside_recent_window": {
+    "facts": 202,
+    "expected_id": "9f025f1a5928a93f42b4df33b7d82dd07f3447c544764c4fe86e1672b003aef7",
+    "returned_ids": [
+      "9f025f1a5928a93f42b4df33b7d82dd07f3447c544764c4fe86e1672b003aef7",
+      "007a934884a711e346c704b50dbdea6cf66d652cfa1982c677105584d797935b",
+      "01d6132ad7e573ea7eb1352776b7a55576df6b27291ade3bb7f9e22fc6da5128",
+      "0562041a623de76a5ea78eb87c3727e3841bc90ca19a72f2cf35c16b51449f49",
+      "0594cd5b88cb8c8578be89ad4005e133e567ac9314a5db6df3042297e3b3d847",
+      "07c2a1682967e8e39828775f5c31815018247d10b99d769609601770a895cb98",
+      "09c9397c4399752e671d970559aa48d1cc1321880dbbac87971e16c0e0fced73",
+      "09f667d8dad97d76f8f82ea74a12274f1772d0e9712520b07d637e326a73ee5c",
+      "0b81f571789d6b2e07523a1f2a4cffdc3fed47d6299a5042ec6498c1fda337ff",
+      "0c295c6d3573cf70e90eae8839069d963548799af765c9be3df6fee4aa302b01"
+    ],
+    "first_rank": 1,
+    "latency_ms": 105.30878999270499,
+    "VmHWM_KiB": 12492,
+    "VmRSS_KiB": 12492,
+    "cpu_seconds": 0.06
+  },
+  "standalone_json_only_semantic_fallback": {
+    "facts": 202,
+    "expected_id": "9f025f1a5928a93f42b4df33b7d82dd07f3447c544764c4fe86e1672b003aef7",
+    "returned_ids": [
+      "9f025f1a5928a93f42b4df33b7d82dd07f3447c544764c4fe86e1672b003aef7",
+      "007a934884a711e346c704b50dbdea6cf66d652cfa1982c677105584d797935b",
+      "01d6132ad7e573ea7eb1352776b7a55576df6b27291ade3bb7f9e22fc6da5128",
+      "0562041a623de76a5ea78eb87c3727e3841bc90ca19a72f2cf35c16b51449f49",
+      "0594cd5b88cb8c8578be89ad4005e133e567ac9314a5db6df3042297e3b3d847",
+      "07c2a1682967e8e39828775f5c31815018247d10b99d769609601770a895cb98",
+      "09c9397c4399752e671d970559aa48d1cc1321880dbbac87971e16c0e0fced73",
+      "09f667d8dad97d76f8f82ea74a12274f1772d0e9712520b07d637e326a73ee5c",
+      "0b81f571789d6b2e07523a1f2a4cffdc3fed47d6299a5042ec6498c1fda337ff",
+      "0c295c6d3573cf70e90eae8839069d963548799af765c9be3df6fee4aa302b01"
+    ],
+    "first_rank": 1,
+    "latency_ms": 207.07163703627884,
+    "VmHWM_KiB": 12536,
+    "VmRSS_KiB": 12536,
+    "cpu_seconds": 0.07
+  },
+  "semantic_outside_candidate_window": {
+    "expected_uuid": "00000000-0000-4000-8000-000000018b4f",
+    "returned_uuids": [
+      "00000000-0000-4000-8000-000000018b4f"
+    ],
+    "recall_at_10": 1,
+    "gate": "passed: DB ranks the entire supported vector set before the result bound"
+  },
+  "semantic_node_outside_candidate_window": {
+    "expected_uuid": "00000000-0000-4000-8000-0000000311ef",
+    "returned_uuids": [
+      "00000000-0000-4000-8000-0000000311ef"
+    ],
+    "first_rank": 1
+  },
+  "committed_sigkill_restart": "passed; exact metadata unchanged, zero repeat model calls",
+  "worker_metrics": {
+    "VmHWM_KiB": 12024,
+    "VmRSS_KiB": 12024,
+    "cpu_seconds": 0.01
+  },
+  "dispatch_ambiguity_sigkill_restart": "passed; failed receipt, no episode, no automatic provider replay",
+  "mock_calls": {
+    "llm": 2,
+    "embeddings": 33
+  },
+  "db_disconnect_reconnect": "passed; error status while isolated DB stopped, recovery without server restart",
+  "aof_db_restart": "passed; standalone and compatibility exact records survive, no provider replay",
+  "db_stats": {
+    "BlockIO": "5.69MB / 4.1kB",
+    "CPUPerc": "1.24%",
+    "Container": "graphiti-rs-compat-pi-falkordb-1",
+    "ID": "e73fc0bcf984",
+    "MemPerc": "11.76%",
+    "MemUsage": "60.23MiB / 512MiB",
+    "Name": "graphiti-rs-compat-pi-falkordb-1",
+    "NetIO": "3.85kB / 545B",
+    "PIDs": "18"
+  },
+  "redis_memory_bytes": {
+    "used_memory": 41033792,
+    "used_memory_rss": 76337152,
+    "used_memory_peak": 42441880
+  },
+  "transport": "Rust HTTP over loopback; DB over labelled docker-exec stdlib relay; latency includes relay overhead",
+  "limits": {
+    "db_cpu_quota": 1,
+    "db_memory_MiB": 512,
+    "rust_async_workers": 2,
+    "rust_blocking_threads_max": 4,
+    "server_process_cpu_or_memory_cgroup_limit": null
+  },
+  "host_after": {
+    "MemAvailable_KiB": 2408916,
+    "SwapTotal_KiB": 2097148,
+    "SwapFree_KiB": 2089636
+  }
+}

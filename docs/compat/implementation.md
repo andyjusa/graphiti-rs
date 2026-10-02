@@ -28,7 +28,7 @@ Three previous assumptions were corrected:
 
 ## Writes and journal
 
-Relationship-first fact reads match the observed runtime patch for bound-node edge-index omissions. Queries derive and validate both Entity endpoints before filtering; reads still create no indexes. Tests explicitly create the relationship range index only in their owned fixture graph. Actual current-module behavior remains a same-Pi gate.
+Relationship-first fact reads match the observed runtime patch for bound-node edge-index omissions. Queries derive and validate both Entity endpoints before filtering; reads still create no indexes. Tests explicitly create the relationship range index only in their owned fixture graph. Actual indexed reads and global semantic queries pass on the observed Pi module in isolated synthetic fixtures; restored original-schema breadth remains a gate.
 
 Readers preserve original UUIDs, timestamp strings/precision/offset, independent temporal fields, flat scalar/list attributes, structural/property labels and `vecf32` vectors. Public DTOs omit embeddings. Unsupported shapes and ambiguous exact UUIDs fail closed.
 

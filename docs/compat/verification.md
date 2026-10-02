@@ -6,9 +6,9 @@
 
 - Local fmt, all-target/all-feature clippy and all-feature tests pass;26 nonignored tests.
 - Two differential tests execute 40 synthetic inputs against hashed selected Python0.28.2 bodies; fake driver/model decisions remain distinct from complete pipeline execution.
-- [CI on Rust source9d642e06](https://github.com/andyjusa/graphiti-rs/actions/runs/36973858192) passes 42 distinct executable tests and ARM64 default/local/compatibility release builds, using FalkorDB 4.14.11.
-- The same Rust source passes all 42 release tests on actual Pi4 with the observed Redis8.2.3/module41606/image/module hashes. Optional local MiniLM runs actual CPU inference.
-- Isolated synthetic HTTP/resource/SIGKILL/DB outage/AOF checks pass. The actual Python SDK driver/hybrid search runs on the same synthetic corpus with mock vectors; its outlier recall differs from Rust. [Raw evidence](pi-20261002/benchmark.json).
+- [CI on Rust source48cdbd84](https://github.com/andyjusa/graphiti-rs/actions/runs/36979109286) passes 45 distinct executable tests and ARM64 default/local/compatibility release builds, using FalkorDB 4.14.11.
+- The same Rust source passes all 45 release tests on actual Pi4 with the observed Redis8.2.3/module41606/image/module hashes. Optional local MiniLM runs actual CPU inference.
+- Isolated synthetic HTTP/resource/SIGKILL/DB outage/AOF checks pass. The actual Python SDK driver/hybrid search runs on the same synthetic corpus with mock vectors; its specific outlier UUID list now matches Rust after global semantic ranking. [Follow-up evidence](vector-retrieval.md) preserves the historical miss and adds native/old-JSON regression coverage.
 - Operational original-memory restore, real LLM/Gemini comparison, full extraction/resolution pipeline, live gateway/cutover and rollback remain unexecuted.
 
 ## Cleanup and historical scope
@@ -32,7 +32,7 @@ Earlier Mac resources graphiti-rs-compat-db/data/net were removed on 2026-10-02 
 | C09 | verified | Required group enforced by shared Key shape; missing group produces protocol error. |
 | C10 | verified | Default/empty/duplicate read groups and round-robin merging matched observed helper behavior; empty groups call no models. |
 | C11 | partial | Global bound and sorting covered on small fixture; bounded lexical DB window is not full timestamp ordering parity. |
-| C12 | partial | Observed MCP recipes exclude BFS. Source-function ranking and actual Pi indexed reads pass. Real Python hybrid SDK search retrieves a synthetic vector outlier that bounded Rust compatibility search misses; replacement remains no-go. |
+| C12 | partial | Observed MCP recipes exclude BFS. Global semantic node/fact ranking precedes the candidate bound; the actual Python hybrid SDK and Rust now return the same synthetic outlier UUID beyond the old window. Keyword substring/BM25 and full retrieval quality remain separate gaps. |
 | C13 | verified | Gated worker distinguishes queue acceptance from exact committed lookup. |
 | C14 | verified | Concurrent same-UUID acceptance dispatches once; committed retry leaves original record intact. |
 | C15 | verified | Changed same-UUID input fails closed. Observed Python loads old body/metadata instead of replacing it; strict rejection is intentional. |
@@ -48,6 +48,6 @@ Earlier Mac resources graphiti-rs-compat-db/data/net were removed on 2026-10-02 
 | C25 | partial | Missing/wrong bearer, Host, Origin, oversized input and two protocol-version initializations tested; existing OAuth relay not exercised. |
 | C 26 | blocked | No actual bridge/session/routing operation authorized or performed. |
 | C27 | verified | Legacy connect/status/read create no native graph/index; isolated graph indexes remain empty. |
-| C28 | partial | Same observed Pi image, Redis8.2.3/module41606/hash used for isolated synthetic tests; 42 pass. Original-data backup/restore, complete Python extraction pipeline and gateway are not tested. |
+| C28 | partial | Same observed Pi image, Redis8.2.3/module41606/hash used for isolated synthetic tests; 45 pass including three global-semantic regressions. Original-data backup/restore, complete Python extraction pipeline and gateway remain untested. |
 | C29 | not_executed | Concrete gateway/reconnect/freeze/accounting/rollback gates documented; no routing/deployment/write freeze performed. |
 | C30 | partial | Pi4/aarch64/3795MiB synthetic timings, RSS, CPU, overload and restart recorded with 1CPU/512MiB DB. 1200 keyword facts and four English local-model facts do not certify production budgets or multilingual/large-corpus quality. |
