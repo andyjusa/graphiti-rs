@@ -318,6 +318,29 @@ fn private_dtos_preserve_vectors_but_public_results_do_not() {
     assert!(bad.validate().is_err());
 }
 #[test]
+fn public_dtos_match_observed_python_datetime_and_attribute_serialization() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/observed-sdk-public-dtos.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let mut node: LegacyEntity = serde_json::from_value(case["expected_node"].clone()).unwrap();
+        node.created_at = case["stored_timestamp"].as_str().unwrap().into();
+        node.name_embedding = Some(vector());
+        node.attributes
+            .insert("name_embedding".into(), json!([1.0]));
+        assert_eq!(node_public(&node), case["expected_node"]);
+        let mut fact: LegacyFact = serde_json::from_value(case["expected_fact"].clone()).unwrap();
+        fact.created_at = node.created_at.clone();
+        fact.valid_at = Some(node.created_at.clone());
+        fact.invalid_at = Some(node.created_at.clone());
+        fact.expired_at = Some(node.created_at.clone());
+        fact.fact_embedding = Some(vector());
+        fact.attributes
+            .insert("fact_embedding".into(), json!([1.0]));
+        assert_eq!(fact_public(&fact), case["expected_fact"]);
+        assert_eq!(fact.created_at, case["stored_timestamp"]);
+    }
+}
+#[test]
 fn deterministic_group_fairness() {
     assert_eq!(
         round_robin(
@@ -2178,7 +2201,7 @@ async fn indexed_keyword_search_uses_fulltext_order_filters_and_no_read_side_wri
 
 #[tokio::test]
 #[ignore = "requires dedicated disposable FalkorDB on loopback port 16379"]
-async fn recent_episodes_scan_complete_corpus_and_sort_actual_instants_across_groups() {
+async fn episodes_select_sdk_uuid_window_before_stable_global_time_sort() {
     let url = std::env::var("COMPAT_TEST_DB_URL").expect("explicit disposable DB required");
     assert_eq!(url, "redis://127.0.0.1:16379");
     let group = format!(
@@ -2203,7 +2226,7 @@ async fn recent_episodes_scan_complete_corpus_and_sort_actual_instants_across_gr
                     "{{id:'{}',created:'{}'}}",
                     id(i),
                     if i == 201 {
-                        "2026-09-30T23:00:00.123456789Z"
+                        "2026-09-30T01:00:00.123456+00:00"
                     } else {
                         "2026-10-01T01:00:00+14:00"
                     }
@@ -2226,7 +2249,7 @@ async fn recent_episodes_scan_complete_corpus_and_sort_actual_instants_across_gr
         .unwrap();
     let hits = store.episodes(&group, 1).await.unwrap();
     assert_eq!(hits[0].uuid, id(201));
-    assert_eq!(hits[0].created_at, "2026-09-30T23:00:00.123456789Z");
+    assert_eq!(hits[0].created_at, "2026-09-30T01:00:00.123456+00:00");
     let mut config = config(dir(), "http://127.0.0.1:9");
     config.mode = WriteMode::ReadOnly;
     config.redis_url = url;
@@ -2235,9 +2258,28 @@ async fn recent_episodes_scan_complete_corpus_and_sort_actual_instants_across_gr
     let hits = engine
         .execute(
             "get_episodes",
-            json!({"group_ids":[other,group],"max_episodes":1}),
+            json!({"group_ids":[other.clone(),group.clone()],"max_episodes":1}),
         )
         .await
         .unwrap();
-    assert_eq!(hits["episodes"][0]["uuid"], id(201));
+    assert_eq!(hits["episodes"][0]["uuid"], id(1));
+    assert_eq!(hits["episodes"][0]["group_id"], other);
+    for groups in [
+        [other.clone(), group.clone()],
+        [group.clone(), other.clone()],
+    ] {
+        let hits = engine
+            .execute("get_episodes", json!({"group_ids":groups,"max_episodes":2}))
+            .await
+            .unwrap();
+        assert_eq!(hits["episodes"][0]["group_id"], groups[0]);
+        assert_eq!(hits["episodes"][1]["group_id"], groups[1]);
+        assert!(
+            hits["episodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|e| e["uuid"] != id(201))
+        );
+    }
 }

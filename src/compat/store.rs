@@ -152,27 +152,19 @@ impl LegacyStore {
     pub async fn episodes(&self, group: &str, limit: usize) -> Result<Vec<LegacyEpisode>> {
         ensure!(limit <= 100, "episode limit exceeds bound");
         ensure!(limit > 0, "episode limit must be positive");
-        tokio::time::timeout(Duration::from_secs(30), async {
-            let mut best = vec![];
-            let mut after = String::new();
-            loop {
-                let rows = self.query(group,
-                    "MATCH (e:Episodic) WHERE e.group_id=$group AND e.uuid>$after RETURN properties(e),e.uuid ORDER BY e.uuid LIMIT 128",
-                    json!({"group":group,"after":after}),false).await?;
-                for row in &rows {
-                    after = row[1].as_str().context("missing episode UUID")?.to_owned();
-                    let p = map(&row[0])?;
-                    identity(&p, group, &after)?;
-                    let episode: LegacyEpisode = serde_json::from_value(Value::Object(p))?;
-                    let time = timestamp(&episode.created_at)?;
-                    best.push((episode,time));
-                }
-                best.sort_by(|a,b| b.1.cmp(&a.1).then_with(|| a.0.uuid.cmp(&b.0.uuid)));
-                best.truncate(limit);
-                if rows.len()<128 { break; }
-            }
-            Ok(best.into_iter().map(|(episode,_)| episode).collect())
-        }).await.context("episode scan timed out; no partial results returned")?
+        let rows = self.query(group,
+            "MATCH (e:Episodic) WHERE e.group_id=$group RETURN properties(e),e.uuid ORDER BY e.uuid DESC LIMIT $limit",
+            json!({"group":group,"limit":limit}),false).await?;
+        let mut episodes = Vec::with_capacity(rows.len());
+        for row in rows {
+            let uuid = row[1].as_str().context("missing episode UUID")?;
+            let props = map(&row[0])?;
+            identity(&props, group, uuid)?;
+            let episode: LegacyEpisode = serde_json::from_value(Value::Object(props))?;
+            timestamp(&episode.created_at)?;
+            episodes.push(episode);
+        }
+        Ok(episodes)
     }
     pub async fn context_episodes(
         &self,

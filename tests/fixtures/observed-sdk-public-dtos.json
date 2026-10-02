@@ -1,0 +1,142 @@
+{
+  "scope": "synthetic observed Python SDK public DTO fixtures",
+  "formatter_sha256": "4dddfef88a31aa33cc23d589d4bbfd97b80309dfa05dd732c356e99137892c6a",
+  "cases": [
+    {
+      "stored_timestamp": "2026-01-01T00:00:00+00:00",
+      "expected_node": {
+        "uuid": "synthetic-node",
+        "name": "Synthetic",
+        "group_id": "user_primary",
+        "labels": [
+          "Entity"
+        ],
+        "created_at": "2026-01-01T00:00:00Z",
+        "summary": "",
+        "attributes": {
+          "embedding_note": "keep"
+        }
+      },
+      "expected_fact": {
+        "uuid": "synthetic-edge",
+        "group_id": "user_primary",
+        "source_node_uuid": "source",
+        "target_node_uuid": "target",
+        "created_at": "2026-01-01T00:00:00Z",
+        "name": "TEST",
+        "fact": "Synthetic",
+        "episodes": [
+          "synthetic-episode"
+        ],
+        "expired_at": "2026-01-01T00:00:00Z",
+        "valid_at": "2026-01-01T00:00:00Z",
+        "invalid_at": "2026-01-01T00:00:00Z",
+        "attributes": {
+          "embedding_note": "keep"
+        }
+      }
+    },
+    {
+      "stored_timestamp": "2026-01-01T00:00:00.123+00:00",
+      "expected_node": {
+        "uuid": "synthetic-node",
+        "name": "Synthetic",
+        "group_id": "user_primary",
+        "labels": [
+          "Entity"
+        ],
+        "created_at": "2026-01-01T00:00:00.123000Z",
+        "summary": "",
+        "attributes": {
+          "embedding_note": "keep"
+        }
+      },
+      "expected_fact": {
+        "uuid": "synthetic-edge",
+        "group_id": "user_primary",
+        "source_node_uuid": "source",
+        "target_node_uuid": "target",
+        "created_at": "2026-01-01T00:00:00.123000Z",
+        "name": "TEST",
+        "fact": "Synthetic",
+        "episodes": [
+          "synthetic-episode"
+        ],
+        "expired_at": "2026-01-01T00:00:00.123000Z",
+        "valid_at": "2026-01-01T00:00:00.123000Z",
+        "invalid_at": "2026-01-01T00:00:00.123000Z",
+        "attributes": {
+          "embedding_note": "keep"
+        }
+      }
+    },
+    {
+      "stored_timestamp": "2026-01-01T00:00:00.000001Z",
+      "expected_node": {
+        "uuid": "synthetic-node",
+        "name": "Synthetic",
+        "group_id": "user_primary",
+        "labels": [
+          "Entity"
+        ],
+        "created_at": "2026-01-01T00:00:00.000001Z",
+        "summary": "",
+        "attributes": {
+          "embedding_note": "keep"
+        }
+      },
+      "expected_fact": {
+        "uuid": "synthetic-edge",
+        "group_id": "user_primary",
+        "source_node_uuid": "source",
+        "target_node_uuid": "target",
+        "created_at": "2026-01-01T00:00:00.000001Z",
+        "name": "TEST",
+        "fact": "Synthetic",
+        "episodes": [
+          "synthetic-episode"
+        ],
+        "expired_at": "2026-01-01T00:00:00.000001Z",
+        "valid_at": "2026-01-01T00:00:00.000001Z",
+        "invalid_at": "2026-01-01T00:00:00.000001Z",
+        "attributes": {
+          "embedding_note": "keep"
+        }
+      }
+    },
+    {
+      "stored_timestamp": "2026-01-01T09:00:00+09:00",
+      "expected_node": {
+        "uuid": "synthetic-node",
+        "name": "Synthetic",
+        "group_id": "user_primary",
+        "labels": [
+          "Entity"
+        ],
+        "created_at": "2026-01-01T09:00:00+09:00",
+        "summary": "",
+        "attributes": {
+          "embedding_note": "keep"
+        }
+      },
+      "expected_fact": {
+        "uuid": "synthetic-edge",
+        "group_id": "user_primary",
+        "source_node_uuid": "source",
+        "target_node_uuid": "target",
+        "created_at": "2026-01-01T09:00:00+09:00",
+        "name": "TEST",
+        "fact": "Synthetic",
+        "episodes": [
+          "synthetic-episode"
+        ],
+        "expired_at": "2026-01-01T09:00:00+09:00",
+        "valid_at": "2026-01-01T09:00:00+09:00",
+        "invalid_at": "2026-01-01T09:00:00+09:00",
+        "attributes": {
+          "embedding_note": "keep"
+        }
+      }
+    }
+  ]
+}

@@ -210,28 +210,17 @@ impl Engine {
                 let _permit = self.reads.try_acquire()?;
                 let mut episodes = vec![];
                 for group in groups {
-                    episodes.extend(self.store.episodes(&group, 100).await?);
-                    for e in &episodes {
-                        timestamp(&e.created_at)?;
-                    }
-                    episodes.sort_by(|a, b| {
-                        timestamp(&b.created_at)
-                            .unwrap()
-                            .cmp(&timestamp(&a.created_at).unwrap())
-                            .then_with(|| a.group_id.cmp(&b.group_id))
-                            .then_with(|| a.uuid.cmp(&b.uuid))
-                    });
-                    episodes.truncate(limit);
+                    // The observed SDK first takes each group's UUID-descending window.
+                    episodes.extend(self.store.episodes(&group, limit).await?);
                 }
                 for e in &episodes {
                     timestamp(&e.created_at)?;
                 }
+                // Python's stable global sort retains group/window order on ties.
                 episodes.sort_by(|a, b| {
                     timestamp(&b.created_at)
                         .unwrap()
                         .cmp(&timestamp(&a.created_at).unwrap())
-                        .then_with(|| a.group_id.cmp(&b.group_id))
-                        .then_with(|| a.uuid.cmp(&b.uuid))
                 });
                 episodes.truncate(limit);
                 Ok(
@@ -427,15 +416,34 @@ pub fn episode_public(e: &LegacyEpisode) -> Value {
     json!({"uuid":e.uuid,"name":e.name,"content":e.content,"source":e.source,"source_description":e.source_description,"created_at":e.created_at,"group_id":e.group_id})
 }
 pub fn node_public(n: &LegacyEntity) -> Value {
-    json!({"uuid":n.uuid,"name":n.name,"labels":n.labels,"created_at":n.created_at,"summary":n.summary,"group_id":n.group_id,"attributes":safe_attributes(&n.attributes)})
+    json!({"uuid":n.uuid,"name":n.name,"labels":n.labels,"created_at":public_timestamp(&n.created_at),"summary":n.summary,"group_id":n.group_id,"attributes":public_attributes(&n.attributes, "name_embedding")})
 }
 pub fn fact_public(f: &LegacyFact) -> Value {
-    json!({"uuid":f.uuid,"name":f.name,"fact":f.fact,"group_id":f.group_id,"source_node_uuid":f.source_node_uuid,"target_node_uuid":f.target_node_uuid,"created_at":f.created_at,"valid_at":f.valid_at,"invalid_at":f.invalid_at,"expired_at":f.expired_at,"episodes":f.episodes,"attributes":safe_attributes(&f.attributes)})
+    json!({"uuid":f.uuid,"name":f.name,"fact":f.fact,"group_id":f.group_id,"source_node_uuid":f.source_node_uuid,"target_node_uuid":f.target_node_uuid,"created_at":public_timestamp(&f.created_at),"valid_at":f.valid_at.as_deref().map(public_timestamp),"invalid_at":f.invalid_at.as_deref().map(public_timestamp),"expired_at":f.expired_at.as_deref().map(public_timestamp),"episodes":f.episodes,"attributes":public_attributes(&f.attributes, "fact_embedding")})
 }
-fn safe_attributes(attrs: &serde_json::Map<String, Value>) -> serde_json::Map<String, Value> {
+fn public_timestamp(value: &str) -> String {
+    use chrono::{DateTime, SecondsFormat, Timelike};
+    let Ok(parsed) = DateTime::parse_from_rfc3339(value) else {
+        return value.to_owned();
+    };
+    // Observed Pydantic JSON uses UTC Z and Python datetime's microsecond precision.
+    let parsed = parsed
+        .with_nanosecond(parsed.nanosecond() / 1000 * 1000)
+        .unwrap();
+    let precision = if parsed.nanosecond() == 0 {
+        SecondsFormat::Secs
+    } else {
+        SecondsFormat::Micros
+    };
+    parsed.to_rfc3339_opts(precision, true)
+}
+fn public_attributes(
+    attrs: &serde_json::Map<String, Value>,
+    vector_key: &str,
+) -> serde_json::Map<String, Value> {
     attrs
         .iter()
-        .filter(|(k, _)| !k.to_lowercase().contains("embedding"))
+        .filter(|(k, _)| k.as_str() != vector_key)
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect()
 }
