@@ -150,7 +150,7 @@ pub async fn prepare(
     if !unresolved.is_empty() {
         let extracted_context:Vec<_>=unresolved.iter().enumerate().map(|(id,i)| {
             let node=&extracted[*i];
-            let description=node.labels.iter().find(|l|l.as_str()!="Entity").and_then(|label|config.entity_types.iter().find(|t|&t.name==label)).map(|t|t.description.as_str()).unwrap_or("Default Entity Type");
+            let description=node.labels.iter().find(|l|l.as_str()!="Entity").and_then(|label|config.entity_types.iter().find(|t|&t.name==label)).map(|t|t.description.as_str()).filter(|description|!description.is_empty()).unwrap_or("Default Entity Type");
             json!({"id":id,"name":node.name,"entity_type":node.labels,"entity_type_description":description})
         }).collect();
         let existing_context: Vec<_> = candidates

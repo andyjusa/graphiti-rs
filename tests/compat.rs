@@ -1,4 +1,6 @@
 #![cfg(feature = "graphiti-compat")]
+#[path = "support/classification_boundary.rs"]
+mod classification_boundary;
 #[path = "support/configured_profile.rs"]
 mod configured_profile;
 #[path = "support/worker_failure.rs"]

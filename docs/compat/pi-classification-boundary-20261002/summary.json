@@ -1,0 +1,109 @@
+{
+  "baseline_commit": "b134c626a855b9189d963176e8d47f85adf6768d",
+  "source_sha256": {
+    "src/compat/pipeline.rs": "4c7a17c9da979c1262649441993d489649279b734f065321e5106c9b9543d9fc",
+    "tests/support/classification_boundary.rs": "507562be32ad1f0a56c168850e3b909638c6c30a97acfef3f6ab9b8fa0472902",
+    "tests/compat.rs": "f9b28fbf94ee3358c34bff8816ec95b1141d23832ea912022326754a9b6b3b51",
+    "scripts/python-pi-classification-boundary.py": "cc5f318371700bf85684dfd2d177024476dc42b5b5d6a6274f76acfc911c54fc",
+    "scripts/python-pi-pipeline.py": "0f63fc6dedc5d7a1684177075cee06f3171bb0cbefa69bda0aa4ee94da82aae4"
+  },
+  "original_classification_profile_sha256": "3eeb8a596599548cf0a61163c8f20fb10a0a73494664919d982f912b65c98ec8",
+  "local": {
+    "non_ignored_tests_passed": 30,
+    "compat_disposable_db_tests_passed": 12,
+    "format": "passed",
+    "clippy_all_targets_all_features": "passed",
+    "before_fix": {
+      "failed": true,
+      "description_actual": "",
+      "description_expected": "Default Entity Type"
+    }
+  },
+  "pi_rust": {
+    "actual_provider_calls": 0,
+    "cumulative_entities": [
+      6,
+      6,
+      12,
+      4,
+      4
+    ],
+    "episodes": 5,
+    "mock_llm_requests": 18,
+    "profiles": 3,
+    "binary_sha256": "a397a2a5c88f19279cab9638dd22ecd1f04bbaf861ef31eef5407148446d7270",
+    "passed": true
+  },
+  "pi_python": {
+    "scope": "Actual deployed Python classification fallbacks and optional classification descriptions; synthetic message/JSON/text only",
+    "package": "graphiti-core 0.28.2",
+    "python": "3.11.2",
+    "none_doc_is_null": true,
+    "profiles": 3,
+    "episodes": 5,
+    "cumulative_entities": [
+      6,
+      6,
+      12,
+      4,
+      4
+    ],
+    "mock_llm_requests": 18,
+    "actual_provider_calls": 0,
+    "extraction_prompts_match": 5,
+    "dedup_prompts_match": 4,
+    "default_descriptions_match": 15,
+    "whitespace_descriptions_match": 1,
+    "blank_names_supplied_and_filtered": 10,
+    "existing_identity_and_labels_checks": 12,
+    "canonical_graphs_match": true,
+    "schemas_match_real_pydantic": true,
+    "graphiti_source_sha256": "8487af6bda1b4efa914f4a827502d4f241a4e3c8ce7973df3c410e4b2ef8153f",
+    "node_operations_sha256": "49d8caad8e89aac5f9530dded21d816e840ccb53284a2b2d5e42073f90f56c34",
+    "edge_patch_sha256": "7abd25af31520e3951625c7a3739033bf9469b0d466c592243d9eaa8b3153939",
+    "limits": "Supplied responses and basis vectors; no relation/provider quality, original-data writes, transport or operational cutover evidence"
+  },
+  "database_module": [
+    {
+      "name": "graph",
+      "ver": 41606,
+      "path": "/var/lib/falkordb/bin/falkordb.so",
+      "args": []
+    },
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    }
+  ],
+  "preservation": {
+    "backup_sha256_unchanged": true,
+    "audit_sha256_unchanged": true,
+    "profile_sha256_unchanged": true,
+    "owned_container_removed": true,
+    "owned_network_removed": true,
+    "owned_relay_stopped": true,
+    "anonymous_volumes_created": false,
+    "operational_writes": 0,
+    "real_provider_calls": 0,
+    "original_service": {
+      "id_unchanged": true,
+      "start_unchanged": true,
+      "running": true,
+      "healthy": true
+    },
+    "original_gateway": {
+      "id_unchanged": true,
+      "start_unchanged": true,
+      "running": true,
+      "healthy": null
+    },
+    "read_only_restore": {
+      "id_unchanged": true,
+      "start_unchanged": true,
+      "running": true,
+      "healthy": true
+    }
+  }
+}
