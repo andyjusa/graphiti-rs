@@ -57,6 +57,28 @@ async fn persistence_idempotency_and_isolation() {
 }
 #[tokio::test]
 #[ignore = "requires disposable FalkorDB"]
+async fn reconnect_reuses_existing_range_indexes() {
+    let url =
+        std::env::var("TEST_FALKORDB_URL").unwrap_or_else(|_| "redis://127.0.0.1:16379".into());
+    let graph = format!("test_reconnect_{}", uuid::Uuid::new_v4().simple());
+    let first = Store::connect(&url, &graph).await.unwrap();
+    let e = episode("persistent", "g", 10);
+    first.ingest(&e, &extraction(), None, None).await.unwrap();
+    drop(first);
+    let reopened = Store::connect(&url, &graph).await.unwrap();
+    assert_eq!(
+        reopened
+            .episode("g", "persistent")
+            .await
+            .unwrap()
+            .unwrap()
+            .content,
+        e.content
+    );
+    assert_eq!(reopened.facts("g", 20000, 50).await.unwrap().len(), 1);
+}
+#[tokio::test]
+#[ignore = "requires disposable FalkorDB"]
 async fn shared_provenance_survives_deletion() {
     let s = setup().await;
     let x = extraction();

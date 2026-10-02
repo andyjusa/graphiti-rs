@@ -22,13 +22,32 @@ impl Store {
             connection,
             graph: graph.into(),
         };
-        for query in [
-            "CREATE INDEX FOR (e:Episode) ON (e.id)",
-            "CREATE INDEX FOR (n:Entity) ON (n.id)",
-            "CREATE INDEX FOR (m:MemoryGroup) ON (m.id)",
-            "CREATE INDEX FOR (n:Entity) ON (n.group_id)",
+        for (label, field) in [
+            ("Episode", "id"),
+            ("Entity", "id"),
+            ("MemoryGroup", "id"),
+            ("Entity", "group_id"),
         ] {
-            s.query(query, json!({})).await?;
+            let query = format!("CREATE INDEX FOR (n:{label}) ON (n.{field})");
+            if let Err(error) = s.query(&query, json!({})).await {
+                // FalkorDB 4.16.6 errors on an already indexed attribute. Only
+                // accept the failure when the requested node RANGE index exists.
+                let verification = format!(
+                    "CALL db.indexes() YIELD label,properties,types,entitytype WHERE label=$label AND $field IN properties AND entitytype='NODE' AND 'RANGE' IN types.{field} RETURN count(*)"
+                );
+                let existing = s
+                    .query(&verification, json!({"label":label,"field":field}))
+                    .await?;
+                let count: i64 = existing
+                    .first()
+                    .and_then(|row| row.first())
+                    .map(redis::from_redis_value)
+                    .transpose()?
+                    .unwrap_or(0);
+                if count != 1 {
+                    return Err(error);
+                }
+            }
         }
         Ok(s)
     }
