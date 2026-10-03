@@ -14,4 +14,6 @@ The four owned Pi containers and internal network, the owned local DB/network, a
 
 ## Adoption limits
 
-The patch is staged for review and remains unapplied to the operational gateway. Ordinary repository CI covers the Rust server; the independently sourced gateway validation is reproduced with the helper in [integration instructions](../../integration/oauth-gateway/README.md). This closes selected isolated header-forwarding evidence, not fresh GitHub OAuth login, active-client reconnect, original-memory reads through a switched service, operational rollback or adoption. The existing operational-switch/provider restrictions remain in force, and the full replacement goal is incomplete.
+On2026-10-03 the reviewed patch was applied to the operating gateway during the authorized Rust replacement. Its SQLite state and existing client credentials were retained. Both active Graphiti connectors, the stateless bridge, original episode reads and controlled post-switch ingestion worked through the switched service. DB/worker/gateway/bridge restart recovery passed. See [operating evidence](operational-cutover-20261003.md).
+
+The above2026-10-02 results describe isolated seeded-token tests; they do not claim a fresh GitHub login. That flow remains an additional unperformed check. Ordinary repository CI covers the Rust server; the independently sourced gateway validation is reproduced with the helper in [integration instructions](../../integration/oauth-gateway/README.md).

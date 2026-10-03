@@ -1,0 +1,118 @@
+{
+  "scope": "bounded actual ARM64 Raspberry Pi operating replacement",
+  "date": "2026-10-03",
+  "deployed_code_commit": "d97fe1a4f7d481510778240da150f29642ca1c2a",
+  "rust_binary_sha256": "9e5849094ec47685f7f952dc4da22d2c199b9800dbd6fc65912a7e400ff2b255",
+  "original_data_comparison": {
+    "graph_count": 72,
+    "node_count": 8839,
+    "edge_count": 19293,
+    "graph_mismatches": 0,
+    "opaque_values_match": true,
+    "telemetry_streams_excluded": "native per-query telemetry changes during read-only verification; retained in native backup"
+  },
+  "post_switch_episodes_committed": 2,
+  "fresh_retrieval": [
+    {
+      "language": "English",
+      "facts": 2,
+      "nodes": 4,
+      "relevant_fact_and_node": true
+    },
+    {
+      "language": "Korean",
+      "facts": 2,
+      "nodes": 4,
+      "relevant_fact_and_node": true
+    }
+  ],
+  "ten_tool_schema_sha256": "623add94c2569f39915bbd12c36db2f6fbc250c6a751c625c229e34896fcd129",
+  "post_request_resource_snapshot": "graphiti-rs-operational-graphiti-rs-1 6.762MiB / 384MiB\ngraphiti-rs-operational-falkordb-1 442.3MiB / 1GiB",
+  "two_active_connector_paths": "healthy; OAuth original and controlled episode reads verified",
+  "transport": {
+    "active_paths": [
+      {
+        "path": "mcp",
+        "modern_discovery_and_ten_tools": true,
+        "original_episode_reads": true
+      },
+      {
+        "path": "mcp-stateless",
+        "modern_discovery_and_ten_tools": true,
+        "original_episode_reads": true
+      },
+      {
+        "legacy_method": "initialize",
+        "status": 200
+      },
+      {
+        "legacy_method": "tools/list",
+        "status": 200
+      },
+      {
+        "legacy_method": "tools/call",
+        "status": 200
+      }
+    ],
+    "refusal_cases": [
+      "Mcp-Method_missing",
+      "Mcp-Method_mismatch",
+      "Mcp-Method_duplicate",
+      "Mcp-Name_missing",
+      "Mcp-Name_mismatch",
+      "Mcp-Name_duplicate",
+      "mcp_auth_missing",
+      "mcp_auth_invalid",
+      "mcp-stateless_auth_missing",
+      "mcp-stateless_auth_invalid",
+      "chatgpt/mcp_auth_missing",
+      "chatgpt/mcp_auth_invalid"
+    ],
+    "oauth_metadata_preserved": true,
+    "legacy_python_stopped_and_restart_disabled": true,
+    "provider_calls": 0
+  },
+  "restart": {
+    "production_db_worker_gateway_bridge_restarted": true,
+    "controlled_episodes_persisted": 2,
+    "receipt_replay": "committed",
+    "additional_generation_dispatches": false,
+    "oauth_state_row_counts_preserved": true,
+    "original_reads_and_health": "ok"
+  },
+  "final_checkpoint": {
+    "operating_status": "ok",
+    "original_graphs": 72,
+    "original_nodes": 8839,
+    "original_edges": 19293,
+    "redis_keys": 144,
+    "owned_test_group_removed": true,
+    "journal_test_receipts": "cleared",
+    "owned_stage_and_rehearsal_containers_removed": true,
+    "prior_python_and_data_preserved_stopped": true,
+    "final_backup_and_current_data_rollback_available": true,
+    "live_writer": "Rust",
+    "rollback_rehearsal": {
+      "legacy_original_reads": 2,
+      "legacy_reads_post_switch_rust_writes": 2,
+      "ten_tool_contract_matches": true,
+      "legacy_status": "ok",
+      "legacy_session_initialize_handshake": true,
+      "network": "none",
+      "original_operating_container_untouched": true,
+      "live_upstream_remains_rust": true,
+      "provider_network_calls_possible": false,
+      "tested_native_snapshot_to_aof_to_legacy_startup": true
+    }
+  },
+  "fresh_github_oauth_login_tested": false,
+  "live_rollback_executed": false,
+  "unit_and_compatibility_tests": {
+    "ordinary": 32,
+    "isolated_compatibility": 15,
+    "fmt": true,
+    "clippy_all_targets_all_features": true,
+    "deployed_code_push_and_pr_ci": "success"
+  },
+  "secret_and_original_memory_contents_exported_to_git": false
+}

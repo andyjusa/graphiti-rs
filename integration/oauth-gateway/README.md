@@ -2,7 +2,7 @@
 
 `standard-headers.patch` adds unchanged forwarding of `Mcp-Method` and `Mcp-Name` to the observed gateway0.1.2. Repeated values are retained so the Rust MCP transport can reject duplicate singleton headers. The existing four-header loop, backend credential replacement, token expiry checks and Origin rejection remain unchanged. No request-body rewriting or validation bypass is added.
 
-The pinned source hashes in `baseline.json` match both the local original gateway and the Pi host source. The source is a separate user-owned project and is not vendored here. The patch has **not been applied to the operational gateway**. The current restriction on operational switching still applies.
+The pinned source hashes in `baseline.json` match both the local original gateway and the Pi host source. The source is a separate user-owned project and is not vendored here. On2026-10-03 the reviewed patch was applied to the operating gateway, retaining its OAuth SQLite state and credentials. Active connector reads, modern/legacy backend and bridge requests, and restart recovery passed. See [operating cutover](../../docs/compat/operational-cutover-20261003.md). Fresh GitHub OAuth login was not repeated.
 
 ## Validate a copy
 
