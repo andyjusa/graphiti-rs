@@ -232,6 +232,7 @@ fn config(path: PathBuf, base: &str) -> CompatConfig {
         llm_base: base.into(),
         llm_model: "gpt-6-luna".into(),
         llm_key_file: None,
+        gemini_transport: graphiti_rs::compat::config::GeminiTransport::Native,
         gemini_base: base.into(),
         gemini_key_file: None,
         max_tokens: 512,

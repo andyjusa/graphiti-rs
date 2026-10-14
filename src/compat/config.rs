@@ -19,6 +19,11 @@ pub enum IngestionPipeline {
     Graphiti,
     CombinedPreview,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GeminiTransport {
+    Native,
+    FactChat,
+}
 #[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct EntityType {
     pub name: String,
@@ -34,6 +39,7 @@ pub struct CompatConfig {
     pub llm_base: String,
     pub llm_model: String,
     pub llm_key_file: Option<PathBuf>,
+    pub gemini_transport: GeminiTransport,
     pub gemini_base: String,
     pub gemini_key_file: Option<PathBuf>,
     pub max_tokens: usize,
@@ -76,6 +82,11 @@ impl CompatConfig {
             ),
             llm_model: get("COMPAT_LLM_MODEL", "gpt-6-luna"),
             llm_key_file: std::env::var_os("COMPAT_LLM_KEY_FILE").map(PathBuf::from),
+            gemini_transport: match get("COMPAT_GEMINI_TRANSPORT", "native").as_str() {
+                "native" => GeminiTransport::Native,
+                "factchat" => GeminiTransport::FactChat,
+                _ => anyhow::bail!("unknown Gemini transport"),
+            },
             gemini_base: get(
                 "COMPAT_GEMINI_BASE",
                 "https://generativelanguage.googleapis.com/v1beta",
@@ -161,21 +172,26 @@ impl CompatConfig {
                     == "https://factchat-cloud.mindlogic.ai/v1/gateway",
                 "operational LLM endpoint differs from the deployed profile"
             );
+            let embedding_base = match self.gemini_transport {
+                GeminiTransport::Native => "https://generativelanguage.googleapis.com/v1beta",
+                GeminiTransport::FactChat => "https://factchat-cloud.mindlogic.ai/v1/gateway",
+            };
             ensure!(
-                self.gemini_base.trim_end_matches('/')
-                    == "https://generativelanguage.googleapis.com/v1beta",
-                "operational embedding endpoint differs from the deployed profile"
+                self.gemini_base.trim_end_matches('/') == embedding_base,
+                "operational embedding endpoint differs from the selected transport"
             );
             read_secret(
                 self.llm_key_file
                     .as_deref()
                     .context("operational LLM credential file required")?,
             )?;
-            read_secret(
-                self.gemini_key_file
-                    .as_deref()
-                    .context("operational embedding credential file required")?,
-            )?;
+            if self.gemini_transport == GeminiTransport::Native {
+                read_secret(
+                    self.gemini_key_file
+                        .as_deref()
+                        .context("operational embedding credential file required")?,
+                )?;
+            }
         }
         Ok(())
     }

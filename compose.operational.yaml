@@ -54,7 +54,8 @@ services:
       COMPAT_QUEUE_CAPACITY: "32"
       COMPAT_SEARCH_CANDIDATES: "200"
       COMPAT_LLM_KEY_FILE: /secrets/llm-key
-      COMPAT_GEMINI_KEY_FILE: /secrets/gemini-key
+      COMPAT_GEMINI_TRANSPORT: factchat
+      COMPAT_GEMINI_BASE: https://factchat-cloud.mindlogic.ai/v1/gateway
       RUST_LOG: graphiti_rs=info
     volumes:
       - type: bind
@@ -69,11 +70,6 @@ services:
       - type: bind
         source: ${COMPAT_LLM_KEY:?supply the existing private LLM key file}
         target: /secrets/llm-key
-        read_only: true
-        bind: {create_host_path: false}
-      - type: bind
-        source: ${COMPAT_GEMINI_KEY:?supply the existing private Gemini key file}
-        target: /secrets/gemini-key
         read_only: true
         bind: {create_host_path: false}
     tmpfs: ["/tmp:rw,nosuid,nodev,size=64m,uid=1000,gid=1000"]
