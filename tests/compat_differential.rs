@@ -88,8 +88,7 @@ fn observed_python_prompts_and_entity_similarity_match_staged_pipeline() {
     }
     for (name, candidates) in [
         ("Saebit", vec!["Saebit", "Gaon"]),
-        ("Gaon", vec!["Gaon"]),
-        ("가온", vec!["가온"]),
+        // Short exact names intentionally follow latest main; see core regressions.
         ("Saebit", vec!["Saebit", " SAEBIT "]),
         ("OpenAI Research", vec!["OpenAI_Research", "Other company"]),
         ("Unrelated Company", vec!["Other Company"]),
@@ -491,8 +490,141 @@ fn observed_falkor_fulltext_query_matches_rust_on_punctuation_stopwords_and_boun
             "{case}"
         );
     }
-    // Preserve the SDK's invalid empty-expression refusal without executing it.
-    assert!(graphiti_rs::compat::fulltext::query("the a and", group).is_err());
-    assert!(graphiti_rs::compat::fulltext::query("***", group).is_err());
+    // Latest upstream skips the lexical branch instead of refusing these queries.
+    assert!(
+        graphiti_rs::compat::fulltext::query("the a and", group)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        graphiti_rs::compat::fulltext::query("***", group)
+            .unwrap()
+            .is_none()
+    );
     assert!(graphiti_rs::compat::fulltext::query("term", "unknown").is_err());
+}
+
+#[test]
+fn future_temporal_bounds_match_pinned_latest_upstream() {
+    let reference = "2026-10-15T09:00:00+09:00";
+    let before = "2026-10-14T00:00:00Z";
+    let after = "2026-10-23T00:00:00Z";
+    let cases = [
+        (
+            "Nova will complete by Friday.",
+            Some(reference),
+            Some(after),
+            Some(after),
+        ),
+        (
+            "Nova plans to complete before Friday.",
+            Some(reference),
+            None,
+            Some(after),
+        ),
+        (
+            "Nova SHALL complete no later than Friday.",
+            Some(reference),
+            Some(before),
+            Some(after),
+        ),
+        (
+            "Nova is scheduled to run until Friday.",
+            Some(reference),
+            Some(after),
+            Some(after),
+        ),
+        (
+            "Nova will run through Friday, due by then.",
+            Some(reference),
+            None,
+            Some(after),
+        ),
+        (
+            "Nova'll complete by Friday.",
+            Some(reference),
+            None,
+            Some(after),
+        ),
+        (
+            "Nova is complete by Friday.",
+            Some(reference),
+            Some(after),
+            Some(after),
+        ),
+        (
+            "Nova will complete by Friday.",
+            Some(reference),
+            Some(before),
+            Some(before),
+        ),
+        (
+            "Nova will complete by Friday.",
+            Some(reference),
+            Some(reference),
+            Some(reference),
+        ),
+        (
+            "Nova will complete by Friday.",
+            None,
+            Some(after),
+            Some(after),
+        ),
+        ("Nova will launch Friday.", Some(reference), None, None),
+        (
+            "Nova willing to complete by Friday.",
+            Some(reference),
+            Some(after),
+            Some(after),
+        ),
+        (
+            "노바는 금요일까지 완료할 예정이다.",
+            Some(reference),
+            Some(after),
+            Some(after),
+        ),
+    ];
+    let input: Vec<_> = cases.iter().map(|(fact,reference,valid,invalid)|
+        json!({"fact":fact,"reference":reference,"valid":valid,"invalid":invalid})).collect();
+    let mut child = Command::new("python3")
+        .args(["-S", "scripts/python-upstream-temporal.py"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&serde_json::to_vec(&input).unwrap())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let expected: Vec<[Option<String>; 2]> = serde_json::from_slice(&output.stdout).unwrap();
+    let instant = |value: Option<String>| {
+        value.map(|v| {
+            graphiti_rs::compat::dto::timestamp(&v)
+                .unwrap()
+                .with_timezone(&chrono::Utc)
+        })
+    };
+    for (case, expected) in cases.into_iter().zip(expected) {
+        let actual = graphiti_rs::compat::temporal::normalize_future_bounds(
+            case.0,
+            case.1,
+            case.2.map(str::to_owned),
+            case.3.map(str::to_owned),
+        )
+        .unwrap();
+        assert_eq!(
+            [instant(actual.0), instant(actual.1)],
+            expected.map(instant),
+            "{case:?}"
+        );
+    }
 }

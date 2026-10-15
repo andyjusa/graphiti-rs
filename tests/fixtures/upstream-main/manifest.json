@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/getzep/graphiti",
+  "commit": "aca369364226a666ca541b061ff2a1a54b80f2ff",
+  "files": {
+    "temporal_edge_utils.py": {
+      "source": "graphiti_core/utils/maintenance/temporal_edge_utils.py",
+      "sha256": "a86f7bc023e60c4a085677d589f9f183424eeb7324464149cddb344d052922fb"
+    }
+  },
+  "license": "Apache-2.0"
+}

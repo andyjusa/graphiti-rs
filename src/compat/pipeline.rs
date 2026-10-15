@@ -115,6 +115,7 @@ pub async fn prepare(
             name_embedding: None,
         });
     }
+    let extracted = collapse_extracted_nodes(extracted);
     let name_vectors = providers
         .embed(&extracted.iter().map(|n| n.name.clone()).collect::<Vec<_>>())
         .await?;
@@ -195,35 +196,27 @@ pub async fn prepare(
             );
         }
     }
-    let mut nodes_before = BTreeMap::new();
-    let mut nodes = vec![];
-    let mut node_ids = HashSet::new();
-    let mut pointers = HashMap::new();
-    for (new, old) in extracted.iter().zip(resolved) {
-        let node = old.unwrap_or_else(|| new.clone());
-        if node.uuid != new.uuid {
-            nodes_before.insert(node.uuid.clone(), node.clone());
-        }
-        pointers.insert(new.uuid.clone(), node.uuid.clone());
-        if node_ids.insert(node.uuid.clone()) {
-            nodes.push(node);
-        }
-    }
+    let CanonicalNodes {
+        mut nodes,
+        nodes_before,
+        pointers,
+    } = canonical_nodes(&extracted, resolved);
     let edge_context = json!({"episode_content":job.request.episode_body,"nodes":extracted.iter().map(|n|json!({"name":n.name,"entity_types":n.labels})).collect::<Vec<_>>(),"previous_episodes":previous,"reference_time":prompt_time(&job.created, false)?,"edge_types":[],"custom_extraction_instructions":""});
     let response: ExtractedEdges =
         serde_json::from_value(providers.chat("extract_edges.edge", &edge_context).await?)
             .context("invalid edge extraction")?;
     ensure!(response.edges.len() <= 128, "edge extraction exceeds bound");
-    let by_name: HashMap<_, _> = extracted
-        .iter()
-        .map(|n| (n.name.as_str(), &n.uuid))
-        .collect();
+    let by_name = endpoint_index(&extracted, &pointers);
     let mut new_facts = vec![];
     let mut exact_facts = HashSet::new();
     for edge in response.edges {
         let (Some(source), Some(target)) = (
-            by_name.get(edge.source_entity_name.as_str()),
-            by_name.get(edge.target_entity_name.as_str()),
+            by_name
+                .get(&crate::domain::normalize(&edge.source_entity_name))
+                .and_then(Option::as_ref),
+            by_name
+                .get(&crate::domain::normalize(&edge.target_entity_name))
+                .and_then(Option::as_ref),
         ) else {
             continue;
         };
@@ -232,7 +225,7 @@ pub async fn prepare(
         }
         crate::domain::text(&edge.fact, 8192, "fact")?;
         crate::domain::text(&edge.relation_type, 512, "relation type")?;
-        let (source, target) = (pointers[*source].clone(), pointers[*target].clone());
+        let (source, target) = (source.clone(), target.clone());
         if !exact_facts.insert((
             source.clone(),
             target.clone(),
@@ -240,6 +233,12 @@ pub async fn prepare(
         )) {
             continue;
         }
+        let (valid_at, invalid_at) = super::temporal::normalize_future_bounds(
+            &edge.fact,
+            Some(&job.created),
+            extracted_time(edge.valid_at.as_deref()),
+            extracted_time(edge.invalid_at.as_deref()),
+        )?;
         new_facts.push(LegacyFact {
             uuid: uuid::Uuid::new_v4().to_string(),
             group_id: job.group.clone(),
@@ -248,8 +247,8 @@ pub async fn prepare(
             name: edge.relation_type,
             fact: edge.fact,
             created_at: job.created.clone(),
-            valid_at: extracted_time(edge.valid_at.as_deref()),
-            invalid_at: extracted_time(edge.invalid_at.as_deref()),
+            valid_at,
+            invalid_at,
             expired_at: None,
             episodes: vec![job.id.clone()],
             attributes: Default::default(),
@@ -405,6 +404,123 @@ pub async fn prepare(
         facts_before: facts_before.into_values().collect(),
     })
 }
+/// Upstream _promote_resolved_node: enrich classification only when the new
+/// specific labels strictly contain the old ones. Identity and stored data stay
+/// on the canonical node; conflicting classifications never become a union.
+fn promote_type(canonical: &mut LegacyEntity, extracted: &LegacyEntity) {
+    let old: HashSet<_> = canonical
+        .labels
+        .iter()
+        .filter(|l| l.as_str() != "Entity")
+        .collect();
+    let new: HashSet<_> = extracted
+        .labels
+        .iter()
+        .filter(|l| l.as_str() != "Entity")
+        .collect();
+    if old.len() < new.len() && old.is_subset(&new) {
+        for label in &extracted.labels {
+            if !canonical.labels.contains(label) {
+                canonical.labels.push(label.clone());
+            }
+        }
+    }
+}
+
+/// Collapse exact same-message names before retrieval and model resolution.
+/// Unlike upstream's label-count tie breaker, incompatible specific types remain
+/// distinct so the endpoint lookup can reject an ambiguous name safely.
+fn collapse_extracted_nodes(extracted: Vec<LegacyEntity>) -> Vec<LegacyEntity> {
+    let mut nodes: Vec<LegacyEntity> = vec![];
+    let mut names: HashMap<String, Vec<usize>> = HashMap::new();
+    for node in extracted {
+        let name = crate::domain::normalize(&node.name);
+        let specific: HashSet<_> = node
+            .labels
+            .iter()
+            .filter(|l| l.as_str() != "Entity")
+            .collect();
+        let compatible = names.get(&name).and_then(|indices| {
+            indices.iter().copied().find(|i| {
+                let old: HashSet<_> = nodes[*i]
+                    .labels
+                    .iter()
+                    .filter(|l| l.as_str() != "Entity")
+                    .collect();
+                old.is_subset(&specific) || specific.is_subset(&old)
+            })
+        });
+        if let Some(i) = compatible {
+            promote_type(&mut nodes[i], &node);
+        } else {
+            names.entry(name).or_default().push(nodes.len());
+            nodes.push(node);
+        }
+    }
+    nodes
+}
+
+struct CanonicalNodes {
+    nodes: Vec<LegacyEntity>,
+    nodes_before: BTreeMap<String, LegacyEntity>,
+    pointers: HashMap<String, String>,
+}
+
+fn canonical_nodes(
+    extracted: &[LegacyEntity],
+    resolved: Vec<Option<LegacyEntity>>,
+) -> CanonicalNodes {
+    let mut nodes: Vec<LegacyEntity> = vec![];
+    let mut nodes_before = BTreeMap::new();
+    let mut indices = HashMap::new();
+    let mut pointers = HashMap::new();
+    for (new, old) in extracted.iter().zip(resolved) {
+        let mut node = old.unwrap_or_else(|| new.clone());
+        if node.uuid != new.uuid {
+            // Preserve the model's original view before promotion. plan_observed
+            // must compare the DB against that view, never the enriched payload.
+            nodes_before
+                .entry(node.uuid.clone())
+                .or_insert_with(|| node.clone());
+        }
+        pointers.insert(new.uuid.clone(), node.uuid.clone());
+        promote_type(&mut node, new);
+        if let Some(i) = indices.get(&node.uuid).copied() {
+            promote_type(&mut nodes[i], &node);
+        } else {
+            indices.insert(node.uuid.clone(), nodes.len());
+            nodes.push(node);
+        }
+    }
+    CanonicalNodes {
+        nodes,
+        nodes_before,
+        pointers,
+    }
+}
+
+/// Resolve spelling/whitespace differences without choosing between different
+/// entities sharing a normalized name. Aliases to the same canonical UUID are
+/// unambiguous. Unknown and ambiguous endpoints keep the existing skip policy.
+fn endpoint_index(
+    extracted: &[LegacyEntity],
+    pointers: &HashMap<String, String>,
+) -> HashMap<String, Option<String>> {
+    let mut names = HashMap::new();
+    for node in extracted {
+        let id = &pointers[&node.uuid];
+        names
+            .entry(crate::domain::normalize(&node.name))
+            .and_modify(|entry: &mut Option<String>| {
+                if entry.as_ref() != Some(id) {
+                    *entry = None;
+                }
+            })
+            .or_insert_with(|| Some(id.clone()));
+    }
+    names
+}
+
 fn fuse_nodes(mut keyword: Vec<LegacyEntity>, semantic: Vec<LegacyEntity>) -> Vec<LegacyEntity> {
     let order = resolution::rrf(&[
         keyword.iter().map(|n| n.uuid.clone()).collect(),
@@ -533,4 +649,74 @@ fn prompt_time(value: &str, iso: bool) -> Result<String> {
     }
     formatted.push_str("+00:00");
     Ok(formatted)
+}
+
+#[cfg(test)]
+mod upstream_tests {
+    use super::*;
+
+    fn node(id: &str, name: &str, labels: &[&str]) -> LegacyEntity {
+        serde_json::from_value(json!({"uuid":id,"name":name,"group_id":"user_primary","summary":"Retained summary","created_at":"2026-01-01T00:00:00Z","labels":labels,"attributes":{"unknown":"retained"},"name_embedding":[0.5]})).unwrap()
+    }
+
+    #[test]
+    fn same_episode_exact_duplicates_collapse_and_prefer_specific_classification() {
+        let generic = node("first", " Caroline ", &["Entity"]);
+        let specific = node("second", "CAROLINE", &["Entity", "Person"]);
+        for input in [
+            vec![generic.clone(), specific.clone()],
+            vec![specific.clone(), generic],
+        ] {
+            let collapsed = collapse_extracted_nodes(input);
+            assert_eq!(collapsed.len(), 1);
+            assert_eq!(collapsed[0].labels, ["Entity", "Person"]);
+        }
+        let conflicting = node("third", "caroline", &["Entity", "Organization"]);
+        assert_eq!(
+            collapse_extracted_nodes(vec![specific, conflicting]).len(),
+            2
+        );
+    }
+
+    #[test]
+    fn canonical_type_promotion_preserves_metadata_and_original_cas_snapshot() {
+        let old = node("canonical", "가온", &["Entity"]);
+        let new = node("extracted", "가온", &["Entity", "Person"]);
+        let CanonicalNodes {
+            nodes,
+            nodes_before,
+            pointers,
+        } = canonical_nodes(&[new], vec![Some(old.clone())]);
+        assert_eq!(nodes_before["canonical"], old);
+        assert_eq!(pointers["extracted"], "canonical");
+        let mut expected = old;
+        expected.labels.push("Person".into());
+        assert_eq!(nodes, [expected]);
+    }
+
+    #[test]
+    fn canonical_type_promotion_keeps_conflicting_or_more_specific_labels() {
+        let mut canonical = node("canonical", "Gaon", &["Entity", "Person"]);
+        let before = canonical.clone();
+        promote_type(
+            &mut canonical,
+            &node("a", "Gaon", &["Entity", "Organization"]),
+        );
+        promote_type(&mut canonical, &node("b", "Gaon", &["Entity"]));
+        assert_eq!(canonical, before);
+    }
+
+    #[test]
+    fn normalized_endpoints_accept_aliases_but_reject_distinct_canonical_ids() {
+        let extracted = [
+            node("a", "Alice Smith", &["Entity"]),
+            node("b", " ALICE  SMITH ", &["Entity"]),
+        ];
+        let mut pointers =
+            HashMap::from([("a".into(), "same".into()), ("b".into(), "same".into())]);
+        let index = endpoint_index(&extracted, &pointers);
+        assert_eq!(index["alice smith"].as_deref(), Some("same"));
+        pointers.insert("b".into(), "different".into());
+        assert_eq!(endpoint_index(&extracted, &pointers)["alice smith"], None);
+    }
 }

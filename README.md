@@ -6,6 +6,8 @@ This is an independent focused implementation inspired by [Graphiti](https://git
 
 An optional `graphiti-compat` feature provides ten recorded Graphiti0.28.2 MCP tools, original-schema storage and staged ingestion. It defaults to read-only; explicit operational mode uses the deployed generation and3072-dimensional embedding profile with private credentials and a durable journal. See [operational configuration and current cutover status](docs/compat/operational-mode.md), [compatibility details](docs/compat/implementation.md), and [staged ingestion validation](docs/compat/staged-ingestion.md).
 
+Selected correctness fixes from upstream 0.31.0 main are backported without expanding the recorded MCP profile. See [comparison, deliberate differences and validation](docs/compat/upstream-main-20261015.md).
+
 ## Features
 
 - Original episodes, named entities, relationships, provenance, and half-open validity intervals.

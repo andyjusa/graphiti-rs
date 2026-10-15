@@ -100,16 +100,18 @@ impl CandidateIndex {
         index
     }
     pub fn resolve(&self, name: &str) -> Option<usize> {
-        let fuzzy = fuzzy_name(name);
-        if !high_entropy(&fuzzy) {
-            return None;
-        }
+        // Short and non-ASCII names are reliable exact identities too. Entropy
+        // only guards the fuzzy path, as in upstream _resolve_with_similarity.
         if let Some(matches) = self.exact.get(&crate::domain::normalize(name)) {
             return if matches.len() == 1 {
                 matches.first().copied()
             } else {
                 None
             };
+        }
+        let fuzzy = fuzzy_name(name);
+        if !high_entropy(&fuzzy) {
+            return None;
         }
         let set = shingles(&fuzzy);
         let mut eligible = BTreeSet::new();
@@ -139,4 +141,29 @@ impl CandidateIndex {
 }
 pub fn deterministic(name: &str, candidates: &[LegacyEntity]) -> Option<usize> {
     CandidateIndex::new(candidates).resolve(name)
+}
+
+#[cfg(test)]
+mod upstream_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn node(id: &str, name: &str) -> LegacyEntity {
+        serde_json::from_value(json!({"uuid":id,"name":name,"group_id":"user_primary","summary":"","created_at":"2026-01-01T00:00:00Z","labels":["Entity"]})).unwrap()
+    }
+
+    #[test]
+    fn short_and_non_ascii_exact_names_resolve_before_entropy_gate() {
+        for name in ["Nate", "AB", "가온", "王明", "aaaaaa"] {
+            let candidates = vec![node("canonical", name)];
+            assert_eq!(CandidateIndex::new(&candidates).resolve(name), Some(0));
+            let mut ambiguous = candidates;
+            ambiguous.push(node("different", &format!(" {name} ")));
+            assert_eq!(CandidateIndex::new(&ambiguous).resolve(name), None);
+        }
+        assert_eq!(
+            CandidateIndex::new(&[node("other", "Nate")]).resolve("Nat"),
+            None
+        );
+    }
 }

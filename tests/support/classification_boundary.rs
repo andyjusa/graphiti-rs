@@ -81,7 +81,7 @@ fn entities(names: &[&str], ids: &[i64]) -> Vec<Value> {
 
 #[tokio::test]
 #[ignore = "requires exclusively owned disposable FalkorDB on loopback port 16379"]
-async fn default_invalid_and_empty_description_classifications_match_deployed_python() {
+async fn default_invalid_and_empty_descriptions_preserve_identity_and_promote_generic_types() {
     assert_eq!(
         std::env::var("COMPAT_TEST_DB_URL").unwrap(),
         "redis://127.0.0.1:16379"
@@ -222,11 +222,25 @@ async fn default_invalid_and_empty_description_classifications_match_deployed_py
                     .collect::<std::collections::BTreeSet<_>>();
                 if let Some(old) = identities.insert(name.to_owned(), node.uuid.clone()) {
                     assert_eq!(old, node.uuid);
-                    assert_eq!(labels_before[name], observed);
+                    // Classification-only models have one specific label. A
+                    // generic identity may gain that label; an existing specific
+                    // classification survives conflicting or generic extraction.
+                    let prior = &labels_before[name];
+                    if prior == &std::collections::BTreeSet::from(["Entity".to_owned()]) {
+                        assert_eq!(
+                            observed, expected,
+                            "generic entity did not gain its specific type"
+                        );
+                    } else {
+                        assert_eq!(
+                            &observed, prior,
+                            "conflicting or generic extraction changed a specific type"
+                        );
+                    }
                 } else {
                     assert_eq!(observed, expected);
-                    labels_before.insert(name.to_owned(), observed);
                 }
+                labels_before.insert(name.to_owned(), observed);
                 assert_eq!(
                     node.summary,
                     format!("{name} is a synthetic boundary fixture.")

@@ -151,7 +151,19 @@ async fn ten_configured_classifications_message_json_text_and_existing_identity(
         snapshots.push(json!({"episode":engine.store.episode(group,&id).await.unwrap().unwrap(),"nodes":nodes,"facts":engine.store.facts(group,"",None,100).await.unwrap()}));
     }
     let trace = state.trace.lock().await;
-    assert_eq!(trace.len(), 11);
+    // The second episode reuses exact short names without another dedup call.
+    // Its conflicting classification IDs must still leave canonical labels alone.
+    let dedupe_calls = trace
+        .iter()
+        .filter(|request| {
+            let user = request["messages"][1]["content"].as_str().unwrap();
+            let schema: Value =
+                serde_json::from_str(user.rsplit_once("input:\n").unwrap().1).unwrap();
+            schema["title"] == "NodeResolutions"
+        })
+        .count();
+    assert_eq!(dedupe_calls, 2);
+    assert_eq!(trace.len(), 10);
     if let Some(path) = std::env::var_os("COMPAT_PROFILE_REPORT") {
         // Report includes private labels/descriptions when a private profile is supplied.
         use std::io::Write;
