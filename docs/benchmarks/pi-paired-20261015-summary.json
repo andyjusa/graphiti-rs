@@ -1,0 +1,83 @@
+{
+  "python": {
+    "rss_median_MiB": 118.30859375,
+    "rss_range_MiB": [
+      118.30078125,
+      118.31640625
+    ],
+    "peak_rss_max_MiB": 118.31640625,
+    "cpu_seconds_per_300_requests_median": 28.33,
+    "workloads": {
+      "episode_read": {
+        "median_of_round_p50_ms": 24.12276854738593,
+        "p50_range_ms": [
+          24.078483460471034,
+          24.29416700033471
+        ],
+        "median_cpu_seconds_per_100_requests": 2.42
+      },
+      "hybrid_fact_search": {
+        "median_of_round_p50_ms": 152.90479903342202,
+        "p50_range_ms": [
+          151.9931600196287,
+          153.31168903503567
+        ],
+        "median_cpu_seconds_per_100_requests": 14.730000000000002
+      },
+      "semantic_node_search": {
+        "median_of_round_p50_ms": 123.72378655709326,
+        "p50_range_ms": [
+          123.63067455589771,
+          124.01641701580957
+        ],
+        "median_cpu_seconds_per_100_requests": 11.160000000000004
+      }
+    }
+  },
+  "rust": {
+    "rss_median_MiB": 13.15625,
+    "rss_range_MiB": [
+      12.93359375,
+      13.37890625
+    ],
+    "peak_rss_max_MiB": 13.58203125,
+    "cpu_seconds_per_300_requests_median": 2.09,
+    "workloads": {
+      "episode_read": {
+        "median_of_round_p50_ms": 2.622732485178858,
+        "p50_range_ms": [
+          2.615427481941879,
+          2.846926508937031
+        ],
+        "median_cpu_seconds_per_100_requests": 0.13
+      },
+      "hybrid_fact_search": {
+        "median_of_round_p50_ms": 48.07226249249652,
+        "p50_range_ms": [
+          48.06908656610176,
+          48.30030049197376
+        ],
+        "median_cpu_seconds_per_100_requests": 1.1099999999999999
+      },
+      "semantic_node_search": {
+        "median_of_round_p50_ms": 26.142915012314916,
+        "p50_range_ms": [
+          25.879054504912347,
+          26.277977449353784
+        ],
+        "median_cpu_seconds_per_100_requests": 0.8399999999999999
+      }
+    }
+  },
+  "rss_reduction_percent": 88.87971737048899,
+  "cpu_reduction_percent": 92.62266148958702,
+  "measured_requests": 1800,
+  "errors": 0,
+  "source_hashes": {
+    "scripts/bench-paired-pi.py": "d9235decb425a380eacced02238c42f7ee03bc49a8e371e23b4dbf3418317574",
+    "scripts/bench-python-mcp.py": "8f6d64643f338ed2e77c013b71e186cfa14a2ec3ab2e2ba59a34a5da8c8bfcd3"
+  },
+  "production_runtime_identities_unchanged": true,
+  "owned_containers_remaining": 0,
+  "owned_networks_remaining": 0
+}

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="title description">
+  <title id="title">graphiti-rs — Temporal memory for a small, always-on machine</title>
+  <desc id="description">A personal Rust project for Raspberry Pi, illustrated with a small green computer board on a dark background.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#101e29"/>
+      <stop offset="1" stop-color="#0b141d"/>
+    </linearGradient>
+    <linearGradient id="board" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#245b4c"/>
+      <stop offset="1" stop-color="#163f39"/>
+    </linearGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#b5d5cc" opacity="0.11"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="400" rx="22" fill="url(#background)"/>
+  <rect x="680" y="1" width="519" height="398" rx="22" fill="url(#dots)"/>
+  <path d="M52 51h38" stroke="#b4f5cb" stroke-width="4" stroke-linecap="round"/>
+  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+    <text x="104" y="57" fill="#b4f5cb" font-size="13" font-weight="600" letter-spacing="2.2">A PERSONAL PROJECT</text>
+    <text x="51" y="163" fill="#f3f5f0" font-size="78" font-weight="750" letter-spacing="-3.6">graphiti<tspan fill="#f4aa87">-rs</tspan></text>
+    <text x="54" y="213" fill="#b4f5cb" font-size="22" font-weight="600" letter-spacing="1">YOUR MEMORY. YOUR PI.</text>
+    <text x="54" y="253" fill="#b3c1c8" font-size="18">Temporal memory for a small, always-on machine.</text>
+    <g font-size="12" font-weight="600" letter-spacing="1.4">
+      <rect x="54" y="304" width="74" height="32" rx="16" fill="#22323d"/>
+      <text x="91" y="325" text-anchor="middle" fill="#f4aa87">RUST</text>
+      <rect x="138" y="304" width="114" height="32" rx="16" fill="#22323d"/>
+      <text x="195" y="325" text-anchor="middle" fill="#d5e3e3">FALKORDB</text>
+      <rect x="262" y="304" width="70" height="32" rx="16" fill="#22323d"/>
+      <text x="297" y="325" text-anchor="middle" fill="#b4f5cb">MCP</text>
+    </g>
+    <g transform="translate(786 76)">
+      <rect x="-10" y="11" width="326" height="250" rx="26" fill="#050d13" opacity="0.5"/>
+      <rect width="316" height="240" rx="22" fill="url(#board)" stroke="#4c8c72" stroke-width="1.5"/>
+      <g fill="#0d2927" stroke="#619e80" stroke-width="1.5">
+        <circle cx="21" cy="21" r="6"/><circle cx="295" cy="21" r="6"/>
+        <circle cx="21" cy="219" r="6"/><circle cx="295" cy="219" r="6"/>
+      </g>
+      <g fill="none" stroke="#478a6b" stroke-width="2" opacity="0.65">
+        <path d="M48 50h53v27m-55 79h34v-36h21m68 0h45v48h44M166 77V56h47m-78 115v26h78m-107-18H74v24"/>
+        <path d="M42 80h26v20h33m68 43h26v49h28M169 97h64v-20h26"/>
+      </g>
+      <rect x="100" y="76" width="84" height="96" rx="6" fill="#12242b" stroke="#6d9c88"/>
+      <g stroke="#a2c9a4" stroke-width="3">
+        <path d="M111 68v8m15-8v8m15-8v8m15-8v8m15-8v8M111 172v8m15-8v8m15-8v8m15-8v8m15-8v8M92 88h8m-8 15h8m-8 15h8m-8 15h8m-8 15h8m-8 15h8M184 88h8m-8 15h8m-8 15h8m-8 15h8m-8 15h8m-8 15h8"/>
+      </g>
+      <text x="142" y="119" text-anchor="middle" fill="#e0f0df" font-size="17" font-weight="600">ARM64</text>
+      <text x="142" y="142" text-anchor="middle" fill="#8ab59e" font-size="11" letter-spacing="1.2">ALWAYS ON</text>
+      <rect x="264" y="58" width="62" height="44" rx="5" fill="#9eaeb0"/>
+      <rect x="270" y="65" width="56" height="30" rx="2" fill="#3d5159"/>
+      <rect x="264" y="114" width="62" height="44" rx="5" fill="#9eaeb0"/>
+      <rect x="270" y="121" width="56" height="30" rx="2" fill="#3d5159"/>
+      <rect x="42" y="-5" width="166" height="23" rx="4" fill="#0b2424" stroke="#527b65"/>
+      <path d="M52 1h145M52 11h145" stroke="#c6a76e" stroke-width="4" stroke-dasharray="3 7"/>
+      <rect x="38" y="213" width="48" height="32" rx="4" fill="#9eaeb0"/>
+      <rect x="44" y="221" width="36" height="20" rx="2" fill="#344b53"/>
+      <circle cx="236" cy="208" r="4" fill="#b4f5cb"/>
+      <text x="249" y="212" fill="#c1dbc9" font-size="10" font-weight="600" letter-spacing="1.2">READY</text>
+    </g>
+  </g>
+</svg>
