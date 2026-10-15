@@ -36,9 +36,9 @@
 <!-- PAIRED_BENCHMARK -->
 **같은 Pi4에서 서버 메모리 약 89% 감소: Python 118.31 MiB → Rust 13.16 MiB RSS.**
 
-2026-10-15, 실제 Raspberry Pi4에서 기존 **Graphiti 0.28.2 MCP 서버**와 **배포된 Rust 릴리스 `8df9904`**를 비교했습니다. 같은 DB·합성 사실 1,200개·3072차원 mock 임베딩·1 CPU 조건에서 순서를 번갈아 3회 측정했습니다. Mac에서는 벤치마크를 실행하지 않았습니다.
+2026-10-15, 실제 Raspberry Pi4에서 기존 **Graphiti 0.28.2 MCP 서버**와 **배포된 Rust 호환 모드 릴리스 `8df9904`**를 비교했습니다. 같은 DB·합성 사실 1,200개·3072차원 mock 임베딩·1 CPU 조건에서 순서를 번갈아 3회 측정했습니다. Mac에서는 벤치마크를 실행하지 않았습니다.
 
-| 측정 항목 | Python Graphiti + MCP | graphiti-rs |
+| 측정 항목 | Python Graphiti + MCP | graphiti-rs 호환 모드 |
 | --- | ---: | ---: |
 | 조회·검색 후 서버 RSS · 3회 중앙값 | 118.31 MiB | **13.16 MiB** |
 | 서버 프로세스 peak RSS · 3회 최댓값 | 118.32 MiB | **13.58 MiB** |
