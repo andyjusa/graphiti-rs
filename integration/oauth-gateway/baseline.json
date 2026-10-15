@@ -1,0 +1,12 @@
+{
+  "scope": "Observed graphiti-oauth-gateway 0.1.2 source; local files match Pi host source",
+  "baseline_sha256": {
+    "src/main.rs": "081e169be2870f687906b0ca777a0e1a03f9165b1d37ef25dfeb89657fa439bf",
+    "src/lib.rs": "500c7b783206cc1052ff2d6a821c06fc45dad2a780b00850941d5b8cf88ba17f",
+    "Cargo.toml": "0e871940e46fb01c42685bc50329977f4dc09247eea04700c3dd036c009f6983",
+    "Cargo.lock": "979e63d7f94cf8a9b6cda4a23bad1a58a8eb858b18bb94c9399d0fecb93b2863"
+  },
+  "observed_image": "sha256:33d9e88c395afc08569ace50c08de945c2fa858ce336a0f065897d6f7b4e222f",
+  "change": "Forward Mcp-Method and Mcp-Name unchanged; retain authorization and Origin checks",
+  "operationally_applied": false
+}

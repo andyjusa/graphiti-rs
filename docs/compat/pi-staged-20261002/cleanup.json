@@ -1,0 +1,15 @@
+{
+  "pi": {
+    "synthetic_container_removed": "4bf7b85bbc966d65f98b6f58b87afd2565846a6d6bed26ad7506119de4eeba25",
+    "synthetic_network_removed": "graphiti-rs-compat-pi_isolated",
+    "synthetic_root_removed": "/home/pi4-3/graphiti-rs-pipeline-pi.cwvffuka",
+    "source_id": "f52020c7c61da467f25e6bde73e69a8506475f0a244530054b0d8367e4f8c04c",
+    "source_started_at": "2026-09-23T16:24:02.497549467Z",
+    "source_healthy": "healthy"
+  },
+  "mac": {
+    "synthetic_container_removed": "ddf82f357573e2cdb25e8a741b7640e7753dacc2d9a7a36ae4d7234ec7849984",
+    "synthetic_network_removed": "graphiti-rs-pipeline-net",
+    "synthetic_root_removed": "/tmp/graphiti-rs-pipeline-9cizu3j_"
+  }
+}

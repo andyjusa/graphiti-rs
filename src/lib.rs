@@ -7,3 +7,6 @@ pub mod mcp;
 pub mod models;
 pub mod search;
 pub mod store;
+
+#[cfg(feature = "graphiti-compat")]
+pub mod compat;

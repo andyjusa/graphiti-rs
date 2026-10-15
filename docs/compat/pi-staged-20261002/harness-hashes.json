@@ -1,0 +1,9 @@
+{
+  "Dockerfile.pi-validation": "559ffe19006dd650e3e1715c5cb367ab412365975569186eaec2ec6c29269452",
+  "scripts/python-pi-pipeline.py": "0f63fc6dedc5d7a1684177075cee06f3171bb0cbefa69bda0aa4ee94da82aae4",
+  "scripts/python-0282-pipeline-baseline.py": "3680ef28ed6a732f5544da8c3ea73384e2b4792096699f3b309c819b84b50257",
+  "scripts/compile-graphiti-prompts.py": "e2d53f72397345a57ecbe11695ff067c4f96228e12a6dcfa52fa1095baec6567",
+  "scripts/isolated-db-relay.py": "cc6b26da5e3544d9495b54bd77243fd2c5b7bc6f97ae3edf383442ece39c376d",
+  "tests/compat.rs": "839f4b4160b38b1149f4d55a511e0ecb07f8dff596272b0fb57c193b85a2e517",
+  "tests/compat_differential.rs": "f67f7f6d9a7f779c37f9ad2ce735d1cf15f6409eeaf148831031aa027a70ed55"
+}

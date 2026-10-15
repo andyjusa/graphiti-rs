@@ -1,0 +1,10 @@
+FROM rust:1.95-bookworm AS builder
+WORKDIR /build
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY tests ./tests
+COPY examples ./examples
+COPY scripts ./scripts
+RUN --mount=type=cache,id=graphiti-rs-pi-cargo,target=/usr/local/cargo/registry --mount=type=cache,id=graphiti-rs-pi-target,target=/build/target cargo build --release --locked --all-features && cargo build --release --locked --all-features --example compat-read-audit && (cargo test --release --locked --all-features --no-run 2> /tmp/test-artifacts.txt || { cat /tmp/test-artifacts.txt; exit 1; }) && cat /tmp/test-artifacts.txt && mkdir -p /out && cp target/release/graphiti-rs target/release/examples/compat-read-audit /out/ && sed -n 's/.*Executable tests\/[^ ]* (\([^)]*\)).*/\1/p' /tmp/test-artifacts.txt | while IFS= read -r artifact; do cp "$artifact" /out/; done && strip /out/*
+FROM scratch AS export
+COPY --from=builder /out/ /

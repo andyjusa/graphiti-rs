@@ -1,0 +1,277 @@
+{
+  "date": "2026-10-02",
+  "scope": "Mac checks, CI FalkorDB4.14.11, actual Pi4 synthetic FalkorDB4.16.6 with loopback relay and local MiniLM; no production replacement certification",
+  "cases": [
+    {
+      "id": "C01",
+      "status": "verified",
+      "evidence": "Exact ten-tool metadata, structured/text layers, status golden text, and protocol error separation."
+    },
+    {
+      "id": "C02",
+      "status": "verified",
+      "evidence": "Exact absent UUID lookup returns found=false/episode=null, without a model request."
+    },
+    {
+      "id": "C03",
+      "status": "verified",
+      "evidence": "Synthetic legacy episode returns original metadata and precise timestamp without embeddings."
+    },
+    {
+      "id": "C04",
+      "status": "partial",
+      "evidence": "Identical UUIDs in user_primary/general_chat stay separate; all real groups/restored records untested."
+    },
+    {
+      "id": "C05",
+      "status": "partial",
+      "evidence": "Read-only ACL policy and rejected additions tested; complete per-tool zero-I/O instrumentation pending."
+    },
+    {
+      "id": "C06",
+      "status": "partial",
+      "evidence": "Unknown-group policy and addition rejection tested; complete per-tool zero-I/O instrumentation pending."
+    },
+    {
+      "id": "C07",
+      "status": "verified",
+      "evidence": "Approved project-name pattern and invalid suffixes tested at the policy boundary."
+    },
+    {
+      "id": "C08",
+      "status": "verified",
+      "evidence": "Explicit raw clear target enforcement and durable destructive ledger tested; only synthetic mode permits valid clear."
+    },
+    {
+      "id": "C09",
+      "status": "verified",
+      "evidence": "Required group enforced by shared Key shape; missing group produces protocol error."
+    },
+    {
+      "id": "C10",
+      "status": "verified",
+      "evidence": "Default/empty/duplicate read groups and round-robin merging matched observed helper behavior; empty groups call no models."
+    },
+    {
+      "id": "C11",
+      "status": "partial",
+      "evidence": "Complete 128-row UUID-keyset episode scan, parsed RFC3339 ordering and global bound pass with 201 mixed-offset records across groups. 30-second deadline returns errors, not partial lists. Intentional improvement over lexical-window behavior; restored schemas/duplicate UUIDs/concurrent writers/full Python ordering parity untested."
+    },
+    {
+      "id": "C12",
+      "status": "partial",
+      "evidence": "Observed MCP recipes exclude BFS. Global semantic ranking fixes the historical outlier. Existing operational fulltext indexes now supply keyword order to RRF; 116 selected-source inputs pass and six queries yield identical Python SDK/Rust MCP fact/node UUID lists on 1200 records. Missing/incomplete-index substring fallback and broad retrieval quality/tie parity remain gaps."
+    },
+    {
+      "id": "C13",
+      "status": "verified",
+      "evidence": "Gated worker distinguishes queue acceptance from exact committed lookup."
+    },
+    {
+      "id": "C14",
+      "status": "verified",
+      "evidence": "Concurrent same-UUID acceptance dispatches once; committed retry leaves original record intact."
+    },
+    {
+      "id": "C15",
+      "status": "verified",
+      "evidence": "Changed same-UUID input fails closed. Observed Python loads old body/metadata instead of replacing it; strict rejection is intentional."
+    },
+    {
+      "id": "C16",
+      "status": "verified",
+      "evidence": "Private WAL/FULL journal, single worker, strict prepare/completion transitions, uncertain model refusal and destructive tombstone history tested."
+    },
+    {
+      "id": "C17",
+      "status": "partial",
+      "evidence": "Actual Pi committed/dispatch-ambiguous SIGKILL, DB outage/reconnection and AOF restart tests pass; source fixtures cover prepared/destructive recovery. Disk-full/OOM/runtime-error rollback and external writers remain untested."
+    },
+    {
+      "id": "C18",
+      "status": "verified",
+      "evidence": "Invalid provider response is journaled as failed, produces no visible episode, and is not automatically replayed."
+    },
+    {
+      "id": "C19",
+      "status": "verified",
+      "evidence": "UUIDs and independent created/valid/invalid/expired RFC3339 strings roundtrip without precision loss."
+    },
+    {
+      "id": "C20",
+      "status": "partial",
+      "evidence": "Legacy attributes/labels/vecf32, existing UUID updates and relationship-first range-index reads pass on observed module41606 as well as CI 4.14.11. Restored production schema breadth remains untested."
+    },
+    {
+      "id": "C21",
+      "status": "partial",
+      "evidence": "Actual MCP wrapper calls node.delete, not Graphiti.remove_episode. Synthetic store deletion retains entities/facts and dangling provenance; clear retains Saga/unknown labels. Journal pending recovery/tombstones added; production alias/schema behavior untested."
+    },
+    {
+      "id": "C22",
+      "status": "partial",
+      "evidence": "Observed exact fact reuse/shared provenance and supplied duplicate/contradiction decisions match selected Python bodies. The default staged worker now wires entropy/MinHash/model entities, summary updates, source-specific extraction and contradiction discovery; seven actual Python SDK/Pi Rust synthetic episodes match. Wider/custom-model and provider quality cases remain open."
+    },
+    {
+      "id": "C23",
+      "status": "partial",
+      "evidence": "Mock gpt-6-luna temperature=1/max_tokens<=4096/enable_thinking=false and observed decoder match. Observed staged prompts/language/input cleanup/schema suffix and actual Pydantic schemas match; bounded retry/timeout differ. The explicit combined preview remains a separate regression profile; no real generation comparison."
+    },
+    {
+      "id": "C24",
+      "status": "partial",
+      "evidence": "Native Gemini 3072/count/finite/nonzero and LF-only preprocessing covered with dummy credentials. Batch limit 8 differs from observed 32; no numerical provider parity."
+    },
+    {
+      "id": "C25",
+      "status": "partial",
+      "evidence": "Missing/wrong bearer, Host, Origin, oversized input and two protocol-version initializations tested; existing OAuth relay not exercised."
+    },
+    {
+      "id": "C26",
+      "status": "not_executed",
+      "evidence": "Separate authenticated bridge/session/routing validation remains unperformed; the active replacement objective requires a verified gateway and rollback before cutover."
+    },
+    {
+      "id": "C27",
+      "status": "verified",
+      "evidence": "Legacy connect/status/read create no native graph/index; indexed keyword reads preserve fixture index metadata. Index construction is explicit test ownership only; Python SDK constructor separately schedules fixture indexes."
+    },
+    {
+      "id": "C28",
+      "status": "partial",
+      "evidence": "Same observed Pi image/Redis8.2.3/module41606/hash: 51 release tests pass. Exclusively synthetic RDB cold restore retains the selected 1200 fact identity/endpoints and indexed MCP target. Selected seven-episode full Python pipeline agrees with Rust; original-memory restore, wider ingestion and gateway remain open."
+    },
+    {
+      "id": "C29",
+      "status": "not_executed",
+      "evidence": "Concrete gateway/reconnect/freeze/accounting/rollback gates documented; no routing/deployment/write freeze performed."
+    },
+    {
+      "id": "C30",
+      "status": "partial",
+      "evidence": "Pi4/aarch64/3795MiB synthetic timings, RSS, CPU, overload and restart recorded with 1CPU/512MiB DB. 1200 keyword facts and four English local-model facts do not certify production budgets or multilingual/large-corpus quality."
+    }
+  ],
+  "replacement_decision": "no_go",
+  "validation": {
+    "local": {
+      "status": "passed",
+      "commands": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features"
+      ],
+      "nonignored_tests": 28
+    },
+    "python_differential": {
+      "status": "passed",
+      "executable_tests": 3,
+      "synthetic_inputs": 67,
+      "level": "selected observed source bodies with fake DTO/driver/model decisions; not full Python Graphiti pipeline",
+      "manifest": "tests/fixtures/python-0282/manifest.json"
+    },
+    "isolated_db": {
+      "status": "passed",
+      "environment": "GitHub Ubuntu service, FalkorDB 4.14.11, loopback provider mocks",
+      "source_commit": "85075491837668d184f039e1644d0e16f92cd870",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36983475090",
+      "compatibility_integrations": 6,
+      "standalone_integrations": 13,
+      "distinct_passing_tests_in_ci": 49,
+      "real_local_minilm_tests": 2,
+      "python_full_pipeline": false,
+      "gemini_llm_numerical_generation_parity": false,
+      "relationship_first_indexed_reads": "passed in isolated CI4.14.11 and actual Pi4.16.6, including global semantic ranking"
+    },
+    "same_pi": {
+      "status": "synthetic_passed_replacement_no_go",
+      "record": "docs/compat/observed-production.json",
+      "plan": "docs/compat/pi-validation.md",
+      "compose": "compose.compat-pi.yaml",
+      "compose_render": "passed and used for labelled isolated synthetic container/network",
+      "backup_restore": false,
+      "benchmarks": true,
+      "provider_calls": false,
+      "source_commit": "85075491837668d184f039e1644d0e16f92cd870",
+      "distinct_passing_tests": 49,
+      "real_local_minilm": true,
+      "evidence": "docs/compat/pi-fulltext-20261002",
+      "transport": "labelled isolated docker-exec loopback relay; measured HTTP latency includes overhead",
+      "python_retrieval": "Actual SDK six-query fulltext fact/node result lists match Rust MCP; historical supplied-vector outlier also matched. No complete ingestion/MCP/provider equivalence.",
+      "previous_evidence": [
+        "docs/compat/pi-vector-fix-20261002",
+        "docs/compat/pi-20261002"
+      ],
+      "synthetic_backup_restore": true,
+      "original_memory_backup_restore": false
+    },
+    "actual_cutover": {
+      "status": "not_executed",
+      "production_mutations_enabled": false,
+      "gateway_auth_routes_changed": false
+    },
+    "cleanup": {
+      "status": "completed_owned_resources_only",
+      "mac_resources_removed": [
+        "graphiti-rs-compat-db",
+        "graphiti-rs-compat-data",
+        "graphiti-rs-compat-net"
+      ],
+      "pi_resources_removed": [
+        "graphiti-rs-compat-pi-falkordb-1",
+        "graphiti-rs-compat-pi_isolated",
+        "owned relay",
+        "private synthetic root",
+        "failed model-fixture temporary directory"
+      ],
+      "label": "task=graphiti-rs-compat-pi-synthetic",
+      "global_restart": false,
+      "production_container_health_after": "healthy; started2026-09-23T16:24:02.497549467Z",
+      "followup_record": "docs/compat/pi-fulltext-20261002/cleanup.json",
+      "timestamp_utc": "2026-10-02T08:28:47.448802+00:00"
+    },
+    "arm64": {
+      "status": "passed",
+      "source_commit": "85075491837668d184f039e1644d0e16f92cd870",
+      "ci_run": "https://github.com/andyjusa/graphiti-rs/actions/runs/36983475090",
+      "features": [
+        "default",
+        "local-embeddings",
+        "graphiti-compat"
+      ],
+      "actual_pi_execution": true
+    },
+    "semantic_outlier_fix": {
+      "status": "passed_on_ci_and_actual_pi",
+      "source_commit": "48cdbd84a04a6f5f23eb3e955f8a46be7f9523d6",
+      "compatibility_facts_and_nodes": "DB-wide supported vector ranking before candidate bound",
+      "standalone": "native DB ranking plus read-only 128-row original-JSON fallback; complete scan or error",
+      "original_json_deadline_seconds": 30,
+      "python_rust_identical_outlier_ids": true,
+      "retrieval_evidence": "docs/compat/vector-retrieval.md",
+      "full_corpus_quality_certified": false
+    },
+    "indexed_keyword_followup": {
+      "status": "passed_on_ci_and_actual_pi",
+      "source_commit": "85075491837668d184f039e1644d0e16f92cd870",
+      "harness_source_commit": "b092905",
+      "selected_python_fulltext_inputs": 27,
+      "actual_sdk_query_cases": 6,
+      "matching_fact_and_node_id_lists": 12,
+      "fixture_count": 1200,
+      "present_nonoperational_index": "explicit retry error",
+      "read_side_index_creation": false,
+      "full_corpus_quality_certified": false,
+      "evidence": "docs/compat/fulltext-results.md"
+    },
+    "synthetic_rdb_restore": {
+      "status": "passed_selected_fixture_only",
+      "original_memory_data": false,
+      "aof_disabled": true,
+      "empty_active_db_confirmed": true,
+      "verified_tuple_count": 1200,
+      "evidence": "docs/compat/pi-fulltext-20261002/fulltext-restore.json"
+    }
+  }
+}

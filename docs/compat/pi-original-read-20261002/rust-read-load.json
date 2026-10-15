@@ -1,0 +1,163 @@
+{
+  "scope": "bounded 192 sequential restored-memory point reads; host HTTP client; SDK comparison process absent; no provider calls or writes; not a production peak/load certification",
+  "tool_call_counts": {
+    "get_episode": 96,
+    "get_entity_edge": 96
+  },
+  "responses_identical_across_repeats": true,
+  "wall_seconds": 20.674,
+  "latency_ms": {
+    "min": 3.096,
+    "median": 6.782,
+    "p95": 14.326,
+    "max": 16.497
+  },
+  "resource_samples": [
+    {
+      "component": "rust",
+      "cpu_percent": 3.1,
+      "memory_usage": "3.398MiB",
+      "pids": 3
+    },
+    {
+      "component": "database",
+      "cpu_percent": 2.85,
+      "memory_usage": "437.8MiB",
+      "pids": 16
+    },
+    {
+      "component": "oauth",
+      "cpu_percent": 0.0,
+      "memory_usage": "1.324MiB",
+      "pids": 2
+    },
+    {
+      "component": "stateless_bridge",
+      "cpu_percent": 0.02,
+      "memory_usage": "50.29MiB",
+      "pids": 11
+    },
+    {
+      "component": "rust",
+      "cpu_percent": 3.63,
+      "memory_usage": "3.469MiB",
+      "pids": 3
+    },
+    {
+      "component": "database",
+      "cpu_percent": 3.54,
+      "memory_usage": "438.1MiB",
+      "pids": 16
+    },
+    {
+      "component": "oauth",
+      "cpu_percent": 0.0,
+      "memory_usage": "1.324MiB",
+      "pids": 2
+    },
+    {
+      "component": "stateless_bridge",
+      "cpu_percent": 0.0,
+      "memory_usage": "50.29MiB",
+      "pids": 11
+    },
+    {
+      "component": "rust",
+      "cpu_percent": 8.0,
+      "memory_usage": "3.84MiB",
+      "pids": 3
+    },
+    {
+      "component": "database",
+      "cpu_percent": 3.0,
+      "memory_usage": "437.8MiB",
+      "pids": 16
+    },
+    {
+      "component": "oauth",
+      "cpu_percent": 0.0,
+      "memory_usage": "1.324MiB",
+      "pids": 2
+    },
+    {
+      "component": "stateless_bridge",
+      "cpu_percent": 0.0,
+      "memory_usage": "50.29MiB",
+      "pids": 11
+    },
+    {
+      "component": "rust",
+      "cpu_percent": 5.04,
+      "memory_usage": "3.68MiB",
+      "pids": 3
+    },
+    {
+      "component": "database",
+      "cpu_percent": 5.18,
+      "memory_usage": "437.5MiB",
+      "pids": 16
+    },
+    {
+      "component": "oauth",
+      "cpu_percent": 0.0,
+      "memory_usage": "1.324MiB",
+      "pids": 2
+    },
+    {
+      "component": "stateless_bridge",
+      "cpu_percent": 0.0,
+      "memory_usage": "50.29MiB",
+      "pids": 11
+    },
+    {
+      "component": "rust",
+      "cpu_percent": 2.78,
+      "memory_usage": "3.656MiB",
+      "pids": 3
+    },
+    {
+      "component": "database",
+      "cpu_percent": 2.57,
+      "memory_usage": "437MiB",
+      "pids": 16
+    },
+    {
+      "component": "oauth",
+      "cpu_percent": 0.0,
+      "memory_usage": "1.324MiB",
+      "pids": 2
+    },
+    {
+      "component": "stateless_bridge",
+      "cpu_percent": 0.0,
+      "memory_usage": "50.29MiB",
+      "pids": 11
+    },
+    {
+      "component": "rust",
+      "cpu_percent": 5.0,
+      "memory_usage": "3.531MiB",
+      "pids": 3
+    },
+    {
+      "component": "database",
+      "cpu_percent": 3.94,
+      "memory_usage": "436.9MiB",
+      "pids": 16
+    },
+    {
+      "component": "oauth",
+      "cpu_percent": 0.0,
+      "memory_usage": "1.324MiB",
+      "pids": 2
+    },
+    {
+      "component": "stateless_bridge",
+      "cpu_percent": 0.0,
+      "memory_usage": "50.29MiB",
+      "pids": 11
+    }
+  ],
+  "stats_errors": 0,
+  "provider_calls": 0
+}

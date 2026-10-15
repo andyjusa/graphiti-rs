@@ -1,0 +1,77 @@
+
+running 6 tests
+test public_http_requires_token ... ok
+test rejects_dangling_reference ... ok
+test rejects_empty_entity ... ok
+test resource_bounds_are_enforced ... ok
+test stable_identity_cannot_confuse_delimiters ... ok
+test temporal_intervals_are_half_open ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test fusion_rewards_agreement_and_deduplicates ... ok
+test keyword_matching_is_case_insensitive ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test baseline_uuid_and_destructive_scope_are_observed_not_assumed ... ok
+test observed_python_functions_match_rust_on_synthetic_decisions ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.19s
+
+
+running 11 tests
+test compatibility_http_auth_hosts_origin_size_and_legacy_initialization ... ok
+test destructive_journal_blocks_ingestion_and_preserves_receipt_history ... ok
+test deterministic_group_fairness ... ok
+test golden_metadata_and_result_layers ... ok
+test isolated_legacy_store_queue_mcp_and_provider_contract ... ok
+test isolated_upsert_cas_provenance_deletion_clear_and_recovery ... ok
+test journal_idempotence_lock_recovery_and_private_permissions ... ok
+test policy_explicit_defaults_and_destructive_targets ... ok
+test prepared_plan_rejects_changed_creation_times_and_mention_aliases ... ok
+test private_dtos_preserve_vectors_but_public_results_do_not ... ok
+test provider_configuration_and_vector_drift_fail_closed ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.54s
+
+
+running 6 tests
+test explicit_replacement_preserves_history ... ok
+test failed_episode_conflict_does_not_pin_embedding_space ... ok
+test persistence_idempotency_and_isolation ... ok
+test reconnect_reuses_existing_range_indexes ... ok
+test rejects_wrong_embedding_space ... ok
+test shared_provenance_survives_deletion ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.78s
+
+
+running 5 tests
+test concurrent_searches_are_rejected_before_queueing ... ok
+test exact_keyword_precedes_common_hub_expansion_beyond_window ... ok
+test http_requires_authentication_and_accepts_standard_initialize ... ok
+test retry_does_not_call_model_again ... ok
+test standard_mcp_initialization_discovery_and_calls ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.31s
+
+
+running 10 tests
+test api_client_validates_actual_http_response ... ok
+test cosine_checks_dimensions_and_normalizes ... ok
+test embedding_client_rejects_duplicate_response_indices ... ok
+test external_embedding_spaces_distinguish_api_endpoints ... ok
+test extracts_valid_structured_response ... ok
+test invalid_extraction_does_not_pass ... ok
+test local_model_missing_files_is_actionable ... ok
+test local_space_changes_when_tokenizer_changes ... ok
+test real_local_model_produces_semantic_vectors ... ok
+test validates_vector_shape_and_finiteness ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.66s
+

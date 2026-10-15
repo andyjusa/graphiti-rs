@@ -1,0 +1,29 @@
+{
+  "scope": "actual OpenAI SDK serialization of observed patched generation method, mock HTTP transport",
+  "actual_provider_calls": 0,
+  "openai_package": "2.26.0",
+  "method_source_sha256": "c6241e929217cf3ba6bba18df5b718d6e9ca20388619e18e5b256a9be0e2be39",
+  "bodies": [
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "synthetic"
+        },
+        {
+          "role": "user",
+          "content": "synthetic"
+        }
+      ],
+      "model": "gpt-6-luna",
+      "max_tokens": 512,
+      "response_format": {
+        "type": "json_object"
+      },
+      "temperature": 1,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      }
+    }
+  ]
+}

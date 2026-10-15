@@ -1,0 +1,22 @@
+{
+  "scope": "identity/vector preservation after negative and positive regression replay",
+  "unchanged": true,
+  "policy_groups": 63,
+  "outside_policy_groups_retained": 9,
+  "auditor_sha256": "d2a1a5305c2c92a3ddd4b73435450c0287682185c98d81c6d751849540c62597",
+  "private_report_sha256": "da590d94b9c56fd62c2e1dd847af4e314d4f541c50d9517940a70334edc86115",
+  "backup_sha256": "62fb75d6c12724bd88c7a7d6b0d3a486b242568c197ef3a2453c623cb25edebc",
+  "source": {
+    "id": "f52020c7c61da467f25e6bde73e69a8506475f0a244530054b0d8367e4f8c04c",
+    "started_at": "2026-09-23T16:24:02.497549467Z",
+    "status": "running",
+    "health": "healthy"
+  },
+  "restoration": {
+    "id": "c59e851f8a25184a9789b9348d81bed83ff6fb944c69e12457e07b8c6723068c",
+    "started_at": "2026-10-02T09:31:17.547025472Z",
+    "status": "running",
+    "health": "healthy"
+  },
+  "full_property_bytewise_equivalence_claimed": false
+}

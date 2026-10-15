@@ -3,6 +3,68 @@ use rmcp::{ServiceExt, model::CallToolRequestParams};
 use std::sync::Arc;
 #[tokio::test]
 #[ignore = "requires disposable FalkorDB"]
+async fn exact_keyword_precedes_common_hub_expansion_beyond_window() {
+    use graphiti_rs::domain::*;
+    let mut c = Config::from_env().unwrap();
+    c.redis_url =
+        std::env::var("TEST_FALKORDB_URL").unwrap_or_else(|_| "redis://127.0.0.1:16379".into());
+    c.graph = format!("rank_{}", uuid::Uuid::new_v4().simple());
+    c.embedding_provider = "disabled".into();
+    c.candidates = 200;
+    let memory = Memory::new(&c).await.unwrap();
+    let facts: Vec<_> = (0..201)
+        .map(|i| ExtractedFact {
+            source: "Person".into(),
+            target: "Common hub".into(),
+            relation: "LINKED".into(),
+            fact: format!("unique_marker_{i:06}"),
+            supersedes: vec![],
+        })
+        .collect();
+    let result = memory
+        .add(AddEpisode {
+            group_id: "synthetic".into(),
+            episode_id: Some("rank-fixture".into()),
+            content: "Synthetic shared-hub ranking fixture".into(),
+            source: "test".into(),
+            reference_time: "2026-10-01T00:00:00Z".parse().unwrap(),
+            extraction: Some(Extraction {
+                entities: vec![
+                    ExtractedEntity {
+                        name: "Person".into(),
+                        summary: String::new(),
+                    },
+                    ExtractedEntity {
+                        name: "Common hub".into(),
+                        summary: String::new(),
+                    },
+                ],
+                facts: facts.clone(),
+            }),
+        })
+        .await
+        .unwrap();
+    // Equal timestamps put the greatest ID outside the recent 200-fact window.
+    let (index, expected) = result
+        .fact_ids
+        .iter()
+        .enumerate()
+        .max_by_key(|(_, id)| *id)
+        .unwrap();
+    let hits = memory
+        .search
+        .facts(SearchRequest {
+            group_id: "synthetic".into(),
+            query: facts[index].fact.clone(),
+            limit: 10,
+            as_of: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(&hits[0].fact.id, expected);
+}
+#[tokio::test]
+#[ignore = "requires disposable FalkorDB"]
 async fn standard_mcp_initialization_discovery_and_calls() {
     let mut c = Config::from_env().unwrap();
     c.redis_url =
@@ -167,4 +229,118 @@ async fn concurrent_searches_are_rejected_before_queueing() {
         task.await.unwrap().unwrap();
     }
     server.abort();
+}
+
+#[tokio::test]
+#[ignore = "requires disposable FalkorDB"]
+async fn semantic_search_finds_old_fact_outside_recent_window() {
+    use graphiti_rs::domain::*;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let app = axum::Router::new().route(
+        "/embeddings",
+        axum::routing::post(|| async {
+            axum::Json(serde_json::json!({"data":[{"index":0,"embedding":[0.,1.]}]}))
+        }),
+    );
+    let mock = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let mut c = Config::from_env().unwrap();
+    c.redis_url =
+        std::env::var("TEST_FALKORDB_URL").unwrap_or_else(|_| "redis://127.0.0.1:16379".into());
+    c.graph = format!("semantic_mcp_{}", uuid::Uuid::new_v4().simple());
+    c.api_base = base;
+    c.api_key = None;
+    c.embedding_provider = "external".into();
+    c.embedding_model = "synthetic".into();
+    c.embedding_dim = 2;
+    c.candidates = 50;
+    let memory = Memory::new(&c).await.unwrap();
+    let ep = |id: &str, time: &str| Episode {
+        id: id.into(),
+        group_id: "synthetic".into(),
+        content: id.into(),
+        source: "fixture".into(),
+        reference_time: time.parse().unwrap(),
+        created_at: chrono::Utc::now(),
+    };
+    let mut x = Extraction {
+        entities: vec![
+            ExtractedEntity {
+                name: "Source".into(),
+                summary: String::new(),
+            },
+            ExtractedEntity {
+                name: "Hub".into(),
+                summary: String::new(),
+            },
+        ],
+        facts: vec![ExtractedFact {
+            source: "Source".into(),
+            target: "Hub".into(),
+            relation: "LINK".into(),
+            fact: "A cyclist on a road".into(),
+            supersedes: vec![],
+        }],
+    };
+    let target = memory
+        .store
+        .ingest(
+            &ep("old", "2026-10-01T00:00:00Z"),
+            &x,
+            Some(&[vec![0., 1.]]),
+            memory.embedder.space().as_deref(),
+        )
+        .await
+        .unwrap()
+        .fact_ids[0]
+        .clone();
+    x.facts = (0..51)
+        .map(|i| ExtractedFact {
+            source: "Source".into(),
+            target: "Hub".into(),
+            relation: "LINK".into(),
+            fact: format!("unrelated {i}"),
+            supersedes: vec![],
+        })
+        .collect();
+    memory
+        .store
+        .ingest(
+            &ep("recent", "2026-10-02T00:00:00Z"),
+            &x,
+            Some(&vec![vec![1., 0.]; 51]),
+            memory.embedder.space().as_deref(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        !memory
+            .store
+            .facts(
+                "synthetic",
+                "2026-10-02T01:00:00Z"
+                    .parse::<chrono::DateTime<chrono::Utc>>()
+                    .unwrap()
+                    .timestamp_millis(),
+                50
+            )
+            .await
+            .unwrap()
+            .iter()
+            .any(|f| f.id == target)
+    );
+    // Avoid incidental substring matches (e.g. a single "a"); this case isolates
+    // semantic candidate recall, independently of the keyword ranking recipe.
+    let hits = memory
+        .search
+        .facts(SearchRequest {
+            group_id: "synthetic".into(),
+            query: "semantic outlier".into(),
+            limit: 10,
+            as_of: Some("2026-10-02T01:00:00Z".parse().unwrap()),
+        })
+        .await
+        .unwrap();
+    assert_eq!(hits[0].fact.id, target);
+    mock.abort();
 }

@@ -1,0 +1,9 @@
+{
+  "http_status": 402,
+  "error_status": "RESOURCE_EXHAUSTED",
+  "mentions_insufficient_balance": false,
+  "mentions_billing": true,
+  "mentions_credits": true,
+  "mentions_daily_quota": false,
+  "safe_reasons": []
+}

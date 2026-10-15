@@ -1,8 +1,4 @@
-use crate::{
-    domain::*,
-    embeddings::{Embedder, cosine},
-    store::Store,
-};
+use crate::{domain::*, embeddings::Embedder, store::Store};
 use anyhow::{Result, ensure};
 use chrono::Utc;
 use serde::Serialize;
@@ -105,25 +101,28 @@ impl Search {
                 .await?
             {
                 let vector = &vectors[0];
-                let mut semantic = vec![];
-                for fact in candidates.values() {
-                    if let Some(v) = &fact.embedding {
-                        let score = cosine(vector, v)?;
-                        if score > 0.0 {
-                            semantic.push((fact.id.clone(), score));
-                        }
-                    }
+                let semantic = self
+                    .store
+                    .semantic_facts(&request.group_id, at, vector, self.candidates)
+                    .await?;
+                let ids = semantic.iter().map(|fact| fact.id.clone()).collect();
+                for fact in semantic {
+                    candidates.entry(fact.id.clone()).or_insert(fact);
                 }
-                semantic.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-                semantic.truncate(self.candidates);
-                lists.push(semantic.into_iter().map(|(id, _)| id).collect());
+                lists.push(ids);
             }
         }
         // One-hop relationship expansion within the bounded fetched graph.
-        let seeds: HashSet<_> = rrf(&lists)
-            .into_iter()
+        let direct = rrf(&lists);
+        let direct_order: HashMap<_, _> = direct
+            .iter()
+            .enumerate()
+            .map(|(rank, (id, _))| (id.as_str(), rank))
+            .collect();
+        let seeds: HashSet<_> = direct
+            .iter()
             .take(5)
-            .filter_map(|(id, _)| candidates.get(&id))
+            .filter_map(|(id, _)| candidates.get(id))
             .flat_map(|f| [f.source_id.clone(), f.target_id.clone()])
             .collect();
         let mut neighbors: Vec<_> = candidates
@@ -131,7 +130,15 @@ impl Search {
             .filter(|f| seeds.contains(&f.source_id) || seeds.contains(&f.target_id))
             .map(|f| f.id.clone())
             .collect();
-        neighbors.sort();
+        // Retain the relevance order before applying the expansion bound. A
+        // common hub must not promote an unrelated low-UUID neighbor over a seed.
+        neighbors.sort_by(|a, b| {
+            direct_order
+                .get(a.as_str())
+                .unwrap_or(&usize::MAX)
+                .cmp(direct_order.get(b.as_str()).unwrap_or(&usize::MAX))
+                .then(a.cmp(b))
+        });
         neighbors.truncate(self.candidates);
         lists.push(neighbors);
         Ok(rrf(&lists)

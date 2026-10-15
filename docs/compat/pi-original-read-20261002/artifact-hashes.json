@@ -1,0 +1,12 @@
+{
+  "source_commit": "c663a10a10683b06e07df4258bb9ffceb701790a",
+  "binary_sha256": "922dfadfa1b7329a8e2bca3512e560f622c0385ab37ddfecdbc93abf499d5c1e",
+  "binary_scope": "ARM64 all-features main executable; observed private restored-data server only",
+  "observed_formatter_sha256": "4dddfef88a31aa33cc23d589d4bbfd97b80309dfa05dd732c356e99137892c6a",
+  "source_sha256": {
+    "src/compat/engine.rs": "281ff2509cc100a192c2118ed334a38366ef76c02657280ce980edcda2cf96a0",
+    "src/compat/store.rs": "fd85dafa66b618ab670aa4e2b83e11240bf5db4ace77f1b7d0fbb12dbe057869",
+    "scripts/python-public-dto-probe.py": "3d4f53a1d743e19544e3170b09bd993d0993843f2e3c24a5abfa37836903ffdd",
+    "tests/fixtures/observed-sdk-public-dtos.json": "471824b0b6660bd07f2895f03127d5a4a00dd9b0aa4be4c27591302ef69d9e21"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "request": "read-only Gemini model metadata GET; credential and response message omitted",
+  "http_status": 200,
+  "error_status": null,
+  "error_reasons": [],
+  "supported_generation_methods": [
+    "embedContent",
+    "countTextTokens",
+    "countTokens",
+    "asyncBatchEmbedContent"
+  ]
+}

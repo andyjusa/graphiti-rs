@@ -1,0 +1,95 @@
+{
+  "actual_provider_calls": 0,
+  "auth_origin_rejected_before_upstream": true,
+  "backend_http_requests": 14,
+  "duplicate_header_requests_received_by_backend": 4,
+  "events": [
+    {
+      "case": "modern_server/discover",
+      "rpc_error": null,
+      "status": 200
+    },
+    {
+      "case": "modern_tools/list",
+      "rpc_error": null,
+      "status": 200
+    },
+    {
+      "case": "modern_tools/call",
+      "rpc_error": null,
+      "status": 200
+    },
+    {
+      "case": "legacy_initialize",
+      "status": 200
+    },
+    {
+      "case": "legacy_tools/list",
+      "status": 200
+    },
+    {
+      "case": "legacy_tools/call",
+      "status": 200
+    },
+    {
+      "case": "reject_mcp-method_mismatch",
+      "rpc_error": -32020,
+      "status": 400
+    },
+    {
+      "case": "reject_mcp-method_missing",
+      "rpc_error": -32020,
+      "status": 400
+    },
+    {
+      "case": "reject_mcp-name_mismatch",
+      "rpc_error": -32020,
+      "status": 400
+    },
+    {
+      "case": "reject_mcp-name_missing",
+      "rpc_error": -32020,
+      "status": 400
+    },
+    {
+      "case": "reject_mcp-method_duplicate",
+      "rpc_error": -32020,
+      "status": 400
+    },
+    {
+      "case": "reject_mcp-method_duplicate",
+      "rpc_error": -32020,
+      "status": 400
+    },
+    {
+      "case": "reject_mcp-name_duplicate",
+      "rpc_error": -32020,
+      "status": 400
+    },
+    {
+      "case": "reject_mcp-name_duplicate",
+      "rpc_error": -32020,
+      "status": 400
+    },
+    {
+      "case": "reject_missing_invalid_expired_token",
+      "status": 401
+    },
+    {
+      "case": "reject_missing_invalid_expired_token",
+      "status": 401
+    },
+    {
+      "case": "reject_missing_invalid_expired_token",
+      "status": 401
+    },
+    {
+      "case": "reject_origin_before_upstream",
+      "status": 401
+    }
+  ],
+  "fixed_backend_credential_preserved": true,
+  "headers_forwarded": true,
+  "operational_writes": 0,
+  "unrelated_headers_not_forwarded": true
+}

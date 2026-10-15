@@ -1,0 +1,9 @@
+{
+  "src/compat/engine.rs": "1a67649bf9608e49e52a5a0783742e4e968c9de618fd385db602f96abf9e3982",
+  "src/compat/store.rs": "d844485fdbce792436c5ef2ac95ec0b187ab82701a7a218b4328320b2e7cffe3",
+  "src/compat/resolution.rs": "3109ca0019b38a8222355ad36169e798d75a8661b81f95c017ae5fb0612f6c81",
+  "examples/compat-search-replay.rs": "58d6130326f759c90587a2086d71d69df41703d83ce24149964da8f838c16570",
+  "scripts/python-original-search-probe.py": "387deb6871d31d8a2bb2a1063ce42079d2d5ce7f5d7e3e99219d8fc9c97feaa9",
+  "scripts/python-public-dto-probe.py": "816e8adeffd92ddcb6985f73da447c43915395b78bb4b6fa9867f081ee2f844e",
+  "tests/fixtures/observed-sdk-public-dtos.json": "9f599decdaf1ddc9880067effee55d413b5c15bb2d563e5602e09a2d83058636"
+}

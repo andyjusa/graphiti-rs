@@ -1,0 +1,10 @@
+{
+  "scope": "restoration identity/vector preservation after search replay",
+  "unchanged": true,
+  "policy_groups": 63,
+  "outside_policy_groups_retained": 9,
+  "auditor_sha256": "d2a1a5305c2c92a3ddd4b73435450c0287682185c98d81c6d751849540c62597",
+  "before_private_report_sha256": "da590d94b9c56fd62c2e1dd847af4e314d4f541c50d9517940a70334edc86115",
+  "after_private_report_sha256": "da590d94b9c56fd62c2e1dd847af4e314d4f541c50d9517940a70334edc86115",
+  "full_property_bytewise_equivalence_claimed": false
+}

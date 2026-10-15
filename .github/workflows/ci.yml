@@ -20,6 +20,8 @@ jobs:
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo test
       - run: cargo test --features local-embeddings
+      - run: cargo test --features graphiti-compat
+      - run: COMPAT_TEST_DB_URL=redis://127.0.0.1:16379 cargo test --features graphiti-compat --test compat -- --ignored
       - run: cargo test --test store --test mcp -- --ignored
       - run: python3 scripts/download-minilm.py
       - run: LOCAL_TEST_MODEL_DIR=models/minilm cargo test --features local-embeddings --test models -- --include-ignored
@@ -31,3 +33,4 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --locked
       - run: cargo build --release --locked --features local-embeddings
+      - run: cargo build --release --locked --features graphiti-compat

@@ -1,0 +1,30 @@
+{
+  "scope": "sanitized search cohort and preserved resources",
+  "languages": {
+    "latin": 56,
+    "mixed": 38,
+    "korean": 11
+  },
+  "historical_result_occurrences": {
+    "returned_fact_occurrences": 561,
+    "with_invalid_at": 68,
+    "with_expired_at": 68,
+    "without_valid_at": 105
+  },
+  "source": {
+    "id": "f52020c7c61da467f25e6bde73e69a8506475f0a244530054b0d8367e4f8c04c",
+    "started_at": "2026-09-23T16:24:02.497549467Z",
+    "status": "running",
+    "health": "healthy",
+    "image": "sha256:ed8f5d566429152635aaf6795ffd4e5bfd11f704ea03d6cc79fa25c41384d854"
+  },
+  "restoration": {
+    "id": "c59e851f8a25184a9789b9348d81bed83ff6fb944c69e12457e07b8c6723068c",
+    "started_at": "2026-10-02T09:31:17.547025472Z",
+    "status": "running",
+    "health": "healthy",
+    "image": "sha256:ed8f5d566429152635aaf6795ffd4e5bfd11f704ea03d6cc79fa25c41384d854"
+  },
+  "backup_sha256": "62fb75d6c12724bd88c7a7d6b0d3a486b242568c197ef3a2453c623cb25edebc",
+  "backup_bytes": 215332393
+}

@@ -22,13 +22,32 @@ impl Store {
             connection,
             graph: graph.into(),
         };
-        for query in [
-            "CREATE INDEX FOR (e:Episode) ON (e.id)",
-            "CREATE INDEX FOR (n:Entity) ON (n.id)",
-            "CREATE INDEX FOR (m:MemoryGroup) ON (m.id)",
-            "CREATE INDEX FOR (n:Entity) ON (n.group_id)",
+        for (label, field) in [
+            ("Episode", "id"),
+            ("Entity", "id"),
+            ("MemoryGroup", "id"),
+            ("Entity", "group_id"),
         ] {
-            s.query(query, json!({})).await?;
+            let query = format!("CREATE INDEX FOR (n:{label}) ON (n.{field})");
+            if let Err(error) = s.query(&query, json!({})).await {
+                // FalkorDB 4.16.6 errors on an already indexed attribute. Only
+                // accept the failure when the requested node RANGE index exists.
+                let verification = format!(
+                    "CALL db.indexes() YIELD label,properties,types,entitytype WHERE label=$label AND $field IN properties AND entitytype='NODE' AND 'RANGE' IN types.{field} RETURN count(*)"
+                );
+                let existing = s
+                    .query(&verification, json!({"label":label,"field":field}))
+                    .await?;
+                let count: i64 = existing
+                    .first()
+                    .and_then(|row| row.first())
+                    .map(redis::from_redis_value)
+                    .transpose()?
+                    .unwrap_or(0);
+                if count != 1 {
+                    return Err(error);
+                }
+            }
         }
         Ok(s)
     }
@@ -186,7 +205,13 @@ impl Store {
                 episodes: vec![],
                 embedding: vectors.map(|v| v[i].clone()),
             };
-            facts.push(json!({"id":id,"source":source,"target":target,"text":normalize(&f.fact),"data":serde_json::to_string(&fact)?}));
+            // Keep the original JSON DTO, and materialize a DB vector for full
+            // semantic ranking. Zero vectors have no cosine direction.
+            let embedding = fact
+                .embedding
+                .as_ref()
+                .filter(|v| v.iter().any(|x| *x != 0.0));
+            facts.push(json!({"id":id,"source":source,"target":target,"text":normalize(&f.fact),"data":serde_json::to_string(&fact)?,"embedding":embedding}));
             ids.push(id);
         }
         superseded.sort();
@@ -212,7 +237,7 @@ impl Store {
             FOREACH (f IN facts |
                 MERGE (a:Entity {id:f.source}) MERGE (b:Entity {id:f.target})
                 MERGE (a)-[r:FACT {id:f.id}]->(b)
-                ON CREATE SET r.group_id=$g, r.data=f.data, r.text=f.text, r.valid_from=$time, r.episodes=[]
+                ON CREATE SET r.group_id=$g, r.data=f.data, r.text=f.text, r.valid_from=$time, r.episodes=[], r.embedding=vecf32(f.embedding), r.embedding_version=1
                 SET r.episodes=CASE WHEN $eid IN r.episodes THEN r.episodes ELSE r.episodes+[$eid] END)
             WITH e,old_facts
             FOREACH (old IN CASE WHEN e.token=$token THEN old_facts ELSE [] END | SET old.valid_to=$time)
@@ -263,21 +288,57 @@ impl Store {
             ""
         };
         let rows=self.query(&format!("MATCH ()-[r:FACT]->() WHERE r.group_id=$g AND r.valid_from<=$at AND (r.valid_to IS NULL OR $at<r.valid_to) {filter} RETURN r.data,r.valid_to,r.episodes ORDER BY r.valid_from DESC,r.id LIMIT $limit"),json!({"g":group,"at":at,"limit":limit,"q":keyword.unwrap_or("")})).await?;
-        rows.into_iter()
-            .map(|row| {
-                let mut fact: Fact = serde_json::from_str(&redis_string(&row[0])?)?;
-                fact.valid_to = if row[1] == RedisValue::Nil {
-                    None
-                } else {
-                    Some(
-                        DateTime::from_timestamp_millis(redis::from_redis_value(&row[1])?)
-                            .context("invalid fact timestamp")?,
-                    )
-                };
-                fact.episodes = redis::from_redis_value(&row[2])?;
-                Ok(fact)
-            })
-            .collect()
+        rows.iter().map(|row| decode_fact(row)).collect()
+    }
+    /// Full semantic ranking with bounded result transfer. Old JSON-only facts
+    /// are scanned in small keyset pages, without mutating their stored schema.
+    pub async fn semantic_facts(
+        &self,
+        group: &str,
+        at: i64,
+        vector: &[f32],
+        limit: usize,
+    ) -> Result<Vec<Fact>> {
+        ensure!(
+            (1..=2000).contains(&limit),
+            "candidate limit must be 1..=2000"
+        );
+        ensure!(
+            !vector.is_empty() && vector.len() <= 4096 && vector.iter().all(|v| v.is_finite()),
+            "invalid query embedding"
+        );
+        if vector.iter().all(|v| *v == 0.0) {
+            return Ok(vec![]);
+        }
+        tokio::time::timeout(Duration::from_secs(30), async {
+            let rows = self.query(
+                "MATCH ()-[r:FACT]->() WHERE r.group_id=$g AND r.valid_from<=$at AND (r.valid_to IS NULL OR $at<r.valid_to) AND r.embedding IS NOT NULL WITH r,1-vec.cosineDistance(r.embedding,vecf32($vector)) AS score WHERE score>0 RETURN r.data,r.valid_to,r.episodes ORDER BY score DESC,r.id LIMIT $limit",
+                json!({"g":group,"at":at,"vector":vector,"limit":limit})).await?;
+            let mut best = vec![];
+            for row in &rows {
+                let fact = decode_fact(row)?;
+                let score = crate::embeddings::cosine(vector, fact.embedding.as_deref().context("stored vector missing JSON embedding")?)?;
+                if score > 0.0 { best.push((fact, score)); }
+            }
+            let mut after = String::new();
+            loop {
+                let rows = self.query(
+                    "MATCH ()-[r:FACT]->() WHERE r.group_id=$g AND r.valid_from<=$at AND (r.valid_to IS NULL OR $at<r.valid_to) AND r.embedding IS NULL AND r.embedding_version IS NULL AND r.id>$after RETURN r.data,r.valid_to,r.episodes,r.id ORDER BY r.id LIMIT 128",
+                    json!({"g":group,"at":at,"after":after})).await?;
+                for row in &rows {
+                    after = redis_string(&row[3])?;
+                    let fact = decode_fact(row)?;
+                    if let Some(v) = &fact.embedding {
+                        let score = crate::embeddings::cosine(vector, v)?;
+                        if score > 0.0 { best.push((fact, score)); }
+                    }
+                }
+                best.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.id.cmp(&b.0.id)));
+                best.truncate(limit);
+                if rows.len() < 128 { break; }
+            }
+            Ok(best.into_iter().map(|(fact, _)| fact).collect())
+        }).await.context("semantic scan timed out; no partial results returned")?
     }
     pub async fn entities(&self, group: &str, query: &str, limit: usize) -> Result<Vec<Entity>> {
         ensure!((1..=50).contains(&limit), "entity limit must be 1..=50");
@@ -299,16 +360,27 @@ impl Store {
 fn redis_string(v: &RedisValue) -> Result<String> {
     redis::from_redis_value(v).map_err(Into::into)
 }
-fn cypher_value(v: &Value) -> Result<String> {
+fn decode_fact(row: &[RedisValue]) -> Result<Fact> {
+    let mut fact: Fact = serde_json::from_str(&redis_string(&row[0])?)?;
+    fact.valid_to = if row[1] == RedisValue::Nil {
+        None
+    } else {
+        Some(
+            DateTime::from_timestamp_millis(redis::from_redis_value(&row[1])?)
+                .context("invalid fact timestamp")?,
+        )
+    };
+    fact.episodes = redis::from_redis_value(&row[2])?;
+    Ok(fact)
+}
+
+pub(crate) fn cypher_value(v: &Value) -> Result<String> {
     Ok(match v {
         Value::Object(map) => {
             let mut entries = vec![];
             for (k, v) in map {
-                ensure!(
-                    k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'),
-                    "invalid map field"
-                );
-                entries.push(format!("{k}:{}", cypher_value(v)?));
+                ensure!(!k.contains('\0'), "invalid map field");
+                entries.push(format!("`{}`:{}", k.replace('`', "``"), cypher_value(v)?));
             }
             format!("{{{}}}", entries.join(","))
         }

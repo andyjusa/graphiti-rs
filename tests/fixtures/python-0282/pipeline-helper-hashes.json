@@ -1,0 +1,14 @@
+{
+  "_clean_input": {
+    "file": "_clean_input.py",
+    "source": "core/llm_client/client.py",
+    "source_sha256": "c75b03352af48e1ae9c72055eb7c71231bbcd5b9b6ce555313eecaf1ccf361e8",
+    "excerpt_sha256": "fc7b2daa1615897e30f08480ec8572f1754604f937f118f7695c94f4e366b280"
+  },
+  "truncate_at_sentence": {
+    "file": "truncate_at_sentence.py",
+    "source": "core/utils/text_utils.py",
+    "source_sha256": "787189c16d235f5087581ad0cbcebe290f8a82ecd104d75a2daf339aaf1ae9ba",
+    "excerpt_sha256": "092bea664a22483b4429f2d4e4ac18780482375e1e140f14faa6611220e46f3c"
+  }
+}

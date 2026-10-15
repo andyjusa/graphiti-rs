@@ -1,0 +1,26 @@
+{
+  "rust_runtime_source_commit": "764606df1c4a9e49b874d621dd64d5b27d8295e1",
+  "rust_runtime_changed_by_patch": false,
+  "gateway_rust_tests_passed": 15,
+  "local_request_cases_per_variant": 18,
+  "pi_request_cases_total": 36,
+  "arm64_binary_sha256": {
+    "bin/graphiti-rs": "17c77e64c23e1879881a2183086ed4332baea2291d20744cf7c8c844694c0bb0",
+    "bin/graphiti-oauth-gateway": "7c6eb14a2bbeb0b6504fcb6e710ab3e2c1bc8498445405372800c241107b0fce"
+  },
+  "source_sha256": {
+    "integration/oauth-gateway/standard-headers.patch": "4e16e98e81a97809438fab6cdbc2b0f8e33e0ea01d23df2c3617b797091a5cc1",
+    "integration/oauth-gateway/baseline.json": "b87b14407b345f7b65ac5fab51a47ec06387a3d16437934ce6235b5aeb59f00e",
+    "scripts/validate-oauth-gateway-headers.py": "1d46514d927a64a44285d8f6f6de7ba97cabf3dc295993ba17140e3cb0c25de5",
+    "scripts/pi-oauth-header-probe.py": "88643d575c161bc01a5c65c5bcf0ee6361435a214b15436bfb799cbb150dca1d",
+    "tests/fixtures/oauth-gateway-headers.rs": "4f36b8c807dd66426c034c48ffd2bf98ccb2cd52826c59a4aebeffb1d2e15b01",
+    "src/http.rs": "855f6e5ecde2d1f54d802e8f43bfc2de9500e4488c12a4d38ea5c1573bc40581",
+    "src/compat/mcp.rs": "4466d1c90218fe6482cd298b728dd33a5258dbeec10d3ca132b303366f6acb91",
+    "src/compat/engine.rs": "1f3c17083d569689ff4e068151069e47a83edda3cef2920ecf874dd7e302a71f",
+    "Cargo.lock": "0539b883882e43c4af5eb017feedcc79d74e6ce8aeaf1a91edc3c26016671fc9"
+  },
+  "observed_baseline_image": "sha256:33d9e88c395afc08569ace50c08de945c2fa858ce336a0f065897d6f7b4e222f",
+  "pi_db_module": 41606,
+  "actual_provider_calls": 0,
+  "operationally_applied": false
+}

@@ -1,0 +1,206 @@
+{
+  "pi_summary": {
+    "scope": "Observed OAuth image vs patched ARM64 gateway on actual Pi4; fresh empty disposable database, actual Rust MCP backend and seeded synthetic tokens",
+    "variants": [
+      {
+        "variant": "baseline",
+        "headers_forwarded": false,
+        "events": [
+          {
+            "case": "modern_server/discover",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "modern_tools/list",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "modern_tools/call",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "legacy_initialize",
+            "status": 200
+          },
+          {
+            "case": "legacy_tools/list",
+            "status": 200
+          },
+          {
+            "case": "legacy_tools/call",
+            "status": 200
+          },
+          {
+            "case": "reject_Mcp-Method_mismatch",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Method_missing",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Name_mismatch",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Name_missing",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Method_duplicate_different",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Method_duplicate_identical",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Name_duplicate_different",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Name_duplicate_identical",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_token_missing",
+            "status": 401
+          },
+          {
+            "case": "reject_token_invalid",
+            "status": 401
+          },
+          {
+            "case": "reject_token_expired",
+            "status": 401
+          },
+          {
+            "case": "reject_origin",
+            "status": 401
+          }
+        ]
+      },
+      {
+        "variant": "patched",
+        "headers_forwarded": true,
+        "events": [
+          {
+            "case": "modern_server/discover",
+            "status": 200,
+            "rpc_error": null
+          },
+          {
+            "case": "modern_tools/list",
+            "status": 200,
+            "rpc_error": null
+          },
+          {
+            "case": "modern_tools/call",
+            "status": 200,
+            "rpc_error": null
+          },
+          {
+            "case": "legacy_initialize",
+            "status": 200
+          },
+          {
+            "case": "legacy_tools/list",
+            "status": 200
+          },
+          {
+            "case": "legacy_tools/call",
+            "status": 200
+          },
+          {
+            "case": "reject_Mcp-Method_mismatch",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Method_missing",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Name_mismatch",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Name_missing",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Method_duplicate_different",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Method_duplicate_identical",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Name_duplicate_different",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_Mcp-Name_duplicate_identical",
+            "status": 400,
+            "rpc_error": -32020
+          },
+          {
+            "case": "reject_token_missing",
+            "status": 401
+          },
+          {
+            "case": "reject_token_invalid",
+            "status": 401
+          },
+          {
+            "case": "reject_token_expired",
+            "status": 401
+          },
+          {
+            "case": "reject_origin",
+            "status": 401
+          }
+        ]
+      }
+    ],
+    "cases": 36,
+    "ten_tool_schemas_match": true,
+    "actual_provider_calls": 0,
+    "operational_writes": 0,
+    "fresh_github_login_tested": false,
+    "operational_routes_changed": false
+  },
+  "disposable_db_keys": 0,
+  "synthetic_oauth_state_counts": {
+    "baseline": {
+      "clients": 0,
+      "codes": 0,
+      "tokens": 2,
+      "refresh": 0
+    },
+    "patched": {
+      "clients": 0,
+      "codes": 0,
+      "tokens": 2,
+      "refresh": 0
+    }
+  }
+}

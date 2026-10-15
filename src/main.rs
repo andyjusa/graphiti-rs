@@ -10,6 +10,16 @@ use tokio_util::sync::CancellationToken;
 struct Args {
     #[arg(long, value_enum, default_value = "stdio")]
     transport: Transport,
+    #[cfg(feature = "graphiti-compat")]
+    #[arg(long, value_enum, default_value = "standalone")]
+    storage_format: StorageFormat,
+}
+#[cfg(feature = "graphiti-compat")]
+#[derive(Clone, ValueEnum)]
+enum StorageFormat {
+    Standalone,
+    #[value(name = "graphiti-0282")]
+    Graphiti0282,
 }
 #[derive(Clone, ValueEnum)]
 enum Transport {
@@ -33,11 +43,32 @@ async fn run() -> Result<()> {
         .with_writer(std::io::stderr)
         .init();
     let args = Args::parse();
+    #[cfg(feature = "graphiti-compat")]
+    if matches!(args.storage_format, StorageFormat::Graphiti0282) {
+        use graphiti_rs::compat::{
+            config::{CompatConfig, read_secret},
+            engine::Engine,
+            mcp::CompatService,
+        };
+        let token = std::env::var_os("COMPAT_TOKEN_FILE")
+            .map(|file| read_secret(std::path::Path::new(&file)))
+            .transpose()?;
+        let config = Config::from_env_with_token(token)?;
+        let engine = Engine::new(CompatConfig::from_env()?).await?;
+        return serve(CompatService::new(engine), args.transport, &config).await;
+    }
     let config = Config::from_env()?;
     let memory = Arc::new(Memory::new(&config).await?);
-    match args.transport {
+    serve(MemoryService::new(memory), args.transport, &config).await
+}
+async fn serve<S: rmcp::ServerHandler + Clone + Send + Sync + 'static>(
+    handler: S,
+    transport: Transport,
+    config: &Config,
+) -> Result<()> {
+    match transport {
         Transport::Stdio => {
-            let service = MemoryService::new(memory).serve(stdio()).await?;
+            let service = handler.serve(stdio()).await?;
             let cancel = service.cancellation_token();
             let waiting = service.waiting();
             tokio::pin!(waiting);
@@ -45,7 +76,7 @@ async fn run() -> Result<()> {
         }
         Transport::Http => {
             let cancellation = CancellationToken::new();
-            let router = graphiti_rs::http::router(memory, &config, cancellation.clone())?;
+            let router = graphiti_rs::http::router_service(handler, config, cancellation.clone())?;
             let listener = tokio::net::TcpListener::bind(config.bind).await?;
             tracing::info!(bind=%config.bind,"MCP HTTP listening at /mcp");
             let shutdown = cancellation.clone();

@@ -1,0 +1,15 @@
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -408,6 +408,12 @@
+         "mcp-protocol-version",
+     ] {
+         if let Some(v) = headers.get(k) {
++            req = req.header(k, v);
++        }
++    }
++    // Retain duplicates so upstream singleton-header validation can reject them.
++    for k in ["mcp-method", "mcp-name"] {
++        for v in headers.get_all(k) {
+             req = req.header(k, v);
+         }
+     }

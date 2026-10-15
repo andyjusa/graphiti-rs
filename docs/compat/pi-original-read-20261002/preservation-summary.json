@@ -1,0 +1,9 @@
+{
+  "scope": "maintenance audit identities, scope counters, timestamp/provenance validation and native vectors; no full property-byte equivalence claim",
+  "policy_groups": 63,
+  "outside_policy_groups_retained": 9,
+  "typed_audit_report_equal_before_after": true,
+  "backup_sha256_unchanged": true,
+  "backup_bytes": 215332393,
+  "provider_calls": 0
+}

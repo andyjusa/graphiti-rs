@@ -1,0 +1,17 @@
+{
+  "source_commit": "c663a10a10683b06e07df4258bb9ffceb701790a",
+  "all_feature_nonignored_tests": 30,
+  "compatibility_disposable_db_http_tests": 8,
+  "fmt_passed": true,
+  "clippy_all_targets_features_warnings_denied_passed": true,
+  "python_helpers_compile_passed": true,
+  "disposable_local_falkordb_module": "4.20.4",
+  "disposable_local_redis": "8.6.3",
+  "scope": "local Rust regression tests; original restore MCP equivalence runs separately on Pi with observed 4.16.6 module",
+  "initial_environment_failure": "Internal Docker network did not publish requested loopback port; readiness check and dedicated bridge recreation fixed connectivity; all eight tests then passed",
+  "cleanup": {
+    "owned_local_db_container_removed": true,
+    "owned_local_network_removed": true,
+    "anonymous_volumes_created": false
+  }
+}

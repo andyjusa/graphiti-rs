@@ -32,6 +32,9 @@ pub fn validate_bind(bind: SocketAddr, token: Option<&str>) -> Result<()> {
 }
 impl Config {
     pub fn from_env() -> Result<Self> {
+        Self::from_env_with_token(env::var("GRAPHITI_TOKEN").ok())
+    }
+    pub fn from_env_with_token(token: Option<String>) -> Result<Self> {
         let get = |name: &str, fallback: &str| env::var(name).unwrap_or_else(|_| fallback.into());
         let c = Self {
             redis_url: get("FALKORDB_URL", "redis://127.0.0.1:6379"),
@@ -39,7 +42,7 @@ impl Config {
             bind: get("GRAPHITI_BIND", "127.0.0.1:8080")
                 .parse()
                 .context("invalid GRAPHITI_BIND")?,
-            token: env::var("GRAPHITI_TOKEN").ok(),
+            token,
             api_base: get("MODEL_API_BASE", "https://api.openai.com/v1"),
             api_key: env::var("MODEL_API_KEY").ok(),
             extraction_model: get("EXTRACTION_MODEL", "gpt-4.1-mini"),

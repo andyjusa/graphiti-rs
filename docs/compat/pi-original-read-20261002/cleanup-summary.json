@@ -1,0 +1,11 @@
+{
+  "scope": "only owned disposable read-rehearsal services and their synthetic test credentials; original memories/backup/restore/database/network retained",
+  "owned_service_containers_removed": 3,
+  "synthetic_test_credentials_removed": true,
+  "anonymous_volumes_created": false,
+  "private_diagnostic_directory_retained": true,
+  "original_service_unchanged_and_healthy": true,
+  "original_restore_retained_running": true,
+  "original_restore_network_retained": true,
+  "operational_upstream_switched": false
+}

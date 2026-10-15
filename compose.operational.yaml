@@ -1,0 +1,89 @@
+# Existing Graphiti 0.28.2 storage. Restore a verified snapshot before starting.
+name: graphiti-rs-operational
+services:
+  falkordb:
+    image: ${COMPAT_FALKOR_IMAGE:?supply the observed FalkorDB image digest}
+    pull_policy: never
+    entrypoint: [redis-server]
+    command: ["--loadmodule", "/var/lib/falkordb/bin/falkordb.so", "--protected-mode", "no", "--dir", "/data", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1"]
+    user: "1000:1000"
+    restart: unless-stopped
+    stop_grace_period: 60s
+    read_only: true
+    volumes:
+      - type: bind
+        source: ${COMPAT_DATA_DIR:?supply the populated private DB directory}
+        target: /data
+        bind: {create_host_path: false}
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=64m,uid=1000,gid=1000"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1024m
+    pids_limit: 128
+    cpus: 1.5
+    networks:
+      memory: {aliases: [graphiti]}
+    healthcheck:
+      test: [CMD-SHELL, 'test "$$(redis-cli --raw PING)" = PONG']
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 20
+  graphiti-rs:
+    image: ${COMPAT_RUST_IMAGE:?supply the verified ARM64 Rust image digest}
+    pull_policy: never
+    command: ["--transport", "http", "--storage-format", "graphiti-0282"]
+    user: "1000:1000"
+    restart: unless-stopped
+    stop_grace_period: 30s
+    read_only: true
+    depends_on:
+      falkordb: {condition: service_healthy}
+    environment:
+      GRAPHITI_BIND: 0.0.0.0:8000
+      HTTP_ALLOWED_HOSTS: localhost,127.0.0.1,[::1],graphiti-rs
+      COMPAT_DB_URL: redis://falkordb:6379
+      COMPAT_WRITE_MODE: operational
+      COMPAT_INGESTION_PIPELINE: graphiti
+      COMPAT_ENTITY_TYPES_FILE: /config/entity-types.json
+      COMPAT_TOKEN_FILE: /config/backend-token
+      COMPAT_JOURNAL_DIR: /journal
+      COMPAT_LLM_MODEL: gpt-6-luna
+      COMPAT_MAX_TOKENS: "4096"
+      COMPAT_TIMEOUT_SECS: "120"
+      COMPAT_QUEUE_CAPACITY: "32"
+      COMPAT_SEARCH_CANDIDATES: "200"
+      COMPAT_LLM_KEY_FILE: /secrets/llm-key
+      COMPAT_GEMINI_KEY_FILE: /secrets/gemini-key
+      RUST_LOG: graphiti_rs=info
+    volumes:
+      - type: bind
+        source: ${COMPAT_CONFIG_DIR:?supply the private config directory}
+        target: /config
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${COMPAT_JOURNAL_DIR:?supply the private journal directory}
+        target: /journal
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${COMPAT_LLM_KEY:?supply the existing private LLM key file}
+        target: /secrets/llm-key
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${COMPAT_GEMINI_KEY:?supply the existing private Gemini key file}
+        target: /secrets/gemini-key
+        read_only: true
+        bind: {create_host_path: false}
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=64m,uid=1000,gid=1000"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+    pids_limit: 128
+    cpus: 1.5
+    networks: [memory]
+networks:
+  memory:
+    external: true
+    name: ${COMPAT_NETWORK:?supply the existing private Docker network}

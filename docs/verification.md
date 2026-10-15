@@ -1,5 +1,7 @@
 # Verification record — 2026-10-01 KST
 
+Historical record. Current isolated Pi/CI/search results are in [compatibility verification](compat/verification.md), with [fulltext and synthetic restore evidence](compat/fulltext-results.md). The measurements below retain their original scope and source date.
+
 Scope: source implementation, disposable local FalkorDB, and Linux ARM64 containers. No existing Raspberry Pi service or production memory was changed.
 
 ## Automated checks

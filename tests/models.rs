@@ -135,6 +135,14 @@ fn local_space_changes_when_tokenizer_changes() {
         dir.join("model.safetensors"),
         temp.join("model.safetensors"),
     )
+    .or_else(|_| {
+        // Pi /tmp can be tmpfs while weights live on the SD card.
+        std::fs::copy(
+            dir.join("model.safetensors"),
+            temp.join("model.safetensors"),
+        )
+        .map(|_| ())
+    })
     .unwrap();
     let mut tokenizer: serde_json::Value =
         serde_json::from_slice(&std::fs::read(dir.join("tokenizer.json")).unwrap()).unwrap();

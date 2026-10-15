@@ -1,0 +1,9 @@
+{
+  "src/compat/engine.rs": "1f3c17083d569689ff4e068151069e47a83edda3cef2920ecf874dd7e302a71f",
+  "src/compat/fulltext.rs": "9464372a64c024bd5deb70c2c2f51522bf2a235925db24070c668245e8785ed5",
+  "src/compat/policy.rs": "4ea897a078a7dbe7d9ab5bb646d7ba41b7e0302042030b5419778e52e4a95502",
+  "examples/compat-search-replay.rs": "58d6130326f759c90587a2086d71d69df41703d83ce24149964da8f838c16570",
+  "scripts/python-original-search-negative-probe.py": "5efeccd162181d0fca1aff5c1935205794840289b61785b47be59fa800ac6b51",
+  "tests/compat.rs": "82ef1f4a8d07cfe551ce70e4433d8a8d69e183f6d3623a7760e77cbea880973c",
+  "tests/compat_differential.rs": "6e8217ecb26e3be73d00c2a8fb622ad7fbcecefa079010176e1c02c9484aed74"
+}

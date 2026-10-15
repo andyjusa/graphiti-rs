@@ -2,3 +2,9 @@
 .env
 /models
 .superpowers/
+.compat-audit/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+__pycache__/

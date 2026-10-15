@@ -1,0 +1,124 @@
+{
+  "scope": "same-Pi synthetic release binary, not replacement certification",
+  "status": "completed; semantic candidate-window limitation remains",
+  "corpus_facts": 1200,
+  "seed": 20261002,
+  "host_before": {
+    "MemAvailable_KiB": 2530536,
+    "SwapTotal_KiB": 2097148,
+    "SwapFree_KiB": 2089600
+  },
+  "legacy_text_identity_corpus_sha256": "a59b4fca5bf92e5d989b4187bb2df51fb8adf368636959fb5b90eea0be1053bf",
+  "legacy_embedding_space": "mock 3072-dim unit basis; first 64=basis0, final=basis1, others absent",
+  "binary_sha256": "7bdbb70c021716460a4a6b82bdb0b85a2df6f33ccca1f521809438bf780f8912",
+  "production_mutations": false,
+  "real_provider_calls": false,
+  "standalone_keyword": {
+    "samples": 100,
+    "warmup": 5,
+    "p50_ms": 74.48555901646614,
+    "p95_ms": 115.82936788909137,
+    "p99_ms": 270.02634201198816,
+    "exact_uuid_recall_at_10": 1.0,
+    "errors": [],
+    "mrr_at_10": 1.0,
+    "first_rank_disagreement_examples": [],
+    "idle_cpu_seconds_per_2s": 0.0,
+    "search_cpu_seconds": 0.74,
+    "VmHWM_KiB": 12504,
+    "VmRSS_KiB": 12344,
+    "cpu_seconds": 0.92
+  },
+  "standalone_search_saturation": {
+    "concurrency": 32,
+    "requests": 100,
+    "admitted": 26,
+    "rejected": 74,
+    "rejection_examples": [
+      "{'content': [{'type': 'text', 'text': 'search busy; retry later'}], 'isError': True}"
+    ]
+  },
+  "standalone_sigkill_restart": "passed; exact episode unchanged",
+  "local_minilm_english_smoke": {
+    "samples": 10,
+    "warmup": 5,
+    "p50_ms": 118.07894799858332,
+    "p95_ms": 141.81313011795282,
+    "p99_ms": 141.81313011795282,
+    "exact_uuid_recall_at_10": 1.0,
+    "errors": [],
+    "mrr_at_10": 1.0,
+    "first_rank_disagreement_examples": [],
+    "idle_cpu_seconds_per_2s": 0.0,
+    "search_cpu_seconds": 1.6599999999999997,
+    "VmHWM_KiB": 193184,
+    "VmRSS_KiB": 108996,
+    "cpu_seconds": 4.43,
+    "scope": "four facts, one paraphrase repeated; not multilingual or corpus quality certification"
+  },
+  "compat_keyword": {
+    "samples": 100,
+    "warmup": 5,
+    "p50_ms": 61.53071811422706,
+    "p95_ms": 74.95866902172565,
+    "p99_ms": 229.77434704080224,
+    "exact_uuid_recall_at_10": 1.0,
+    "errors": [],
+    "mrr_at_10": 1.0,
+    "first_rank_disagreement_examples": [],
+    "idle_cpu_seconds_per_2s": 0.0,
+    "search_cpu_seconds": 0.19,
+    "VmHWM_KiB": 10296,
+    "VmRSS_KiB": 10296,
+    "cpu_seconds": 0.2
+  },
+  "type_empty_group_filters": "passed",
+  "semantic_outside_candidate_window": {
+    "expected_uuid": "00000000-0000-4000-8000-000000018b4f",
+    "returned_uuids": [],
+    "recall_at_10": 0,
+    "gate": "not exhaustive vector retrieval; report disagreement"
+  },
+  "committed_sigkill_restart": "passed; exact metadata unchanged, zero repeat model calls",
+  "worker_metrics": {
+    "VmHWM_KiB": 12024,
+    "VmRSS_KiB": 12024,
+    "cpu_seconds": 0.01
+  },
+  "dispatch_ambiguity_sigkill_restart": "passed; failed receipt, no episode, no automatic provider replay",
+  "mock_calls": {
+    "llm": 2,
+    "embeddings": 2
+  },
+  "db_disconnect_reconnect": "passed; error status while isolated DB stopped, recovery without server restart",
+  "aof_db_restart": "passed; standalone and compatibility exact records survive, no provider replay",
+  "db_stats": {
+    "BlockIO": "11.1MB / 4.1kB",
+    "CPUPerc": "1.23%",
+    "Container": "graphiti-rs-compat-pi-falkordb-1",
+    "ID": "272624cd057e",
+    "MemPerc": "15.82%",
+    "MemUsage": "80.99MiB / 512MiB",
+    "Name": "graphiti-rs-compat-pi-falkordb-1",
+    "NetIO": "3.63kB / 545B",
+    "PIDs": "18"
+  },
+  "redis_memory_bytes": {
+    "used_memory": 41956104,
+    "used_memory_rss": 97710080,
+    "used_memory_peak": 62595352
+  },
+  "transport": "Rust HTTP over loopback; DB over labelled docker-exec stdlib relay; latency includes relay overhead",
+  "limits": {
+    "db_cpu_quota": 1,
+    "db_memory_MiB": 512,
+    "rust_async_workers": 2,
+    "rust_blocking_threads_max": 4,
+    "server_process_cpu_or_memory_cgroup_limit": null
+  },
+  "host_after": {
+    "MemAvailable_KiB": 2397696,
+    "SwapTotal_KiB": 2097148,
+    "SwapFree_KiB": 2089612
+  }
+}

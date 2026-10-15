@@ -2,7 +2,9 @@
 
 Lightweight Rust temporal graph memory for Raspberry Pi, with MCP over stdio or Streamable HTTP. Built for a small always-on machine: one Rust process, an existing FalkorDB instance, bounded work, and optional embeddings.
 
-This is an independent focused implementation inspired by [Graphiti](https://github.com/getzep/graphiti), not a complete port or a drop-in replacement for its Python APIs, database schema, or custom MCP extensions. Existing Python Graphiti data requires migration; use a separate graph name.
+This is an independent focused implementation inspired by [Graphiti](https://github.com/getzep/graphiti), not a complete port or a drop-in replacement for its Python APIs, database schema, or custom MCP extensions. The default standalone mode uses its own schema; use a separate graph name for an existing Python Graphiti database.
+
+An optional `graphiti-compat` feature provides ten recorded Graphiti0.28.2 MCP tools, original-schema storage and staged ingestion. It defaults to read-only; explicit operational mode uses the deployed generation and3072-dimensional embedding profile with private credentials and a durable journal. See [operational configuration and current cutover status](docs/compat/operational-mode.md), [compatibility details](docs/compat/implementation.md), and [staged ingestion validation](docs/compat/staged-ingestion.md).
 
 ## Features
 
@@ -15,7 +17,7 @@ This is an independent focused implementation inspired by [Graphiti](https://git
 
 ## Quick start
 
-Rust 1.95 is the tested toolchain. The manifest declares 1.88; that minimum has not been separately verified. FalkorDB 4.14.11 is tested.
+Rust 1.95 is the tested toolchain. The manifest declares 1.88; that minimum has not been separately verified. FalkorDB 4.14.11 is tested in CI; the observed 4.16.6 module passed isolated Pi tests.
 
 ```sh
 cp .env.example .env
@@ -99,7 +101,7 @@ Episode deletion removes its support; facts survive while another episode suppor
 | Episode content | 64 KiB | Explicit input validation |
 | Local sequence length | 256 tokens | Truncated before inference |
 
-Database commands have a six-second client deadline and five-second query execution timeout. External embeddings use batches of at most eight. Search fetches a recent candidate window plus up to four independently bounded keyword windows. Graph expansion is limited to those fetched facts. Semantic search reranks this bounded pool, so it is **not exhaustive vector retrieval**. Keyword matching is normalized substring matching, not BM25. Storage volume, FalkorDB index/query memory, and local-model memory still grow with data/model size. No Raspberry Pi latency or RAM claims are made without measurements.
+Database commands have a six-second client deadline and five-second query execution timeout. External embeddings use batches of at most eight. Search fetches a recent candidate window plus up to four independently bounded keyword windows. Semantic search ranks all eligible DB vectors before returning the bounded top candidates, independently of those windows. New facts materialize a native vector alongside the existing JSON DTO. Older JSON-only vectors remain searchable through 128-row keyset pages with a 30-second overall semantic deadline; timeout returns an error instead of partial results. This fallback is read-only and can be slower on large old corpora. Graph expansion is limited to the fetched candidates. Keyword matching is normalized substring matching, not BM25. Storage volume, FalkorDB index/query memory, and local-model memory still grow with data/model size. Bounded [Pi4 synthetic measurements](docs/compat/vector-retrieval.md) are recorded separately; they do not establish a production budget.
 
 HTTP bearer authentication applies when a token is configured, including loopback. `HTTP_ALLOWED_HOSTS` is a comma-separated host allowlist; configure your reverse-proxy hostname for remote use. Browser origins are rejected by default. Put TLS in your reverse proxy; the service itself speaks HTTP. The CLI uses two async workers and up to four blocking threads. Shutdown handles Ctrl-C/SIGTERM with a ten-second transport drain and a ten-second runtime shutdown deadline; a running local CPU forward pass cannot be interrupted cleanly.
 
@@ -116,7 +118,7 @@ cargo test --test store --test mcp -- --ignored
 LOCAL_TEST_MODEL_DIR=models/minilm cargo test --features local-embeddings --test models real_local_model -- --ignored
 ```
 
-Live paid API tests are not required; API contract tests use a local HTTP server. CI tests optional local inference and builds on Linux ARM64. See [verification record](docs/verification.md) for actual observed results. ARMv7 and existing production Pi deployment are not verified. Community generation, ontology learning, full Graphiti API parity, and production-data migration are outside this release.
+Live paid API tests are not required; API contract tests use a local HTTP server. CI tests optional local inference and builds on Linux ARM64. See [verification record](docs/verification.md) for actual observed results. Isolated Pi4 ARM64 release tests and local CPU inference passed; see [Pi evidence](docs/compat/pi-results.md). ARMv7 and existing production Pi deployment are not verified. Community generation, ontology learning, full Graphiti API parity, and production-data migration are outside this release.
 
 ## License
 
