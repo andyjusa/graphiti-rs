@@ -9,7 +9,7 @@ repository = "https://github.com/andyjusa/graphiti-rs"
 
 [features]
 default = []
-graphiti-compat = ["dep:rusqlite", "dep:blake2"]
+graphiti-compat = ["dep:rusqlite", "dep:blake2", "dep:regex"]
 local-embeddings = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers"]
 
 [dependencies]
@@ -35,6 +35,7 @@ candle-nn = { version = "0.11", optional = true }
 candle-transformers = { version = "0.11", optional = true }
 tokenizers = { version = "0.22", default-features = false, features = ["onig"], optional = true }
 
+regex = { version = "1", optional = true, default-features = false, features = ["std", "unicode-perl", "unicode-case"] }
 blake2 = { version = "0.10.6", optional = true }
 rusqlite = { version = "0.37", features = ["bundled"], optional = true }
 

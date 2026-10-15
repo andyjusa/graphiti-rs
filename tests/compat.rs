@@ -5,6 +5,8 @@ mod classification_boundary;
 mod configured_profile;
 #[path = "support/interacting_relations.rs"]
 mod interacting_relations;
+#[path = "support/upstream_core.rs"]
+mod upstream_core;
 #[path = "support/worker_failure.rs"]
 mod worker_failure;
 use graphiti_rs::compat::{
@@ -55,6 +57,18 @@ fn fulltext_index_readiness_rejects_incomplete_or_unknown_status() {
     for status in ["[Indexing] 5/1200: UNDER CONSTRUCTION", "", "UNKNOWN"] {
         assert!(ready(status).unwrap_err().to_string().contains("not ready"));
     }
+}
+#[test]
+fn upstream_fulltext_handles_code_tokens_and_empty_lexical_queries() {
+    let query = graphiti_rs::compat::fulltext::query;
+    assert_eq!(
+        query("`add_episode`", "user_primary").unwrap(),
+        Some("(@group_id:\"user_primary\") (add_episode)".into())
+    );
+    for text in ["the and is", "!!!...???", "```", ""] {
+        assert!(query(text, "user_primary").unwrap().is_none());
+    }
+    assert!(query("the and is", "unknown").is_err());
 }
 fn request(id: &str) -> AddMemory {
     serde_json::from_value(json!({"uuid":id,"name":"synthetic","episode_body":"Gaon works at Saebit","group_id":"user_primary"})).unwrap()
@@ -195,7 +209,7 @@ async fn restore_audit_reads_all_pages_and_refuses_malformed_identity_without_wr
     );
     assert_eq!(
         reader
-            .keyword_facts_filtered(group, "", None, 1000, None)
+            .keyword_facts_filtered(group, "가온", None, 1000, None)
             .await
             .unwrap()
             .len(),
@@ -422,6 +436,18 @@ async fn replay_preserves_deployed_node_windows_and_refuses_unsafe_inputs() {
             .query_async(&mut connection)
             .await
             .unwrap();
+        let query = format!(
+            "CYPHER vector={} MATCH(n:Entity {{uuid:'{}'}}),(m:Entity {{uuid:'{}'}}) CREATE(n)-[:RELATES_TO {{uuid:'00000000-0000-4000-8000-000000000100',name:'KNOWS',fact:'Unrelated semantic fact',group_id:'{group}',created_at:'2026-10-02T00:00:00Z',episodes:[],fact_embedding:vecf32($vector)}}]->(m)",
+            serde_json::to_string(&vector()).unwrap(),
+            rows[0],
+            rows[1]
+        );
+        let _: redis::Value = redis::cmd("GRAPH.QUERY")
+            .arg(group)
+            .arg(query)
+            .query_async(&mut connection)
+            .await
+            .unwrap();
     }
     let mut cfg = config(dir(), "http://127.0.0.1:9");
     cfg.mode = WriteMode::ReadOnly;
@@ -440,6 +466,27 @@ async fn replay_preserves_deployed_node_windows_and_refuses_unsafe_inputs() {
         .await
         .unwrap();
     assert_eq!(hits["nodes"].as_array().unwrap().len(), 10);
+    // Empty lexical queries must leave the independent semantic branch active.
+    for query in ["the and is", "!!!...???"] {
+        let hits = engine
+            .replay_search(
+                "search_nodes",
+                json!({"query":query,"group_ids":[groups[0]],"max_nodes":10}),
+                &vector(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(hits["nodes"].as_array().unwrap().len(), 10);
+        let hits = engine
+            .replay_search(
+                "search_memory_facts",
+                json!({"query":query,"group_ids":[groups[0]],"max_facts":10}),
+                &vector(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(hits["facts"].as_array().unwrap().len(), 1);
+    }
     for node in hits["nodes"].as_array().unwrap() {
         assert_eq!(node["created_at"], "2026-10-02T00:00:00+00:00");
         assert_eq!(node["attributes"], json!({"visible":"keep"}));
@@ -1004,25 +1051,26 @@ async fn staged_ingestion_alias_duplicates_temporal_invalidation_summary_and_res
         .unwrap()
         .contains(texts[0])
     );
-    // JSON/text episodes receive no message-source history in their dedupe stage.
+    // JSON/text episodes receive no message-source history in their edge stage.
+    // Exact-name resolution can now skip the model dedupe stage entirely.
     for (id, source) in [(5, "json"), (6, "text")] {
-        let dedupe = trace
+        let extraction = trace
             .iter()
             .find(|r| {
                 r["messages"][0]["content"]
                     .as_str()
                     .unwrap()
-                    .contains("duplicates of existing entities")
+                    .contains("extracts fact triples")
                     && tag(
                         r["messages"][1]["content"].as_str().unwrap(),
-                        "CURRENT MESSAGE",
+                        "CURRENT_MESSAGE",
                     ) == Some(texts[id])
             })
             .unwrap();
         assert_eq!(
             tag(
-                dedupe["messages"][1]["content"].as_str().unwrap(),
-                "PREVIOUS MESSAGES"
+                extraction["messages"][1]["content"].as_str().unwrap(),
+                "PREVIOUS_MESSAGES"
             ),
             Some("[]"),
             "source {source}"
@@ -1267,14 +1315,28 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
                 .is_err()
         );
     }
+    assert_eq!(state.embeds.load(Ordering::SeqCst), 0);
     for tool in ["search_nodes", "search_memory_facts"] {
-        assert!(
-            engine
-                .execute(tool, json!({"query":"the a and"}))
-                .await
-                .is_err()
-        );
-        assert!(engine.execute(tool, json!({"query":"?!"})).await.is_err());
+        for query in ["the a and", "?!"] {
+            let result = engine.execute(tool, json!({"query":query})).await.unwrap();
+            let key = if tool == "search_nodes" {
+                "nodes"
+            } else {
+                "facts"
+            };
+            assert_eq!(
+                result[key].as_array().unwrap().len(),
+                2,
+                "semantic branch must survive lexical-empty input"
+            );
+            assert!(
+                result[key]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|item| item["group_id"] == "user_primary")
+            );
+        }
         assert!(
             engine
                 .execute(tool, json!({"query":"","group_ids":["unknown"]}))
@@ -1282,7 +1344,7 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
                 .is_err()
         );
     }
-    assert_eq!(state.embeds.load(Ordering::SeqCst), 0);
+    assert_eq!(state.embeds.load(Ordering::SeqCst), 4);
     assert_eq!(state.calls.load(Ordering::SeqCst), 0);
     let across = engine
         .execute(
@@ -2037,6 +2099,12 @@ async fn isolated_upsert_cas_provenance_deletion_clear_and_recovery() {
         .unwrap();
     assert!(store.commit(&resolved).await.is_err());
     let _:redis::Value=redis::cmd("GRAPH.QUERY").arg(group).arg(format!("MATCH(e:Episodic {{uuid:'{}'}}),(n:Entity {{uuid:'{}'}}) CREATE(s:Saga {{uuid:'00000000-0000-4000-8000-000000000901',group_id:'{group}',retain:true}})-[:HAS_EPISODE]->(e) CREATE(c:Community {{uuid:'00000000-0000-4000-8000-000000000902',group_id:'{group}'}})-[:HAS_MEMBER]->(n) CREATE(u:Unrecognized {{uuid:'00000000-0000-4000-8000-000000000903',group_id:'{group}',retain:true}})",first.episode.uuid,first.entities[0].uuid)).query_async(&mut conn).await.unwrap();
+    let _: redis::Value = redis::cmd("GRAPH.QUERY")
+        .arg(group)
+        .arg(format!("CREATE(:Saga {{uuid:'00000000-0000-4000-8000-000000000904',group_id:'{other}',retain:'other-saga-retained'}})"))
+        .query_async(&mut conn)
+        .await
+        .unwrap();
     let path = dir();
     let j = Journal::open(&path, 8).unwrap();
     let op = j
@@ -2115,9 +2183,26 @@ async fn isolated_upsert_cas_provenance_deletion_clear_and_recovery() {
         .await
         .unwrap();
     let rendered = format!("{keep:?}");
+    // Saga cleanup is scoped by property as well as the selected graph.
     assert!(rendered.contains("Saga"));
+    assert!(rendered.contains("other-saga-retained"));
     assert!(rendered.contains("Unrecognized"));
     assert!(!rendered.contains("Community"));
+    let scoped: redis::Value = redis::cmd("GRAPH.RO_QUERY")
+        .arg(group)
+        .arg(format!(
+            "MATCH(n:Saga) WHERE n.group_id='{group}' RETURN count(n)"
+        ))
+        .query_async(&mut conn)
+        .await
+        .unwrap();
+    let redis::Value::Array(parts) = scoped else {
+        panic!("invalid saga count reply")
+    };
+    assert_eq!(
+        parts[1],
+        redis::Value::Array(vec![redis::Value::Array(vec![redis::Value::Int(0)])])
+    );
     assert!(
         store
             .episode(other, &first.episode.uuid)
@@ -2341,6 +2426,41 @@ async fn indexed_keyword_search_uses_fulltext_order_filters_and_no_read_side_wri
             .len(),
         20
     );
+    // The unindexed fallback must not turn stopwords into lexical matches.
+    // In contrast, the existing long-query substring fallback remains available.
+    for query in ["the a and", "!!!...???"] {
+        assert!(
+            store
+                .keyword_facts(&group, query, None, 20)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            store
+                .keyword_nodes(&group, query, None, 20)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+    let long_query = vec!["cat"; 64].join(" ");
+    assert_eq!(
+        store
+            .keyword_facts(&group, &long_query, None, 20)
+            .await
+            .unwrap()
+            .len(),
+        20
+    );
+    assert_eq!(
+        store
+            .keyword_nodes(&group, &long_query, None, 20)
+            .await
+            .unwrap()
+            .len(),
+        20
+    );
     let counts = || redis::cmd("GRAPH.RO_QUERY");
     let before: redis::Value = counts()
         .arg(&group)
@@ -2401,6 +2521,36 @@ async fn indexed_keyword_search_uses_fulltext_order_filters_and_no_read_side_wri
         .unwrap();
     assert_eq!(nodes.len(), 1);
     assert_eq!(nodes[0].uuid, id(10201));
+    assert_eq!(
+        store
+            .keyword_facts(&group, "`cat`", None, 20)
+            .await
+            .unwrap()[0]
+            .uuid,
+        id(201)
+    );
+    assert_eq!(
+        store
+            .keyword_nodes(&group, "`cat`", None, 20)
+            .await
+            .unwrap()[0]
+            .uuid,
+        id(10201)
+    );
+    assert!(
+        store
+            .keyword_facts(&group, &long_query, None, 20)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .keyword_nodes(&group, &long_query, None, 20)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     assert!(
         store
             .keyword_nodes(&group, "cat", Some(&["Company".into()]), 20)
@@ -2420,7 +2570,15 @@ async fn indexed_keyword_search_uses_fulltext_order_filters_and_no_read_side_wri
         store
             .keyword_facts(&group, "the a and", None, 20)
             .await
-            .is_err()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .keyword_nodes(&group, "the a and", None, 20)
+            .await
+            .unwrap()
+            .is_empty()
     );
     assert!(
         store

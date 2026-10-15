@@ -306,11 +306,15 @@ impl LegacyStore {
         limit: usize,
     ) -> Result<Vec<LegacyEntity>> {
         ensure!((1..=1000).contains(&limit), "candidate limit exceeds bound");
+        let expression = super::fulltext::build_query(query, group)?;
+        if matches!(expression, super::fulltext::Query::Empty) {
+            return Ok(vec![]);
+        }
         if self
             .fulltext_index(group, "Entity", "NODE", &["name", "summary", "group_id"])
             .await?
         {
-            let Some(query) = super::fulltext::query(query, group)? else {
+            let super::fulltext::Query::Search(query) = expression else {
                 return Ok(vec![]);
             };
             let rows = self.query(group,
@@ -360,6 +364,10 @@ impl LegacyStore {
         if let Some(center) = center {
             policy::uuid(center)?;
         }
+        let expression = super::fulltext::build_query(query, group)?;
+        if matches!(expression, super::fulltext::Query::Empty) {
+            return Ok(vec![]);
+        }
         if self
             .fulltext_index(
                 group,
@@ -369,7 +377,7 @@ impl LegacyStore {
             )
             .await?
         {
-            let Some(query) = super::fulltext::query(query, group)? else {
+            let super::fulltext::Query::Search(query) = expression else {
                 return Ok(vec![]);
             };
             let rows = self.query(group,
@@ -870,7 +878,7 @@ impl LegacyStore {
     }
     pub async fn clear(&self, group: &str) -> Result<()> {
         policy::write(group)?;
-        self.query(group,"MATCH (n) WHERE n.group_id=$group AND (n:Entity OR n:Episodic OR n:Community) WITH collect(n) AS nodes FOREACH (n IN nodes | DETACH DELETE n) RETURN size(nodes)",json!({"group":group}),true).await?;
+        self.query(group,"MATCH (n) WHERE n.group_id=$group AND (n:Entity OR n:Episodic OR n:Community OR n:Saga) WITH collect(n) AS nodes FOREACH (n IN nodes | DETACH DELETE n) RETURN size(nodes)",json!({"group":group}),true).await?;
         Ok(())
     }
 }

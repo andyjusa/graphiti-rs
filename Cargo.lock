@@ -1088,6 +1088,7 @@ dependencies = [
  "clap",
  "http-body-util",
  "redis",
+ "regex",
  "reqwest",
  "rmcp",
  "rusqlite",
