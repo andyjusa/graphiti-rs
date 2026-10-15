@@ -103,6 +103,7 @@ async fn modern_headers_and_legacy_requests_preserve_authentication_and_transpor
         llm_base: "http://127.0.0.1:1".into(),
         llm_model: "gpt-6-luna".into(),
         llm_key_file: None,
+        gemini_transport: graphiti_rs::compat::config::GeminiTransport::Native,
         gemini_base: "http://127.0.0.1:1".into(),
         gemini_key_file: None,
         max_tokens: 512,

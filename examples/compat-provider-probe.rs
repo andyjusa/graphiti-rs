@@ -3,7 +3,7 @@
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     use graphiti_rs::compat::{
-        config::{CompatConfig, WriteMode},
+        config::{CompatConfig, GeminiTransport, WriteMode},
         providers::Providers,
     };
     use serde_json::json;
@@ -17,7 +17,9 @@ async fn main() -> anyhow::Result<()> {
         "explicit provider token bound required"
     );
     anyhow::ensure!(
-        config.llm_key_file.is_some() && config.gemini_key_file.is_some(),
+        config.llm_key_file.is_some()
+            && (config.gemini_transport == GeminiTransport::FactChat
+                || config.gemini_key_file.is_some()),
         "explicit private credential files required"
     );
     let mut types = vec![

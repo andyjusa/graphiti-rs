@@ -1,5 +1,5 @@
 use super::{
-    config::{CompatConfig, read_secret},
+    config::{CompatConfig, GeminiTransport, read_secret},
     dto::*,
     journal::Job,
 };
@@ -75,26 +75,79 @@ impl Providers {
         ensure!(texts.len() <= 256, "embedding batch exceeds bound");
         let mut output = vec![];
         for batch in texts.chunks(8) {
-            let mut request=self.client.post(format!("{}/models/gemini-embedding-2:batchEmbedContents",self.config.gemini_base.trim_end_matches('/'))).json(&json!({"requests":batch.iter().map(|text|json!({"model":"models/gemini-embedding-2","content":{"parts":[{"text":text.replace('\n'," ")}]},"outputDimensionality":3072})).collect::<Vec<_>>()}));
-            if let Some(file) = &self.config.gemini_key_file {
-                request = request.header("x-goog-api-key", read_secret(file)?);
+            let texts: Vec<_> = batch.iter().map(|text| text.replace('\n', " ")).collect();
+            let mut request = match self.config.gemini_transport {
+                GeminiTransport::Native => self.client
+                    .post(format!("{}/models/gemini-embedding-2:batchEmbedContents", self.config.gemini_base.trim_end_matches('/')))
+                    .json(&json!({"requests":texts.iter().map(|text|json!({"model":"models/gemini-embedding-2","content":{"parts":[{"text":text}]},"outputDimensionality":3072})).collect::<Vec<_>>()})),
+                GeminiTransport::FactChat => self.client
+                    .post(format!("{}/embeddings/", self.config.gemini_base.trim_end_matches('/')))
+                    .json(&json!({"model":"gemini-embedding-2","input":texts,"dimensions":3072,"encoding_format":"float"})),
+            };
+            match self.config.gemini_transport {
+                GeminiTransport::Native => {
+                    if let Some(file) = &self.config.gemini_key_file {
+                        request = request.header("x-goog-api-key", read_secret(file)?);
+                    }
+                }
+                GeminiTransport::FactChat => {
+                    request = request.bearer_auth(read_secret(
+                        self.config
+                            .llm_key_file
+                            .as_deref()
+                            .context("gateway embedding credential file required")?,
+                    )?);
+                }
             }
             let value = response(request).await?;
-            let embeddings = value
-                .get("embeddings")
-                .and_then(Value::as_array)
-                .context("invalid embedding response")?;
-            ensure!(embeddings.len() == batch.len(), "embedding count mismatch");
-            for embedding in embeddings {
-                let vector: Vec<f32> = serde_json::from_value(
-                    embedding
-                        .get("values")
-                        .cloned()
-                        .context("missing embedding values")?,
-                )
-                .map_err(|_| anyhow::anyhow!("invalid embedding values"))?;
-                validate_vector(&vector)?;
-                output.push(vector);
+            if self.config.gemini_transport == GeminiTransport::FactChat {
+                ensure!(
+                    value.get("model").and_then(Value::as_str) == Some("gemini-embedding-2"),
+                    "unexpected gateway embedding model"
+                );
+                let data = value
+                    .get("data")
+                    .and_then(Value::as_array)
+                    .context("invalid gateway embedding response")?;
+                ensure!(data.len() == batch.len(), "embedding count mismatch");
+                let mut ordered = vec![None; batch.len()];
+                for item in data {
+                    let index = item
+                        .get("index")
+                        .and_then(Value::as_u64)
+                        .context("invalid embedding index")?;
+                    ensure!(index < batch.len() as u64, "embedding index outside batch");
+                    let slot = &mut ordered[index as usize];
+                    ensure!(slot.is_none(), "duplicate embedding index");
+                    let vector: Vec<f32> = serde_json::from_value(
+                        item.get("embedding")
+                            .cloned()
+                            .context("missing embedding values")?,
+                    )
+                    .map_err(|_| anyhow::anyhow!("invalid embedding values"))?;
+                    validate_vector(&vector)?;
+                    *slot = Some(vector);
+                }
+                for vector in ordered {
+                    output.push(vector.context("missing embedding index")?);
+                }
+            } else {
+                let embeddings = value
+                    .get("embeddings")
+                    .and_then(Value::as_array)
+                    .context("invalid embedding response")?;
+                ensure!(embeddings.len() == batch.len(), "embedding count mismatch");
+                for embedding in embeddings {
+                    let vector: Vec<f32> = serde_json::from_value(
+                        embedding
+                            .get("values")
+                            .cloned()
+                            .context("missing embedding values")?,
+                    )
+                    .map_err(|_| anyhow::anyhow!("invalid embedding values"))?;
+                    validate_vector(&vector)?;
+                    output.push(vector);
+                }
             }
         }
         Ok(output)
