@@ -119,10 +119,8 @@ impl Providers {
                     ensure!(index < batch.len() as u64, "embedding index outside batch");
                     let slot = &mut ordered[index as usize];
                     ensure!(slot.is_none(), "duplicate embedding index");
-                    let vector: Vec<f32> = serde_json::from_value(
-                        item.get("embedding")
-                            .cloned()
-                            .context("missing embedding values")?,
+                    let vector = Vec::<f32>::deserialize(
+                        item.get("embedding").context("missing embedding values")?,
                     )
                     .map_err(|_| anyhow::anyhow!("invalid embedding values"))?;
                     validate_vector(&vector)?;
@@ -138,10 +136,9 @@ impl Providers {
                     .context("invalid embedding response")?;
                 ensure!(embeddings.len() == batch.len(), "embedding count mismatch");
                 for embedding in embeddings {
-                    let vector: Vec<f32> = serde_json::from_value(
+                    let vector = Vec::<f32>::deserialize(
                         embedding
                             .get("values")
-                            .cloned()
                             .context("missing embedding values")?,
                     )
                     .map_err(|_| anyhow::anyhow!("invalid embedding values"))?;

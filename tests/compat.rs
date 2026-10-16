@@ -5,6 +5,8 @@ mod classification_boundary;
 mod configured_profile;
 #[path = "support/interacting_relations.rs"]
 mod interacting_relations;
+#[path = "support/read_query.rs"]
+mod read_query;
 #[path = "support/upstream_core.rs"]
 mod upstream_core;
 #[path = "support/worker_failure.rs"]

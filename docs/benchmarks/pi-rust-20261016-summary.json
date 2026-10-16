@@ -1,0 +1,193 @@
+{
+  "source_report": "pi-rust-20261016.json",
+  "source_report_sha256": "6aa8121aba0de7b45831bc241d393485faebbd1244065c619d9c1baa54fadfad",
+  "runtime_source_commit": "0ef0893d9180408a143d1bdbbcb3fd0078ec36ba",
+  "baseline_source_commit": "c1b501c471fd71bf4821c17686bbffac996f0d63",
+  "builds": {
+    "baseline": {
+      "image_id": "sha256:6c808cf734bbb66cd8260d953e62ac5d3174c67b23ce6c762c30a1d702210953",
+      "source_commit": "c1b501c471fd71bf4821c17686bbffac996f0d63",
+      "source_build_manifest": {
+        "path": "source-manifests/baseline.json",
+        "sha256": "0405632de696e6087089778be5214a2200b676ccf1febd572bd361fca8c1bacf"
+      },
+      "expected_binary_sha256": "309de3d63de461aab8eba661b927c0957c26951eb96139ea07a1be2512abec84",
+      "revision_label": null,
+      "binary_sha256": "309de3d63de461aab8eba661b927c0957c26951eb96139ea07a1be2512abec84"
+    },
+    "candidate": {
+      "image_id": "sha256:47ebe26ad667568e33ed8d9685f89e556012a658d61c3106be930eec084ec736",
+      "source_commit": "0ef0893d9180408a143d1bdbbcb3fd0078ec36ba",
+      "source_build_manifest": {
+        "path": "source-manifests/candidate.json",
+        "sha256": "22077cf5f631a072ae074777e56ae82be773f288769a00401b8edede1d2b6f21"
+      },
+      "expected_binary_sha256": "deb31e9aaeb6fff75cd22a6ad55261aca308f4a2dba3b47619e283e421483561",
+      "revision_label": null,
+      "binary_sha256": "deb31e9aaeb6fff75cd22a6ad55261aca308f4a2dba3b47619e283e421483561"
+    }
+  },
+  "acceptance": {
+    "mode": "pareto",
+    "policy": "pareto-with-gates",
+    "minimum_cpu_reduction_fraction": 0.05,
+    "maximum_rss_increase_KiB": 1024,
+    "maximum_workload_p50_regression_fraction": 0.1,
+    "maximum_cpu_increase_fraction": 0.02,
+    "minimum_workload_p50_reduction_fraction": 0.05,
+    "latency_improvement_requires_all_three_paired_rounds_lower": true
+  },
+  "comparison": {
+    "valid": true,
+    "conclusion": "passed",
+    "decision": "keep",
+    "summaries": {
+      "baseline": {
+        "cpu_seconds_per_300_requests_median": 2.1100000000000003,
+        "rss_median_KiB": 12408,
+        "workload_p50_median_ms": {
+          "episode_read": 3.3021949930116534,
+          "hybrid_fact_search": 47.743407485540956,
+          "semantic_node_search": 25.899739004671574
+        }
+      },
+      "candidate": {
+        "cpu_seconds_per_300_requests_median": 1.9700000000000002,
+        "rss_median_KiB": 12292,
+        "workload_p50_median_ms": {
+          "episode_read": 2.4572089896537364,
+          "hybrid_fact_search": 47.295094991568476,
+          "semantic_node_search": 25.29585297452286
+        }
+      }
+    },
+    "metric_deltas": {
+      "cpu_reduction_fraction": 0.06635071090047395,
+      "rss_increase_KiB": -116,
+      "workload_p50_regression_fraction": {
+        "episode_read": -0.25588616212735416,
+        "hybrid_fact_search": -0.009390039747545265,
+        "semantic_node_search": -0.023316297899364624
+      },
+      "workload_p50_all_three_pairs_lower": {
+        "episode_read": true,
+        "hybrid_fact_search": true,
+        "semantic_node_search": true
+      },
+      "qualifying_latency_workloads": [
+        "episode_read"
+      ]
+    },
+    "gates": {
+      "all_requests_succeeded_and_no_oom": true,
+      "complete_response_parity": true,
+      "cleanup_succeeded": true,
+      "protected_paths_unchanged": true,
+      "rss_increase_at_most_1024_KiB": true,
+      "each_workload_p50_regression_at_most_10_percent": true,
+      "cpu_increase_at_most_2_percent": true
+    },
+    "acceptance": {
+      "mode": "pareto",
+      "policy": "pareto-with-gates",
+      "minimum_cpu_reduction_fraction": 0.05,
+      "maximum_rss_increase_KiB": 1024,
+      "maximum_workload_p50_regression_fraction": 0.1,
+      "maximum_cpu_increase_fraction": 0.02,
+      "minimum_workload_p50_reduction_fraction": 0.05,
+      "latency_improvement_requires_all_three_paired_rounds_lower": true
+    }
+  },
+  "validation": {
+    "ci": {
+      "run": 38851562661,
+      "url": "https://github.com/andyjusa/graphiti-rs/actions/runs/38851562661",
+      "result": "success"
+    },
+    "package": {
+      "run": 38851561958,
+      "archive_sha256": "5dbf6fc391de4d15f9ea4dab212275d750d04389e6a40591e24197759abf7cf2"
+    },
+    "pi_tests": {
+      "library": 8,
+      "gemini_gateway": 5,
+      "compat_non_db": 13,
+      "compat_isolated_db": 17,
+      "python_differential": 5,
+      "passed": 48
+    },
+    "production": {
+      "production_containers_unchanged": true,
+      "production_mutations": false,
+      "production_status": "ok",
+      "isolated_regression_containers_removed": true
+    }
+  },
+  "range_definition": "min and max of three per-round values; p50 values summarize 100 measured requests per round",
+  "ranges": {
+    "baseline": {
+      "cpu_seconds_per_300_requests": {
+        "median": 2.1100000000000003,
+        "min": 2.07,
+        "max": 2.1199999999999997
+      },
+      "rss_KiB": {
+        "median": 12408,
+        "min": 12160,
+        "max": 12524
+      },
+      "process_peak_rss_KiB": {
+        "median": 12588,
+        "min": 12540,
+        "max": 12624
+      },
+      "episode_read_p50_ms": {
+        "median": 3.3021949930116534,
+        "min": 2.6319485623389482,
+        "max": 3.3213799470104277
+      },
+      "hybrid_fact_search_p50_ms": {
+        "median": 47.743407485540956,
+        "min": 47.74286097381264,
+        "max": 47.760630026459694
+      },
+      "semantic_node_search_p50_ms": {
+        "median": 25.899739004671574,
+        "min": 25.73207300156355,
+        "max": 26.0697195190005
+      }
+    },
+    "candidate": {
+      "cpu_seconds_per_300_requests": {
+        "median": 1.9700000000000002,
+        "min": 1.9500000000000002,
+        "max": 2.0000000000000004
+      },
+      "rss_KiB": {
+        "median": 12292,
+        "min": 12148,
+        "max": 12612
+      },
+      "process_peak_rss_KiB": {
+        "median": 12612,
+        "min": 12528,
+        "max": 12660
+      },
+      "episode_read_p50_ms": {
+        "median": 2.4572089896537364,
+        "min": 2.4412639904767275,
+        "max": 2.469236496835947
+      },
+      "hybrid_fact_search_p50_ms": {
+        "median": 47.295094991568476,
+        "min": 47.081558499485254,
+        "max": 47.32940049143508
+      },
+      "semantic_node_search_p50_ms": {
+        "median": 25.29585297452286,
+        "min": 25.184899976011366,
+        "max": 25.50609252648428
+      }
+    }
+  }
+}

@@ -54,6 +54,8 @@ Latency figures are the medians of the three per-round p50s, each based on 100 r
 [Conditions, per-round ranges & reproduction](docs/benchmarks/pi-paired-20261015.md) · [Raw measurements](docs/benchmarks/pi-paired-20261015.json) · [Summary & source hashes](docs/benchmarks/pi-paired-20261015-summary.json)
 <!-- /PAIRED_BENCHMARK -->
 
+Further Rust tuning on October 16 reduced median **server CPU by 6.6%** against deployed main `c1b501c`: 2.11 → 1.97 seconds per 300 synthetic retrieval requests, with server memory essentially unchanged. Redundant Redis read checks and property-map copies were removed. This is a separate Rust/Rust cohort; [results, ranges and rejected candidates](docs/benchmarks/pi-rust-20261016.md) preserve the full evidence. The measured candidate is `0ef0893`; the operating deployment remains `c1b501c`.
+
 Earlier evidence includes [Pi4 ARM64 validation](docs/compat/pi-results.md), [vector retrieval measurements](docs/compat/vector-retrieval.md) and the [operating cutover record](docs/compat/operational-cutover-20261003.md). Those runs used different datasets and modes; distinguish server RSS from total memory including FalkorDB and models.
 
 ## How it compares to Graphiti
