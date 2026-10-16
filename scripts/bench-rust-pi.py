@@ -25,9 +25,6 @@ import uuid
 MARKER = "graphiti-rust-pi-20261016"
 EVALUATOR_SHA256 = "d9235decb425a380eacced02238c42f7ee03bc49a8e371e23b4dbf3418317574"
 HERE = Path(__file__).resolve().parent
-spec = importlib.util.spec_from_file_location("paired_pi", HERE / "bench-paired-pi.py")
-base = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(base)
 
 
 def require(condition, message):
@@ -41,6 +38,15 @@ def now():
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+require(platform.system() == "Linux" and platform.machine() == "aarch64",
+        "Pi Linux ARM64 only; never benchmark on Mac")
+require(digest(HERE / "bench-paired-pi.py") == EVALUATOR_SHA256,
+        "protected paired evaluator differs before import")
+spec = importlib.util.spec_from_file_location("paired_pi", HERE / "bench-paired-pi.py")
+base = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(base)
 
 
 def write_json(path, value):
