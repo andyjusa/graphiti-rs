@@ -120,12 +120,14 @@ impl LegacyStore {
             .await?;
         ensure!(rows.len() <= 1, "ambiguous episode UUID");
         let result = rows
-            .first()
-            .map(|r| {
-                r[0].as_object()
-                    .cloned()
-                    .context("invalid episode properties")
-            })
+            .into_iter()
+            .next()
+            .map(
+                |r| match r.into_iter().next().context("missing episode properties")? {
+                    Value::Object(properties) => Ok(properties),
+                    _ => bail!("invalid episode properties"),
+                },
+            )
             .transpose()?;
         if let Some(p) = &result {
             identity(p, group, id)?;
@@ -204,7 +206,7 @@ impl LegacyStore {
             rows.len() <= 1000,
             "related fact resolution window exhausted"
         );
-        rows.iter().map(|r| fact(r, group)).collect()
+        rows.into_iter().map(|r| fact_owned(r, group)).collect()
     }
     pub async fn edge(&self, group: &str, id: &str) -> Result<Option<LegacyFact>> {
         policy::uuid(id)?;
@@ -212,7 +214,10 @@ impl LegacyStore {
             .query(group, EDGE_LOOKUP_QUERY, json!({"id":id}), false)
             .await?;
         ensure!(rows.len() <= 1, "ambiguous fact UUID");
-        rows.first().map(|r| fact(r, group)).transpose()
+        rows.into_iter()
+            .next()
+            .map(|r| fact_owned(r, group))
+            .transpose()
     }
     pub async fn node(&self, group: &str, id: &str) -> Result<Option<LegacyEntity>> {
         policy::uuid(id)?;
@@ -225,7 +230,10 @@ impl LegacyStore {
             )
             .await?;
         ensure!(rows.len() <= 1, "ambiguous entity UUID");
-        rows.first().map(|r| entity(r, group)).transpose()
+        rows.into_iter()
+            .next()
+            .map(|r| entity_owned(r, group))
+            .transpose()
     }
     pub async fn nodes(
         &self,
@@ -241,7 +249,9 @@ impl LegacyStore {
             .map(str::to_owned)
             .collect();
         let rows=self.query(group,"MATCH (n:Entity) WHERE n.group_id=$group AND (size($terms)=0 OR any(t IN $terms WHERE toLower(n.name) CONTAINS t OR toLower(n.summary) CONTAINS t)) AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) RETURN properties(n),labels(n) ORDER BY n.uuid LIMIT $limit",json!({"group":group,"terms":terms,"types":types.unwrap_or(&[]),"limit":limit}),false).await?;
-        rows.iter().map(|row| entity(row, group)).collect()
+        rows.into_iter()
+            .map(|row| entity_owned(row, group))
+            .collect()
     }
     pub async fn facts(
         &self,
@@ -267,7 +277,7 @@ impl LegacyStore {
                 false,
             )
             .await?;
-        rows.iter().map(|r| fact(r, group)).collect()
+        rows.into_iter().map(|r| fact_owned(r, group)).collect()
     }
     async fn fulltext_index(
         &self,
@@ -312,7 +322,7 @@ impl LegacyStore {
             let rows = self.query(group,
                 "CALL db.idx.fulltext.queryNodes('Entity',$query) YIELD node AS n,score WHERE n.group_id=$group AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) RETURN properties(n),labels(n) ORDER BY score DESC LIMIT $limit",
                 json!({"query":query,"group":group,"types":types.unwrap_or(&[]),"limit":limit}),false).await?;
-            return rows.iter().map(|r| entity(r, group)).collect();
+            return rows.into_iter().map(|r| entity_owned(r, group)).collect();
         }
         let mut nodes = self.nodes(group, query, types, limit).await?;
         nodes.sort_by(|a, b| {
@@ -375,7 +385,7 @@ impl LegacyStore {
             let rows = self.query(group,
                 "CALL db.idx.fulltext.queryRelationships('RELATES_TO',$query) YIELD relationship AS e,score WITH e,score,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND (size($ids)=0 OR e.uuid IN $ids) RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC LIMIT $limit",
                 json!({"query":query,"group":group,"limit":limit,"ids":allowed.unwrap_or(&[])}),false).await?;
-            return rows.iter().map(|r| fact(r, group)).collect();
+            return rows.into_iter().map(|r| fact_owned(r, group)).collect();
         }
         let terms: Vec<_> = crate::domain::normalize(query)
             .split_whitespace()
@@ -395,8 +405,8 @@ impl LegacyStore {
             )
             .await?;
         let mut facts = rows
-            .iter()
-            .map(|r| fact(r, group))
+            .into_iter()
+            .map(|r| fact_owned(r, group))
             .collect::<Result<Vec<_>>>()?;
         facts.sort_by(|a, b| {
             super::fulltext::substring_rank(query, &b.fact)
@@ -419,7 +429,7 @@ impl LegacyStore {
         let rows = self.query(group,
             "MATCH (n:Entity) WHERE n.group_id=$group AND n.name_embedding IS NOT NULL AND (size($types)=0 OR any(t IN $types WHERE t IN labels(n) OR t IN n.labels)) WITH n,(2-vec.cosineDistance(n.name_embedding,vecf32($vector)))/2 AS score WHERE score>$min RETURN properties(n),labels(n) ORDER BY score DESC LIMIT $limit",
             json!({"group":group,"vector":vector,"types":types.unwrap_or(&[]),"min":super::resolution::SEMANTIC_MIN_SCORE,"limit":limit}), false).await?;
-        rows.iter().map(|r| entity(r, group)).collect()
+        rows.into_iter().map(|r| entity_owned(r, group)).collect()
     }
     pub async fn semantic_facts(
         &self,
@@ -451,7 +461,7 @@ impl LegacyStore {
         let rows = self.query(group,
             "MATCH ()-[e:RELATES_TO]->() WITH *,startNode(e) AS n,endNode(e) AS m WHERE 'Entity' IN labels(n) AND 'Entity' IN labels(m) AND e.group_id=$group AND n.group_id=$group AND m.group_id=$group AND e.fact_embedding IS NOT NULL AND (size($ids)=0 OR e.uuid IN $ids) WITH e,n,m,(2-vec.cosineDistance(e.fact_embedding,vecf32($vector)))/2 AS score WHERE score>$min RETURN properties(e),n.uuid,m.uuid ORDER BY score DESC LIMIT $limit",
             json!({"group":group,"vector":vector,"min":super::resolution::SEMANTIC_MIN_SCORE,"ids":allowed.unwrap_or(&[]),"limit":limit}), false).await?;
-        rows.iter().map(|r| fact(r, group)).collect()
+        rows.into_iter().map(|r| fact_owned(r, group)).collect()
     }
     pub async fn neighbors(
         &self,
@@ -885,6 +895,12 @@ fn map(value: &Value) -> Result<Map<String, Value>> {
         .cloned()
         .context("invalid legacy property map")
 }
+fn owned_map(value: Value) -> Result<Map<String, Value>> {
+    match value {
+        Value::Object(properties) => Ok(properties),
+        _ => bail!("invalid legacy property map"),
+    }
+}
 fn identity(p: &Map<String, Value>, group: &str, id: &str) -> Result<()> {
     ensure!(
         p.get("uuid").and_then(Value::as_str) == Some(id)
@@ -900,7 +916,21 @@ fn attributes(p: &Map<String, Value>, known: &[&str]) -> Map<String, Value> {
         .collect()
 }
 pub(super) fn fact(row: &[Value], group: &str) -> Result<LegacyFact> {
-    let mut p = map(&row[0])?;
+    fact_from_properties(map(&row[0])?, row[1].clone(), row[2].clone(), group)
+}
+fn fact_owned(row: Vec<Value>, group: &str) -> Result<LegacyFact> {
+    let mut columns = row.into_iter();
+    let properties = owned_map(columns.next().context("missing fact properties")?)?;
+    let source = columns.next().context("missing fact source UUID")?;
+    let target = columns.next().context("missing fact target UUID")?;
+    fact_from_properties(properties, source, target, group)
+}
+fn fact_from_properties(
+    mut p: Map<String, Value>,
+    source: Value,
+    target: Value,
+    group: &str,
+) -> Result<LegacyFact> {
     identity(
         &p,
         group,
@@ -925,8 +955,8 @@ pub(super) fn fact(row: &[Value], group: &str) -> Result<LegacyFact> {
             "fact_embedding",
         ],
     );
-    p.insert("source_node_uuid".into(), row[1].clone());
-    p.insert("target_node_uuid".into(), row[2].clone());
+    p.insert("source_node_uuid".into(), source);
+    p.insert("target_node_uuid".into(), target);
     p.insert("attributes".into(), Value::Object(attrs));
     serde_json::from_value(Value::Object(p)).map_err(Into::into)
 }
@@ -975,7 +1005,19 @@ fn decode(v: &R) -> Result<Value> {
 }
 
 pub(super) fn entity(row: &[Value], group: &str) -> Result<LegacyEntity> {
-    let mut p = map(&row[0])?;
+    entity_from_properties(map(&row[0])?, row[1].clone(), group)
+}
+fn entity_owned(row: Vec<Value>, group: &str) -> Result<LegacyEntity> {
+    let mut columns = row.into_iter();
+    let properties = owned_map(columns.next().context("missing entity properties")?)?;
+    let labels = columns.next().context("missing entity labels")?;
+    entity_from_properties(properties, labels, group)
+}
+fn entity_from_properties(
+    mut p: Map<String, Value>,
+    raw_labels: Value,
+    group: &str,
+) -> Result<LegacyEntity> {
     identity(
         &p,
         group,
@@ -983,7 +1025,7 @@ pub(super) fn entity(row: &[Value], group: &str) -> Result<LegacyEntity> {
             .and_then(Value::as_str)
             .context("missing UUID")?,
     )?;
-    let mut labels: Vec<String> = serde_json::from_value(row[1].clone())?;
+    let mut labels: Vec<String> = serde_json::from_value(raw_labels)?;
     if let Some(stored) = p.get("labels") {
         for label in serde_json::from_value::<Vec<String>>(stored.clone())? {
             if !labels.contains(&label) {
@@ -1009,6 +1051,60 @@ pub(super) fn entity(row: &[Value], group: &str) -> Result<LegacyEntity> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn owned_rows_preserve_vectors_attributes_labels_and_endpoint_overrides() {
+        let group = "user_primary";
+        let source = "00000000-0000-4000-8000-000000000001";
+        let target = "00000000-0000-4000-8000-000000000002";
+        let node = entity_owned(
+            vec![
+                json!({"uuid":source,"group_id":group,"name":"Person","summary":"Summary","created_at":"2026-10-16T00:00:00Z","labels":["Person","Employee"],"name_embedding":[0.1,0.25],"visible":{"code":3},"attributes":{"prior":true}}),
+                json!(["Entity", "Person"]),
+            ],
+            group,
+        )
+        .unwrap();
+        assert_eq!(node.name_embedding, Some(vec![0.1, 0.25]));
+        assert_eq!(node.labels, ["Entity", "Person", "Employee"]);
+        assert_eq!(
+            json!(node.attributes),
+            json!({"visible":{"code":3},"attributes":{"prior":true}})
+        );
+        let fact = fact_owned(
+            vec![
+                json!({"uuid":"00000000-0000-4000-8000-000000000003","group_id":group,"name":"RELATION","fact":"A fact","created_at":"2026-10-16T00:00:00Z","episodes":[],"source_node_uuid":"stored source","target_node_uuid":"stored target","fact_embedding":[0.1,0.25],"visible":{"code":4},"attributes":{"prior":false}}),
+                json!(source),
+                json!(target),
+            ],
+            group,
+        )
+        .unwrap();
+        assert_eq!(fact.fact_embedding, Some(vec![0.1, 0.25]));
+        assert_eq!(fact.source_node_uuid, source);
+        assert_eq!(fact.target_node_uuid, target);
+        assert_eq!(
+            json!(fact.attributes),
+            json!({"visible":{"code":4},"attributes":{"prior":false}})
+        );
+        for row in [vec![], vec![Value::Null], vec![json!({})]] {
+            assert!(entity_owned(row.clone(), group).is_err());
+            assert!(fact_owned(row, group).is_err());
+        }
+        let mismatched = json!({"uuid":source,"group_id":"general_chat"});
+        assert_eq!(
+            entity_owned(vec![mismatched.clone(), json!([])], group)
+                .unwrap_err()
+                .to_string(),
+            "legacy identity/group mismatch"
+        );
+        assert_eq!(
+            fact_owned(vec![mismatched, json!(source), json!(target)], group)
+                .unwrap_err()
+                .to_string(),
+            "legacy identity/group mismatch"
+        );
+    }
 
     #[test]
     fn missing_graph_requires_the_exact_redis_response_error() {
