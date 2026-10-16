@@ -245,7 +245,21 @@ class Experiment(base.Experiment):
         run = self.active
         if run:
             self.manifest(run, image, argv, memory, cpus, network, mounts)
-        name = super().container(suffix, image, argv, memory, cpus, network, mounts)
+        try:
+            name = super().container(suffix, image, argv, memory, cpus, network, mounts)
+        except BaseException:
+            # Docker may create the container before its client reports an error.
+            pending = self.tag + "-" + suffix
+            try:
+                info = self.inspect(pending)
+                require(info["Config"]["Labels"].get("task") == self.tag,
+                        "failed creation has an unexpected owner")
+                if pending not in self.containers:
+                    self.containers.append(pending)
+            except Exception as inspection_error:
+                self.report.setdefault("unconfirmed_container_creations", []).append(
+                    {"name": pending, "inspection_error_class": type(inspection_error).__name__})
+            raise
         if run:
             info = self.inspect(name)
             run["container_name"] = name
