@@ -60,18 +60,6 @@ impl LegacyStore {
             policy::read(group)?;
         }
         let mut c = self.connection.clone();
-        if !write {
-            let exists: bool = tokio::time::timeout(
-                Duration::from_secs(5),
-                redis::cmd("EXISTS").arg(group).query_async(&mut c),
-            )
-            .await
-            .context("database lookup timed out")?
-            .map_err(|_| anyhow::anyhow!("database lookup failed"))?;
-            if !exists {
-                return Ok(vec![]);
-            }
-        }
         let mut prefix = "CYPHER ".to_owned();
         for (k, v) in params.as_object().context("invalid query parameters")? {
             ensure!(
@@ -81,7 +69,7 @@ impl LegacyStore {
             prefix.push_str(&format!("{k}={} ", crate::store::cypher_value(v)?));
         }
         prefix.push_str(query);
-        let response: R = tokio::time::timeout(
+        let response: redis::RedisResult<R> = tokio::time::timeout(
             Duration::from_secs(6),
             redis::cmd(if write {
                 "GRAPH.QUERY"
@@ -96,8 +84,12 @@ impl LegacyStore {
             .query_async(&mut c),
         )
         .await
-        .context("database query timed out")?
-        .map_err(|_| anyhow::anyhow!("legacy database query failed"))?;
+        .context("database query timed out")?;
+        // RO_QUERY never creates a graph; only its exact missing-key error is empty.
+        let response = match response {
+            Err(error) if !write && is_missing_graph(&error) => return Ok(vec![]),
+            response => response.map_err(|_| anyhow::anyhow!("legacy database query failed"))?,
+        };
         let response = response
             .extract_error()
             .map_err(|_| anyhow::anyhow!("legacy database query failed"))?;
@@ -882,6 +874,11 @@ impl LegacyStore {
         Ok(())
     }
 }
+fn is_missing_graph(error: &redis::RedisError) -> bool {
+    error.kind() == redis::ErrorKind::ResponseError
+        && error.code() == Some("ERR")
+        && error.detail() == Some("Invalid graph operation on empty key")
+}
 fn map(value: &Value) -> Result<Map<String, Value>> {
     value
         .as_object()
@@ -1012,6 +1009,30 @@ pub(super) fn entity(row: &[Value], group: &str) -> Result<LegacyEntity> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_graph_requires_the_exact_redis_response_error() {
+        for (response, expected) in [
+            ("-ERR Invalid graph operation on empty key\r\n", true),
+            (
+                "-ERR Invalid graph operation on empty key: unavailable\r\n",
+                false,
+            ),
+            ("-ERR invalid graph operation on empty key\r\n", false),
+            ("-ERR FalkorDB module is currently replicating\r\n", false),
+            (
+                "-WRONGTYPE Operation against a key holding the wrong kind of value\r\n",
+                false,
+            ),
+            ("-WRONGTYPE Invalid graph operation on empty key\r\n", false),
+        ] {
+            let error = redis::parse_redis_value(response.as_bytes())
+                .unwrap()
+                .extract_error()
+                .unwrap_err();
+            assert_eq!(is_missing_graph(&error), expected, "{response:?}");
+        }
+    }
 
     #[test]
     fn compact_vectors_preserve_f32_values_empty_arrays_and_errors() {

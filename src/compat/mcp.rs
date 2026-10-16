@@ -5,7 +5,7 @@ use rmcp::{
     service::{RequestContext, RoleServer},
 };
 use serde_json::Value;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 #[derive(Clone)]
 pub struct CompatService {
     pub engine: Arc<Engine>,
@@ -15,19 +15,13 @@ impl CompatService {
         Self { engine }
     }
 }
-fn tool_registry() -> &'static [Tool] {
-    static TOOLS: OnceLock<Vec<Tool>> = OnceLock::new();
-    TOOLS.get_or_init(|| {
-        let fixture: Value = serde_json::from_str(include_str!(
-            "../../tests/fixtures/production-mcp-contract.json"
-        ))
-        .expect("checked-in compatibility fixture");
-        serde_json::from_value(fixture["tools"]["tools"].clone())
-            .expect("checked-in compatibility schemas")
-    })
-}
 pub fn tools() -> Vec<Tool> {
-    tool_registry().to_vec()
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/production-mcp-contract.json"
+    ))
+    .expect("checked-in compatibility fixture");
+    serde_json::from_value(fixture["tools"]["tools"].clone())
+        .expect("checked-in compatibility schemas")
 }
 pub fn shape(name: &str, args: &Value) -> Result<(), ErrorData> {
     fn check<T: serde::de::DeserializeOwned>(args: &Value) -> Result<(), ErrorData> {
@@ -88,7 +82,7 @@ impl ServerHandler for CompatService {
         info
     }
     fn get_tool(&self, name: &str) -> Option<Tool> {
-        tool_registry().iter().find(|t| t.name == name).cloned()
+        tools().into_iter().find(|t| t.name == name)
     }
     async fn list_tools(
         &self,
