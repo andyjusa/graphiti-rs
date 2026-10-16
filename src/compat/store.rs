@@ -955,11 +955,11 @@ fn decode(v: &R) -> Result<Value> {
             let R::Array(values) = &cell[1] else {
                 bail!("invalid compact vector")
             };
-            json!(
+            Value::Array(
                 values
                     .iter()
-                    .map(redis::from_redis_value::<f32>)
-                    .collect::<std::result::Result<Vec<_>, _>>()?
+                    .map(|value| redis::from_redis_value::<f32>(value).map(Value::from))
+                    .collect::<std::result::Result<Vec<_>, _>>()?,
             )
         }
         10 => {
@@ -1007,4 +1007,35 @@ pub(super) fn entity(row: &[Value], group: &str) -> Result<LegacyEntity> {
     p.insert("attributes".into(), Value::Object(attrs));
     p.insert("labels".into(), json!(labels));
     serde_json::from_value(Value::Object(p)).map_err(Into::into)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compact_vectors_preserve_f32_values_empty_arrays_and_errors() {
+        let vector = |values| R::Array(vec![R::Int(12), R::Array(values)]);
+        let decoded = decode(&vector(vec![
+            R::Double(0.1),
+            R::Int(16_777_217),
+            R::BulkString(b"-0.1".to_vec()),
+            R::Double(f64::NAN),
+            R::Double(f64::INFINITY),
+        ]))
+        .unwrap();
+        assert_eq!(
+            decoded,
+            json!([
+                0.10000000149011612_f64,
+                16_777_216.0_f64,
+                -0.10000000149011612_f64,
+                null,
+                null
+            ])
+        );
+        assert_eq!(decode(&vector(vec![])).unwrap(), json!([]));
+        assert!(decode(&vector(vec![R::BulkString(b"invalid".to_vec())])).is_err());
+        assert!(decode(&R::Array(vec![R::Int(12), R::Int(1)])).is_err());
+    }
 }

@@ -18,6 +18,7 @@ use tokio_util::sync::CancellationToken;
 pub struct Engine {
     pub store: LegacyStore,
     config: CompatConfig,
+    providers: Option<Providers>,
     journal: Option<Arc<Journal>>,
     notify: Arc<Notify>,
     mutation: Arc<Mutex<()>>,
@@ -52,9 +53,15 @@ impl Engine {
             None
         };
         let store = LegacyStore::connect(&config.redis_url, config.mode).await?;
+        let providers = if config.mode.writable() {
+            Some(Providers::new(config.clone())?)
+        } else {
+            None
+        };
         let engine = Arc::new(Self {
             store,
             config,
+            providers,
             journal,
             notify: Arc::new(Notify::new()),
             mutation: Arc::new(Mutex::new(())),
@@ -69,7 +76,7 @@ impl Engine {
             let cancel = engine.cancel.clone();
             let mutation = engine.mutation.clone();
             let config = engine.config.clone();
-            let providers = Providers::new(config.clone())?;
+            let providers = engine.providers.as_ref().unwrap().clone();
             engine.worker_alive.store(true, Ordering::Release);
             let worker = WorkerLifetime(engine.worker_alive.clone());
             tokio::spawn(async move {
@@ -479,12 +486,10 @@ impl Engine {
         Ok(())
     }
     async fn query_vector(&self, query: &str) -> Result<Option<Vec<f32>>> {
-        if self.config.mode == WriteMode::ReadOnly {
+        let Some(providers) = &self.providers else {
             return Ok(None);
-        }
-        let mut v = Providers::new(self.config.clone())?
-            .embed(&[query.into()])
-            .await?;
+        };
+        let mut v = providers.embed(&[query.into()]).await?;
         Ok(v.pop())
     }
 }
