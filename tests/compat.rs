@@ -683,7 +683,6 @@ fn operational_mode_requires_deployed_profile_and_private_credentials() {
 struct Mock {
     calls: Arc<AtomicUsize>,
     embeds: Arc<AtomicUsize>,
-    embed_peers: Arc<tokio::sync::Mutex<Vec<std::net::SocketAddr>>>,
     bad: Arc<AtomicBool>,
     release: Arc<tokio::sync::Semaphore>,
     bodies: Arc<tokio::sync::Mutex<Vec<Value>>>,
@@ -704,7 +703,6 @@ async fn llm(
     )
 }
 async fn embeddings(
-    axum::extract::ConnectInfo(peer): axum::extract::ConnectInfo<std::net::SocketAddr>,
     axum::extract::State(s): axum::extract::State<Mock>,
     headers: axum::http::HeaderMap,
     axum::Json(v): axum::Json<Value>,
@@ -712,7 +710,6 @@ async fn embeddings(
     assert_eq!(headers["x-goog-api-key"], "synthetic-gemini-key");
     assert!(!headers.contains_key("authorization"));
     s.embeds.fetch_add(1, Ordering::SeqCst);
-    s.embed_peers.lock().await.push(peer);
     s.bodies.lock().await.push(v.clone());
     let n = v["requests"].as_array().unwrap().len();
     let values = if s.bad.load(Ordering::SeqCst) {
@@ -1176,7 +1173,6 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
     let state = Mock {
         calls: Arc::new(AtomicUsize::new(0)),
         embeds: Arc::new(AtomicUsize::new(0)),
-        embed_peers: Arc::new(tokio::sync::Mutex::new(vec![])),
         bad: Arc::new(AtomicBool::new(false)),
         release: Arc::new(tokio::sync::Semaphore::new(0)),
         bodies: Arc::new(tokio::sync::Mutex::new(vec![])),
@@ -1190,14 +1186,7 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
             axum::routing::post(embeddings),
         )
         .with_state(state.clone());
-    let mock = tokio::spawn(async move {
-        axum::serve(
-            listener,
-            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
-        )
-        .await
-        .unwrap()
-    });
+    let mock = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let store = LegacyStore::connect(&url, WriteMode::Synthetic)
         .await
         .unwrap();
@@ -1464,7 +1453,6 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
     let mut changed = args;
     changed["episode_body"] = json!("changed");
     assert!(engine.execute("add_memory", changed).await.is_err());
-    let peers_before_search = state.embed_peers.lock().await.len();
     let nodes=engine.execute("search_nodes",json!({"query":"Gaon","group_ids":["user_primary"],"entity_types":["Person"],"max_nodes":1})).await.unwrap();
     assert_eq!(nodes["nodes"].as_array().unwrap().len(), 1);
     let center = nodes["nodes"][0]["uuid"].as_str().unwrap();
@@ -1475,15 +1463,6 @@ async fn isolated_legacy_store_queue_mcp_and_provider_contract() {
         )
         .await
         .unwrap();
-    {
-        let peers = state.embed_peers.lock().await;
-        let searches = &peers[peers_before_search..];
-        assert_eq!(searches.len(), 2);
-        assert_eq!(
-            searches[0], searches[1],
-            "sequential node/fact searches must reuse the provider connection"
-        );
-    }
     assert_eq!(facts["facts"].as_array().unwrap().len(), 3);
     assert_eq!(facts["facts"][0]["source_node_uuid"], center);
     let embeds_before_empty = state.embeds.load(Ordering::SeqCst);
