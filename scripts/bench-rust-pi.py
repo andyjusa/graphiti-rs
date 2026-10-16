@@ -58,7 +58,21 @@ def write_json(path, value):
 
 
 class Experiment(base.Experiment):
-    def __init__(self, root, builds, command):
+    def __init__(self, root, builds, command, acceptance="cpu"):
+        require(acceptance in ("cpu", "pareto"), "unknown acceptance mode")
+        self.acceptance_mode = acceptance
+        self.acceptance_policy = "pareto-with-gates" if acceptance == "pareto" else "primary-with-gates"
+        self.acceptance_criteria = {
+            "mode": acceptance, "policy": self.acceptance_policy,
+            "minimum_cpu_reduction_fraction": 0.05,
+            "maximum_rss_increase_KiB": 1024,
+            "maximum_workload_p50_regression_fraction": 0.10,
+        }
+        if acceptance == "pareto":
+            self.acceptance_criteria.update(
+                maximum_cpu_increase_fraction=0.02,
+                minimum_workload_p50_reduction_fraction=0.05,
+                latency_improvement_requires_all_three_paired_rounds_lower=True)
         self.builds = builds
         self.command = command
         self.active = None
@@ -101,7 +115,8 @@ class Experiment(base.Experiment):
         self.report.pop("rust_source_commit")
         self.report.update(marker=MARKER, support_image=base.PYTHON_IMAGE,
                            builds=builds, comparison_group=self.comparison_group,
-                           protected_path_sha256=self.protected)
+                           protected_path_sha256=self.protected,
+                           acceptance=self.acceptance_criteria)
         self.report["design"]["orders"] = [
             ["baseline", "candidate"], ["candidate", "baseline"], ["baseline", "candidate"]]
         self.smoke_command = "python3 -m py_compile scripts/bench-rust-pi.py scripts/bench-paired-pi.py"
@@ -110,6 +125,15 @@ class Experiment(base.Experiment):
             "assert r['status']=='completed' and len(r['runs'])==6 and not r['cleanup_errors']; "
             "assert sum(w['successes'] for run in r['runs'] for w in run['workloads'].values())==1800; "
             "assert r['comparison']['valid'] and r['comparison']['gates']['complete_response_parity']"])
+        pareto_contract = (
+            'maximum_relative_cpu_increase = 0.02\n'
+            'minimum_relative_workload_p50_reduction = 0.05\n'
+            'latency_improvement_requires_all_three_paired_rounds_lower = true\n'
+            'improvement_rule = "cpu_or_consistent_workload_latency"\n'
+            if acceptance == "pareto" else "")
+        metric_selection = (
+            'optimization_metrics = ["cpu_seconds_per_300_requests_median", "workload_p50_median_ms"]\n'
+            if acceptance == "pareto" else 'primary_metric = "cpu_seconds_per_300_requests_median"\n')
         (self.notebook / "contract.toml").write_text(
             'version = 1\n[project]\nname = "rust-pi-resources"\n'
             'objective = "Compare Rust resource cost under the unchanged paired evaluator"\n'
@@ -120,17 +144,26 @@ class Experiment(base.Experiment):
             f'verify = {json.dumps(self.verify_command)}\n'
             'evaluate_requires_confirmation = false\n[campaign]\ndefault_max_experiments = 6\n'
             'default_max_minutes = 20\nrepetitions = 3\n'
-            '[acceptance]\npolicy = "primary-with-gates"\n'
-            'primary_metric = "cpu_seconds_per_300_requests_median"\n'
+            f'[acceptance]\nmode = {json.dumps(acceptance)}\npolicy = {json.dumps(self.acceptance_policy)}\n'
+            f'{metric_selection}'
             'minimum_relative_cpu_reduction = 0.05\nmaximum_rss_increase_KiB = 1024\n'
             'maximum_workload_p50_regression_fraction = 0.10\n'
+            f'{pareto_contract}'
             '[integrity]\nhash_paths = ["scripts/bench-paired-pi.py", "scripts/bench-rust-pi.py", "source-manifests/baseline.json", "source-manifests/candidate.json"]\n'
-            '[[metrics]]\nname = "cpu_seconds_per_300_requests_median"\ndirection = "minimize"\nrole = "primary"\n'
+            f'[[metrics]]\nname = "cpu_seconds_per_300_requests_median"\ndirection = "minimize"\nrole = "{"optimization" if acceptance == "pareto" else "primary"}"\n'
             '[[metrics]]\nname = "rss_median_KiB"\ndirection = "minimize"\nrole = "gate"\ntolerance = 1024\n'
-            '[[metrics]]\nname = "workload_p50_median_ms"\ndirection = "minimize"\nrole = "gate"\nrelative_tolerance = 0.10\n'
+            f'[[metrics]]\nname = "workload_p50_median_ms"\ndirection = "minimize"\nrole = "{"optimization" if acceptance == "pareto" else "gate"}"\nrelative_tolerance = 0.10\n'
             '[[metrics]]\nname = "complete_response_parity"\ndirection = "maximize"\nrole = "gate"\nthreshold = 1\n')
+        improvement_rule = (
+            "Keep only if median server CPU per 300 measured requests falls at least 5%, "
+            if acceptance == "cpu" else
+            "Keep only if median server CPU per 300 measured requests falls at least 5% OR "
+            "one workload's median round p50 falls at least 5% and that same workload's "
+            "candidate p50 is strictly lower than its paired baseline in all three rounds. "
+            "Median server CPU must not increase more than 2%, and ")
         (self.notebook / "program.md").write_text(
             "# Fixed Rust Pi comparison\n\n"
+            f"Acceptance mode: {acceptance}; policy: {self.acceptance_policy}. "
             "One unchanged evaluator, synthetic corpus, seed 20261015, 100 samples and "
             "10 warmups per workload; three alternating baseline/candidate rounds. "
             "Server 1 CPU/768 MiB, DB 1 CPU/512 MiB, mock 0.25 CPU/128 MiB; no container swap. "
@@ -140,7 +173,7 @@ class Experiment(base.Experiment):
             "The wrapper interrupts core work after 1200 seconds and then cleans up owned resources. "
             "Any error, OOM, response-hash disagreement, mock-count disagreement or protected "
             "file change stops the comparison. Missing runs are not successes. "
-            "Keep only if median server CPU per 300 measured requests falls at least 5%, "
+            f"{improvement_rule}"
             "all complete response hashes match, all requests succeed, cleanup succeeds, "
             "median final server RSS grows no more than 1024 KiB and each workload's median "
             "round p50 latency regresses no more than 10%. Report all three pairs and raw "
@@ -197,6 +230,7 @@ class Experiment(base.Experiment):
         config = {"argv": argv, "image_id": image, "memory_MiB": memory, "cpus": cpus,
                   "network": network, "mounts": list(mounts), "limits": self.report["limits"],
                   "design": self.report["design"], "seed": 20261015,
+                  "acceptance": self.acceptance_criteria,
                   "preprocessing": "unchanged base.canonical and synthetic fixture/vector functions"}
         config_path = run["directory"] / "config.json"
         write_json(config_path, config)
@@ -207,9 +241,15 @@ class Experiment(base.Experiment):
             "created_at": now(), "record_origin": "prospective", "kind": run["kind"],
             "baseline_id": baseline if run["kind"] == "candidate" else None,
             "comparison_group": self.comparison_group, "retry_of": None,
-            "hypothesis": "Candidate reduces Rust retrieval CPU/allocation cost while preserving complete responses"
-                          if run["kind"] == "candidate" else "Measure the unchanged Rust baseline",
-            "expected_effect": "Lower request CPU/RSS and no response, error, or provider-call regression",
+            "hypothesis": (
+                "Candidate reduces Rust retrieval round trips/latency or CPU cost while preserving complete responses"
+                if self.acceptance_mode == "pareto" else
+                "Candidate reduces Rust retrieval CPU/allocation cost while preserving complete responses")
+                if run["kind"] == "candidate" else "Measure the unchanged Rust baseline",
+            "expected_effect": (
+                "At least 5% lower CPU or consistently lower workload p50, within declared nonregression gates"
+                if self.acceptance_mode == "pareto" else
+                "Lower request CPU/RSS and no response, error, or provider-call regression"),
             "falsifier": "Response/hash/count mismatch, OOM/error, or no reproducible resource improvement",
             "code": {"repository": "https://github.com/andyjusa/graphiti-rs",
                      "revision": build["source_commit"], "revision_provenance": "operator-supplied CLI; image label checked when present",
@@ -226,7 +266,9 @@ class Experiment(base.Experiment):
                          "sha256": digest(self.notebook / "contract.toml"),
                          "program": ".autoresearch/program.md",
                          "program_sha256": digest(self.notebook / "program.md"),
-                         "protected_path_sha256": self.protected, "acceptance_policy": "primary-with-gates"},
+                         "protected_path_sha256": self.protected,
+                         "acceptance_policy": self.acceptance_policy,
+                         "acceptance": self.acceptance_criteria},
             "execution": {"working_directory": str(self.root), "coordinator_command": self.command,
                           "evaluate": f"paired_pi.Experiment.run({run['kind']!r}, {run['trial']}, shared_response_hashes)",
                           "smoke_command": self.smoke_command, "verify_command": self.verify_command,
@@ -325,7 +367,7 @@ class Experiment(base.Experiment):
         complete = self.report["status"] == "completed" and len(self.report["runs"]) == 6
         for kind in self.builds:
             runs = [run for run in self.report["runs"] if run["kind"] == kind]
-            complete = complete and len(runs) == 3 and all(
+            complete = complete and len(runs) == 3 and sorted(run["round"] for run in runs) == [1, 2, 3] and all(
                 "final" in run and not run.get("container_oom_killed", True)
                 and set(run["workloads"]) == set(workloads)
                 and all(w["successes"] == 100 and w["errors"] == 0 for w in run["workloads"].values())
@@ -362,13 +404,27 @@ class Experiment(base.Experiment):
                 gates["each_workload_p50_regression_at_most_10_percent"] = all(
                     candidate["workload_p50_median_ms"][workload] <= baseline["workload_p50_median_ms"][workload] * 1.10
                     for workload in workloads)
-                improved = candidate["cpu_seconds_per_300_requests_median"] <= cpu * 0.95 and all(gates.values())
+                cpu_improved = candidate["cpu_seconds_per_300_requests_median"] <= cpu * 0.95
+                if self.acceptance_mode == "pareto":
+                    gates["cpu_increase_at_most_2_percent"] = candidate["cpu_seconds_per_300_requests_median"] <= cpu * 1.02
+                    paired = {kind: {run["round"]: run for run in self.report["runs"] if run["kind"] == kind}
+                              for kind in self.builds}
+                    all_three_lower = {workload: all(
+                        paired["candidate"][trial]["workloads"][workload]["p50_ms"]
+                        < paired["baseline"][trial]["workloads"][workload]["p50_ms"]
+                        for trial in (1, 2, 3)) for workload in workloads}
+                    latency_improved = [workload for workload in workloads
+                        if candidate["workload_p50_median_ms"][workload] <= baseline["workload_p50_median_ms"][workload] * 0.95
+                        and all_three_lower[workload]]
+                    deltas["workload_p50_all_three_pairs_lower"] = all_three_lower
+                    deltas["qualifying_latency_workloads"] = latency_improved
+                    improved = all(gates.values()) and (cpu_improved or bool(latency_improved))
+                else:
+                    improved = cpu_improved and all(gates.values())
                 decision, conclusion = ("keep", "passed") if improved else ("reject", "acceptance_not_met")
         self.report["comparison"] = {"valid": valid, "conclusion": conclusion, "decision": decision,
                                      "summaries": summaries, "metric_deltas": deltas, "gates": gates,
-                                     "acceptance": {"minimum_cpu_reduction_fraction": 0.05,
-                                                    "maximum_rss_increase_KiB": 1024,
-                                                    "maximum_workload_p50_regression_fraction": 0.10}}
+                                     "acceptance": self.acceptance_criteria}
         for trial in range(3):
             run = self.runs[trial, "candidate"]
             if not (run["directory"] / "manifest.json").exists():
@@ -376,7 +432,8 @@ class Experiment(base.Experiment):
             self.event(run, "decision", baseline_id=self.runs[trial, "baseline"]["run_id"],
                        comparability="matched" if valid else "inconclusive",
                        mismatches=[] if valid else ["fixed comparison/integrity gates incomplete; inspect report.json"],
-                       gates=gates, acceptance_policy="primary-with-gates",
+                       gates=gates, acceptance_policy=self.acceptance_policy,
+                       acceptance=self.acceptance_criteria,
                        decision=decision, rationale=conclusion,
                        metric_deltas=deltas, known_limitations=["synthetic retrieval only; no ingestion or real inference",
                                                              "shared warm DB; alternating order does not remove all host noise"],
@@ -390,6 +447,8 @@ def main():
     require(not sys.flags.optimize, "Python optimization disables protected evaluator assertions")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--acceptance", choices=("cpu", "pareto"), default="cpu",
+                        help="fixed prelaunch acceptance policy; default preserves CPU-primary comparison")
     for kind in ("baseline", "candidate"):
         parser.add_argument(f"--{kind}-image", required=True)
         parser.add_argument(f"--{kind}-commit", required=True)
@@ -410,7 +469,7 @@ def main():
         require(re.fullmatch(r"sha256:[0-9a-f]{64}", image), f"{kind} image must be a sha256 image ID")
         require(re.fullmatch(r"[0-9a-f]{40}", commit), f"{kind} commit must be a full SHA-1")
         builds[kind] = {"image_id": image, "source_commit": commit}
-    experiment = Experiment(root, builds, [sys.executable, *sys.argv])
+    experiment = Experiment(root, builds, [sys.executable, *sys.argv], args.acceptance)
 
     def interrupted(number, _):
         raise SystemExit(f"interrupted by signal {number}")
