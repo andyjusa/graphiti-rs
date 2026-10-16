@@ -916,7 +916,12 @@ fn attributes(p: &Map<String, Value>, known: &[&str]) -> Map<String, Value> {
         .collect()
 }
 pub(super) fn fact(row: &[Value], group: &str) -> Result<LegacyFact> {
-    fact_from_properties(map(&row[0])?, row[1].clone(), row[2].clone(), group)
+    fact_from_properties(
+        map(row.first().context("missing fact properties")?)?,
+        row.get(1).context("missing fact source UUID")?.clone(),
+        row.get(2).context("missing fact target UUID")?.clone(),
+        group,
+    )
 }
 fn fact_owned(row: Vec<Value>, group: &str) -> Result<LegacyFact> {
     let mut columns = row.into_iter();
@@ -1005,7 +1010,11 @@ fn decode(v: &R) -> Result<Value> {
 }
 
 pub(super) fn entity(row: &[Value], group: &str) -> Result<LegacyEntity> {
-    entity_from_properties(map(&row[0])?, row[1].clone(), group)
+    entity_from_properties(
+        map(row.first().context("missing entity properties")?)?,
+        row.get(1).context("missing entity labels")?.clone(),
+        group,
+    )
 }
 fn entity_owned(row: Vec<Value>, group: &str) -> Result<LegacyEntity> {
     let mut columns = row.into_iter();
@@ -1088,10 +1097,14 @@ mod tests {
             json!({"visible":{"code":4},"attributes":{"prior":false}})
         );
         for row in [vec![], vec![Value::Null], vec![json!({})]] {
+            assert!(entity(&row, group).is_err());
+            assert!(super::fact(&row, group).is_err());
             assert!(entity_owned(row.clone(), group).is_err());
             assert!(fact_owned(row, group).is_err());
         }
         let mismatched = json!({"uuid":source,"group_id":"general_chat"});
+        assert!(entity(std::slice::from_ref(&mismatched), group).is_err());
+        assert!(super::fact(std::slice::from_ref(&mismatched), group).is_err());
         assert_eq!(
             entity_owned(vec![mismatched.clone(), json!([])], group)
                 .unwrap_err()
