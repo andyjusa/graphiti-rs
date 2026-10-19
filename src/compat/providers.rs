@@ -42,6 +42,11 @@ impl Providers {
         config.validate()?;
         Ok(Self {
             client: reqwest::Client::builder()
+                .user_agent(concat!(
+                    env!("CARGO_PKG_NAME"),
+                    "/",
+                    env!("CARGO_PKG_VERSION")
+                ))
                 .timeout(config.timeout)
                 .redirect(reqwest::redirect::Policy::none())
                 .build()?,
@@ -359,7 +364,8 @@ async fn response(request: reqwest::RequestBuilder) -> Result<Value> {
         .map_err(|_| anyhow::anyhow!("model request failed"))?;
     ensure!(
         response.status().is_success(),
-        "model returned unsuccessful status"
+        "model returned unsuccessful status (HTTP {})",
+        response.status().as_u16()
     );
     let mut bytes = vec![];
     while let Some(chunk) = response

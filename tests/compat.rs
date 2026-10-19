@@ -695,6 +695,12 @@ async fn llm(
     axum::Json(v): axum::Json<Value>,
 ) -> axum::Json<Value> {
     assert_eq!(headers["authorization"], "Bearer synthetic-llm-key");
+    assert!(
+        headers["user-agent"]
+            .to_str()
+            .unwrap()
+            .starts_with("graphiti-rs/")
+    );
     assert!(!headers.contains_key("x-goog-api-key"));
     s.calls.fetch_add(1, Ordering::SeqCst);
     s.bodies.lock().await.push(v);
@@ -710,6 +716,12 @@ async fn embeddings(
     axum::Json(v): axum::Json<Value>,
 ) -> axum::Json<Value> {
     assert_eq!(headers["x-goog-api-key"], "synthetic-gemini-key");
+    assert!(
+        headers["user-agent"]
+            .to_str()
+            .unwrap()
+            .starts_with("graphiti-rs/")
+    );
     assert!(!headers.contains_key("authorization"));
     s.embeds.fetch_add(1, Ordering::SeqCst);
     s.bodies.lock().await.push(v.clone());
