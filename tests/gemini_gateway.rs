@@ -169,6 +169,13 @@ async fn factchat_preserves_input_order_and_wire_contract_across_eight_plus_one_
     let calls = server.calls.lock().await;
     assert_eq!(calls.len(), 2, "nine inputs must use two bounded requests");
     for (call, batch) in calls.iter().zip(texts.chunks(8)) {
+        assert!(
+            call.headers["user-agent"]
+                .to_str()
+                .unwrap()
+                .starts_with("graphiti-rs/"),
+            "the gateway requires an identifiable User-Agent"
+        );
         assert_eq!(
             call.headers["authorization"].to_str().unwrap(),
             format!("Bearer {DUMMY_KEY}")
@@ -330,6 +337,11 @@ async fn gateway_http_failures_redirects_and_invalid_json_fail_without_retry() {
     let files = PrivateFiles::new();
     for (name, status, body) in [
         ("unauthorized", StatusCode::UNAUTHORIZED, "credential-error"),
+        (
+            "forbidden",
+            StatusCode::FORBIDDEN,
+            "forbidden-response-body",
+        ),
         ("rate limited", StatusCode::TOO_MANY_REQUESTS, "rate-error"),
         ("server error", StatusCode::BAD_GATEWAY, "server-error"),
         ("redirect", StatusCode::TEMPORARY_REDIRECT, "redirect-error"),
@@ -343,6 +355,14 @@ async fn gateway_http_failures_redirects_and_invalid_json_fail_without_retry() {
         let server = MockServer::start(Reply::Fixed(status, body.into())).await;
         let provider = Providers::new(files.config(&server.base)).unwrap();
         let error = provider.embed(&["1|first".into()]).await.unwrap_err();
+        if !status.is_success() {
+            assert!(
+                error
+                    .to_string()
+                    .contains(&format!("HTTP {}", status.as_u16())),
+                "{name} must include its HTTP status code"
+            );
+        }
         assert!(
             !error.to_string().contains(body),
             "{name} must not expose the provider response body"
